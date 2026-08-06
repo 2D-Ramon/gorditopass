@@ -40,6 +40,11 @@ export function Footer() {
                 Pricing
               </Link>
             </li>
+            <li>
+              <Link href="/rewards" className="text-stone-300 hover:text-brand">
+                Rewards
+              </Link>
+            </li>
           </ul>
         </div>
         <div>

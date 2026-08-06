@@ -4,12 +4,24 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { getRestaurant } from "@/lib/data";
-import { BADGES, POINT_ACTIONS, REWARDS } from "@/lib/pricing";
+import {
+  BADGES,
+  MAX_FAMILY_SEATS,
+  MEMBERSHIP_PLANS,
+  POINT_ACTIONS,
+  REWARDS,
+} from "@/lib/pricing";
 import { PASSPORTS, passportProgress } from "@/lib/passports";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
 
-type TabId = "profile" | "passports" | "badges" | "household" | "staff";
+type TabId =
+  | "profile"
+  | "passports"
+  | "badges"
+  | "rewards"
+  | "billing"
+  | "staff";
 
 function AccountInner() {
   const search = useSearchParams();
@@ -45,6 +57,8 @@ function AccountInner() {
     inviteStaffAccount,
     accounts,
     loginWithPassword,
+    addHouseholdSeat,
+    removeHouseholdSeat,
   } = useStore();
 
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -54,17 +68,28 @@ function AccountInner() {
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState<StaffRole>("employee");
   const [staffMsg, setStaffMsg] = useState("");
+  const [seatForm, setSeatForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    birthday: "",
+    homeAddress: "",
+  });
+  const [seatMsg, setSeatMsg] = useState("");
 
   useEffect(() => {
     const t = search.get("tab");
     if (
       t === "passports" ||
       t === "badges" ||
+      t === "rewards" ||
+      t === "billing" ||
       t === "household" ||
       t === "staff" ||
       t === "profile"
     ) {
-      setTab(t);
+      setTab(t === "household" ? "billing" : t);
     }
   }, [search]);
 
@@ -123,13 +148,16 @@ function AccountInner() {
     { id: "profile", label: "Profile", show: true },
     { id: "passports", label: "Passports", show: isDiner },
     { id: "badges", label: "Badges", show: isDiner },
+    { id: "rewards", label: "Rewards", show: isDiner },
     {
-      id: "household",
-      label: "Household",
-      show: isDiner && (householdMembers.length > 0 || user.isMember),
+      id: "billing",
+      label: "Billing",
+      show: isDiner,
     },
     { id: "staff", label: "Staff logins", show: canInviteStaff },
   ];
+
+  const plan = MEMBERSHIP_PLANS.find((p) => p.id === user.planId);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -606,97 +634,318 @@ function AccountInner() {
       )}
 
       {tab === "badges" && isDiner && (
-        <div className="mt-6 gp-card gp-card-static p-5">
-          <p className="gp-section-label">Achievement badges</p>
-          <p className="mt-1 text-xs text-muted">
-            {earnedBadges.filter((b) => !b.startsWith("passport_")).length}/
-            {BADGES.length} earned
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {BADGES.map((b) => {
-              const unlocked = earnedBadges.includes(b.id);
-              return (
-                <div
-                  key={b.id}
-                  className={`rounded-lg border p-3 text-center ${
-                    unlocked
-                      ? "border-brand/40 bg-brand/10"
-                      : "border-border bg-elevated/40 opacity-50"
-                  }`}
-                >
-                  <p className="text-2xl">{b.emoji}</p>
-                  <p className="mt-1 text-xs font-semibold">{b.name}</p>
-                  <p className="mt-0.5 text-[10px] text-muted">
-                    {b.description}
-                  </p>
-                </div>
-              );
-            })}
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Achievement badges</p>
+            <p className="mt-1 text-xs text-muted">
+              {earnedBadges.filter((b) => !b.startsWith("passport_")).length}/
+              {BADGES.length} earned
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {BADGES.map((b) => {
+                const unlocked = earnedBadges.includes(b.id);
+                return (
+                  <div
+                    key={b.id}
+                    className={`rounded-lg border p-3 text-center ${
+                      unlocked
+                        ? "border-brand/40 bg-brand/10"
+                        : "border-border bg-elevated/40 opacity-50"
+                    }`}
+                  >
+                    <p className="text-2xl">{b.emoji}</p>
+                    <p className="mt-1 text-xs font-semibold">{b.name}</p>
+                    <p className="mt-0.5 text-[10px] text-muted">
+                      {b.description}
+                    </p>
+                    {unlocked && (
+                      <p className="mt-1 text-[10px] font-medium text-success">
+                        Unlocked
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Passport badges</p>
+            <p className="mt-1 text-xs text-muted">
+              Added when you complete a passport. Pauses if a new restaurant
+              joins until you stamp it — points stay.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {PASSPORTS.map((p) => {
+                const held =
+                  completedPassports.includes(p.id) ||
+                  earnedBadges.includes(`passport_${p.id}`);
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-lg border p-3 text-center ${
+                      held
+                        ? "border-brand/40 bg-brand/10"
+                        : "border-border bg-elevated/40 opacity-50"
+                    }`}
+                  >
+                    <p className="text-2xl">{p.emoji}</p>
+                    <p className="mt-1 text-xs font-semibold">
+                      {p.name.replace(" Passport", "")}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted">{p.region}</p>
+                    {held ? (
+                      <p className="mt-1 text-[10px] font-medium text-success">
+                        Earned
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[10px] text-muted">Locked</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {tab === "household" && isDiner && (
+      {tab === "rewards" && isDiner && (
         <div className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
-            <p className="gp-section-label">Household / plan seats</p>
-            <p className="mt-1 text-sm text-muted">
-              Shared billing plan — each person signs in with{" "}
-              <strong className="text-stone-300">their own email</strong>. Default
-              demo password: <code className="text-stone-300">demo1234</code>
+            <p className="gp-section-label">Rewards balance</p>
+            <p className="mt-2 text-3xl font-bold">
+              {rewardPoints}{" "}
+              <span className="text-sm font-medium text-muted">pts</span>
             </p>
-            {householdMembers.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">
-                No household seats yet.{" "}
+            <p className="mt-1 text-sm text-muted">
+              {rewardProgress}/{REWARDS.pointsPerReward} to next free item ·{" "}
+              {user.rewardsClaimed ?? 0} claimed
+            </p>
+            <button
+              type="button"
+              disabled={rewardsAvailable < 1}
+              className="gp-btn gp-btn-primary mt-4 text-sm disabled:opacity-40"
+              onClick={() => claimReward()}
+            >
+              Claim {REWARDS.rewardLabel}
+            </button>
+            <Link
+              href="/rewards"
+              className="mt-3 block text-sm text-brand underline"
+            >
+              Open full rewards page →
+            </Link>
+          </div>
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Recent redemptions</p>
+            {redemptions.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">None yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2 text-sm">
+                {redemptions.slice(0, 8).map((r, i) => (
+                  <li key={`${r.code}-${i}`}>
+                    {r.restaurantName ?? "Restaurant"} · $
+                    {r.savingsUsd.toFixed(0)} saved ·{" "}
+                    {new Date(r.at).toLocaleDateString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "billing" && isDiner && (
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Plan & billing</p>
+            {user.isMember && plan ? (
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-muted">Plan</dt>
+                  <dd className="font-semibold">{plan.name}</dd>
+                  <dd className="text-xs text-muted">${plan.priceUsd} / term</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Seats</dt>
+                  <dd className="font-semibold">
+                    {user.familySeats} / {MAX_FAMILY_SEATS}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Activated</dt>
+                  <dd className="font-semibold">
+                    {user.membershipActivatedAt
+                      ? new Date(user.membershipActivatedAt).toLocaleDateString()
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Auto-renew / next bill</dt>
+                  <dd className="font-semibold">
+                    {user.membershipRenewsAt
+                      ? new Date(user.membershipRenewsAt).toLocaleDateString()
+                      : "—"}
+                  </dd>
+                  <dd className="text-[11px] text-muted">
+                    Access continues until this date if you cancel.
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="mt-3 text-sm text-muted">
+                No active plan.{" "}
                 <Link href="/membership" className="text-brand underline">
-                  Add seats at membership signup
+                  Choose a membership
                 </Link>
                 .
               </p>
+            )}
+          </div>
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Seats on this plan</p>
+            <p className="mt-1 text-sm text-muted">
+              Each seat is a separate login. Demo password:{" "}
+              <code className="text-stone-300">demo1234</code>
+            </p>
+            {householdMembers.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">
+                No seats listed yet — add below or complete membership intake.
+              </p>
             ) : (
               <ul className="mt-4 space-y-2">
-                {householdMembers.map((m) => {
-                  const hasLogin = accounts.some(
-                    (a) =>
-                      a.email.toLowerCase() === m.email.trim().toLowerCase(),
-                  );
-                  return (
-                    <li
-                      key={m.id}
-                      className="rounded-md border border-border bg-elevated/40 px-3 py-2 text-sm"
-                    >
-                      <p className="font-medium">
-                        {m.firstName} {m.lastName}
-                        {m.isPrimary ? (
-                          <span className="ml-2 text-xs text-brand">
-                            Primary (billing)
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {m.email} · {m.phone}
-                      </p>
-                      <p className="text-xs text-muted">{m.homeAddress}</p>
-                      <p className="mt-1 text-[11px] text-success">
-                        {hasLogin
-                          ? "Login account ready"
-                          : "Login created at signup"}
-                      </p>
-                      {!m.isPrimary && hasLogin && (
-                        <button
-                          type="button"
-                          className="mt-2 text-xs text-brand underline"
-                          onClick={() => {
-                            loginWithPassword(m.email, "demo1234");
-                          }}
-                        >
-                          Switch to this person (demo)
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
+                {householdMembers.map((m) => (
+                  <li
+                    key={m.id}
+                    className="rounded-md border border-border bg-elevated/40 px-3 py-2 text-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium">
+                          {m.firstName} {m.lastName}
+                          {m.isPrimary ? (
+                            <span className="ml-2 text-xs text-brand">Primary</span>
+                          ) : null}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {m.email} · {m.phone}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {!m.isPrimary && (
+                          <button
+                            type="button"
+                            className="text-xs text-brand underline"
+                            onClick={() => loginWithPassword(m.email, "demo1234")}
+                          >
+                            Switch to
+                          </button>
+                        )}
+                        {!m.isPrimary && householdMembers.length >= 2 && (
+                          <button
+                            type="button"
+                            className="text-xs text-red-300"
+                            onClick={() => {
+                              const res = removeHouseholdSeat(m.id);
+                              setSeatMsg(
+                                res.ok ? "Seat removed." : res.error ?? "Could not remove",
+                              );
+                            }}
+                          >
+                            Remove seat
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
               </ul>
+            )}
+            {householdMembers.length < MAX_FAMILY_SEATS && (
+              <form
+                className="mt-6 space-y-2 border-t border-border pt-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const res = addHouseholdSeat(seatForm);
+                  setSeatMsg(
+                    res.ok
+                      ? "Seat added — they can sign in with demo1234."
+                      : res.error ?? "Failed",
+                  );
+                  if (res.ok) {
+                    setSeatForm({
+                      firstName: "",
+                      lastName: "",
+                      email: "",
+                      phone: "",
+                      birthday: "",
+                      homeAddress: "",
+                    });
+                  }
+                }}
+              >
+                <p className="text-sm font-semibold">Add seat</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    required
+                    className="gp-input"
+                    placeholder="First name"
+                    value={seatForm.firstName}
+                    onChange={(e) =>
+                      setSeatForm((s) => ({ ...s, firstName: e.target.value }))
+                    }
+                  />
+                  <input
+                    required
+                    className="gp-input"
+                    placeholder="Last name"
+                    value={seatForm.lastName}
+                    onChange={(e) =>
+                      setSeatForm((s) => ({ ...s, lastName: e.target.value }))
+                    }
+                  />
+                </div>
+                <input
+                  required
+                  type="email"
+                  className="gp-input"
+                  placeholder="Email"
+                  value={seatForm.email}
+                  onChange={(e) =>
+                    setSeatForm((s) => ({ ...s, email: e.target.value }))
+                  }
+                />
+                <input
+                  required
+                  className="gp-input"
+                  placeholder="Phone"
+                  value={seatForm.phone}
+                  onChange={(e) =>
+                    setSeatForm((s) => ({ ...s, phone: e.target.value }))
+                  }
+                />
+                <input
+                  required
+                  type="date"
+                  className="gp-input"
+                  value={seatForm.birthday}
+                  onChange={(e) =>
+                    setSeatForm((s) => ({ ...s, birthday: e.target.value }))
+                  }
+                />
+                <input
+                  required
+                  className="gp-input"
+                  placeholder="Home address"
+                  value={seatForm.homeAddress}
+                  onChange={(e) =>
+                    setSeatForm((s) => ({ ...s, homeAddress: e.target.value }))
+                  }
+                />
+                <button type="submit" className="gp-btn gp-btn-primary text-sm">
+                  Add seat
+                </button>
+                {seatMsg && <p className="text-sm text-success">{seatMsg}</p>}
+              </form>
             )}
           </div>
         </div>

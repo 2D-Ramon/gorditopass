@@ -32,7 +32,10 @@ export default function EventsPage() {
     const now = new Date();
     const month = now.getMonth();
     const year = now.getFullYear();
-    const all = [...partnerEvents, ...PARTNER_EVENTS];
+    const all = [
+      ...partnerEvents.filter((e) => (e.status ?? "pending") === "approved"),
+      ...PARTNER_EVENTS,
+    ];
     return all
       .filter((e) => {
         if (e.city !== city) return false;

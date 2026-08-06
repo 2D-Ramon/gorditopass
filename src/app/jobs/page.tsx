@@ -10,7 +10,10 @@ export default function JobsPage() {
 
   const jobs = useMemo(
     () =>
-      [...partnerJobs, ...JOB_POSTINGS]
+      [
+        ...partnerJobs.filter((j) => (j.status ?? "pending") === "approved"),
+        ...JOB_POSTINGS,
+      ]
         .filter((j) => j.city === city)
         .sort((a, b) => b.postedAt.localeCompare(a.postedAt)),
     [city, partnerJobs],

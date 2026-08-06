@@ -39,8 +39,15 @@ import {
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
 import { getPassportRestaurants, PASSPORTS } from "./passports";
+import {
+  defaultAutoApprove,
+  moderatePartnerContent,
+  type ContentKind,
+  type RestaurantAutoApprove,
+} from "./contentModeration";
+import { MEMBERSHIP_PLANS } from "./pricing";
 
-const STORAGE_KEY = "gorditopass-mvp-v9";
+const STORAGE_KEY = "gorditopass-mvp-v10";
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
@@ -61,6 +68,8 @@ interface Persisted {
   notifications: AppNotification[];
   /** Per-person accounts (recommended login model) */
   accounts: AuthAccount[];
+  /** Admin: auto-approve settings per restaurant + content type */
+  autoApproveSettings: RestaurantAutoApprove[];
 }
 
 interface StoreValue {
@@ -145,17 +154,72 @@ interface StoreValue {
   ) => void;
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
   setPartnerDealStatus: (id: string, status: ContentStatus) => void;
+  setPartnerMenuStatus: (id: string, status: ContentStatus) => void;
+  setPartnerEventStatus: (id: string, status: ContentStatus) => void;
+  setPartnerJobStatus: (id: string, status: ContentStatus) => void;
   setRestaurantApproved: (restaurantId: string, approved: boolean) => void;
+  autoApproveSettings: RestaurantAutoApprove[];
+  getAutoApprove: (restaurantId: string) => RestaurantAutoApprove;
+  setAutoApprove: (
+    restaurantId: string,
+    patch: Partial<Omit<RestaurantAutoApprove, "restaurantId">>,
+  ) => void;
+  addHouseholdSeat: (seat: Omit<MemberSeatProfile, "id" | "isPrimary">) => {
+    ok: boolean;
+    error?: string;
+  };
+  removeHouseholdSeat: (seatId: string) => { ok: boolean; error?: string };
   hideFeedPost: (post: Omit<ModeratedFeedPost, "hidden">) => void;
   unhideFeedPost: (id: string) => void;
   claimReward: () => boolean;
   resetDemoData: () => void;
-  addPartnerEvent: (event: Omit<PartnerEvent, "id">) => void;
-  addPartnerJob: (job: Omit<JobPosting, "id" | "postedAt">) => void;
+  addPartnerEvent: (
+    event: Omit<
+      PartnerEvent,
+      | "id"
+      | "status"
+      | "createdAt"
+      | "aiFlagged"
+      | "aiReasons"
+      | "aiScore"
+    >,
+  ) => { id: string; status: ContentStatus; aiFlagged: boolean };
+  addPartnerJob: (
+    job: Omit<
+      JobPosting,
+      | "id"
+      | "postedAt"
+      | "status"
+      | "createdAt"
+      | "aiFlagged"
+      | "aiReasons"
+      | "aiScore"
+    >,
+  ) => { id: string; status: ContentStatus; aiFlagged: boolean };
   addPartnerDeal: (
-    deal: Omit<PartnerDealDraft, "id" | "createdAt" | "active" | "status">,
-  ) => void;
-  addPartnerMenuItem: (item: Omit<PartnerMenuItem, "id">) => void;
+    deal: Omit<
+      PartnerDealDraft,
+      | "id"
+      | "createdAt"
+      | "active"
+      | "status"
+      | "aiFlagged"
+      | "aiReasons"
+      | "aiScore"
+    >,
+  ) => { id: string; status: ContentStatus; aiFlagged: boolean };
+  addPartnerMenuItem: (
+    item: Omit<
+      PartnerMenuItem,
+      | "id"
+      | "status"
+      | "createdAt"
+      | "active"
+      | "aiFlagged"
+      | "aiReasons"
+      | "aiScore"
+    >,
+  ) => { id: string; status: ContentStatus; aiFlagged: boolean };
   submitPlateReview: (
     review: Omit<Review, "id" | "createdAt" | "author"> & { author?: string },
   ) => Review;
@@ -247,7 +311,29 @@ function emptyPersisted(): Persisted {
     restaurantApprovalOverrides: {},
     notifications: [],
     accounts: [],
+    autoApproveSettings: [],
   };
+}
+
+function planRenewalDate(planId: MembershipPlanId, fromIso: string): string {
+  const plan = MEMBERSHIP_PLANS.find((p) => p.id === planId);
+  const months = plan?.months ?? 1;
+  const d = new Date(fromIso);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+}
+
+function resolveContentStatus(
+  restaurantId: string,
+  kind: ContentKind,
+  aiFlagged: boolean,
+  settings: RestaurantAutoApprove[],
+): ContentStatus {
+  if (aiFlagged) return "pending";
+  const s =
+    settings.find((x) => x.restaurantId === restaurantId) ??
+    defaultAutoApprove(restaurantId);
+  return s[kind] ? "approved" : "pending";
 }
 
 function mockUserFromAccount(a: AuthAccount): MockUser {
@@ -338,6 +424,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v9") ??
       localStorage.getItem("gorditopass-mvp-v8") ??
       localStorage.getItem("gorditopass-mvp-v7") ??
       localStorage.getItem("gorditopass-mvp-v6") ??
@@ -353,17 +440,30 @@ function load(): Persisted {
       ...parsed,
       notifications: parsed.notifications ?? [],
       accounts: parsed.accounts ?? [],
+      autoApproveSettings: parsed.autoApproveSettings ?? [],
       redemptions: (parsed.redemptions ?? []).map((r) => ({
         ...r,
         savingsUsd: r.savingsUsd ?? 0,
       })),
-      partnerEvents: parsed.partnerEvents ?? [],
-      partnerJobs: parsed.partnerJobs ?? [],
+      partnerEvents: (parsed.partnerEvents ?? []).map((e) => ({
+        ...e,
+        status: e.status ?? "pending",
+        createdAt: e.createdAt ?? e.date ?? new Date().toISOString(),
+      })),
+      partnerJobs: (parsed.partnerJobs ?? []).map((j) => ({
+        ...j,
+        status: j.status ?? "pending",
+        createdAt: j.createdAt ?? j.postedAt ?? new Date().toISOString(),
+      })),
       partnerDeals: (parsed.partnerDeals ?? []).map((d) => ({
         ...d,
-        status: d.status ?? "approved",
+        status: d.status ?? "pending",
       })),
-      partnerMenuItems: parsed.partnerMenuItems ?? [],
+      partnerMenuItems: (parsed.partnerMenuItems ?? []).map((m) => ({
+        ...m,
+        status: m.status ?? "pending",
+        createdAt: m.createdAt ?? new Date().toISOString(),
+      })),
       userReviews: parsed.userReviews ?? [],
       rewardHistory: parsed.rewardHistory ?? [],
       moderatedFeedPosts: parsed.moderatedFeedPosts ?? [],
@@ -522,6 +622,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     useState<Record<string, boolean>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [accounts, setAccounts] = useState<AuthAccount[]>([]);
+  const [autoApproveSettings, setAutoApproveSettings] = useState<
+    RestaurantAutoApprove[]
+  >([]);
   const [city, setCity] = useState<CityId>("dallas");
 
   useEffect(() => {
@@ -542,6 +645,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRestaurantApprovalOverrides(data.restaurantApprovalOverrides);
     setNotifications(data.notifications ?? []);
     setAccounts(data.accounts ?? []);
+    setAutoApproveSettings(data.autoApproveSettings ?? []);
     if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
@@ -565,6 +669,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       restaurantApprovalOverrides,
       notifications,
       accounts,
+      autoApproveSettings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -585,6 +690,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     restaurantApprovalOverrides,
     notifications,
     accounts,
+    autoApproveSettings,
   ]);
 
   // Keep logged-in user mirrored into accounts list
@@ -805,6 +911,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const fullName = primary
           ? `${primary.firstName} ${primary.lastName}`.trim()
           : base.name;
+        const activatedAt =
+          base.membershipActivatedAt ?? new Date().toISOString();
         const next: MockUser = {
           ...base,
           isMember: true,
@@ -822,6 +930,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           householdPlanId: planGroupId,
           isPlanPrimary: true,
           demoPassword: base.demoPassword ?? DEFAULT_DEMO_PASSWORD,
+          membershipActivatedAt: activatedAt,
+          membershipRenewsAt: planRenewalDate(planId, activatedAt),
           rewardPoints: base.rewardPoints ?? 0,
           rewardPointsLifetime: base.rewardPointsLifetime ?? 0,
           rewardsClaimed: base.rewardsClaimed ?? 0,
@@ -1336,6 +1446,176 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setPartnerMenuStatus = useCallback(
+    (id: string, status: ContentStatus) => {
+      setPartnerMenuItems((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? { ...m, status, active: status === "approved" }
+            : m,
+        ),
+      );
+    },
+    [],
+  );
+
+  const setPartnerEventStatus = useCallback(
+    (id: string, status: ContentStatus) => {
+      setPartnerEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, status } : e)),
+      );
+    },
+    [],
+  );
+
+  const setPartnerJobStatus = useCallback(
+    (id: string, status: ContentStatus) => {
+      setPartnerJobs((prev) =>
+        prev.map((j) => (j.id === id ? { ...j, status } : j)),
+      );
+    },
+    [],
+  );
+
+  const getAutoApprove = useCallback(
+    (restaurantId: string) =>
+      autoApproveSettings.find((s) => s.restaurantId === restaurantId) ??
+      defaultAutoApprove(restaurantId),
+    [autoApproveSettings],
+  );
+
+  const setAutoApprove = useCallback(
+    (
+      restaurantId: string,
+      patch: Partial<Omit<RestaurantAutoApprove, "restaurantId">>,
+    ) => {
+      setAutoApproveSettings((prev) => {
+        const existing = prev.find((s) => s.restaurantId === restaurantId);
+        if (existing) {
+          return prev.map((s) =>
+            s.restaurantId === restaurantId ? { ...s, ...patch } : s,
+          );
+        }
+        return [...prev, { ...defaultAutoApprove(restaurantId), ...patch }];
+      });
+    },
+    [],
+  );
+
+  const addHouseholdSeat = useCallback(
+    (seat: Omit<MemberSeatProfile, "id" | "isPrimary">) => {
+      if (!user || user.role !== "diner") {
+        return { ok: false, error: "Sign in as a member first." };
+      }
+      const seats = user.householdMembers ?? [];
+      if (seats.length >= MAX_FAMILY_SEATS) {
+        return {
+          ok: false,
+          error: `Max ${MAX_FAMILY_SEATS} seats on a plan.`,
+        };
+      }
+      if (!seat.email.includes("@")) {
+        return { ok: false, error: "Valid email required." };
+      }
+      const email = seat.email.trim().toLowerCase();
+      if (
+        seats.some((s) => s.email.trim().toLowerCase() === email) ||
+        accounts.some((a) => a.email.toLowerCase() === email)
+      ) {
+        return { ok: false, error: "That email already has a seat or account." };
+      }
+      const newSeat: MemberSeatProfile = {
+        ...seat,
+        id: `seat-${Date.now()}`,
+        email,
+        isPrimary: false,
+      };
+      const nextSeats = [...seats, newSeat];
+      const planId = user.planId ?? "monthly";
+      const planGroupId = user.householdPlanId ?? `plan-${Date.now()}`;
+      setUser((u) =>
+        u
+          ? {
+              ...u,
+              householdMembers: nextSeats,
+              familySeats: nextSeats.length,
+              isMember: true,
+              planId: u.planId ?? planId,
+              householdPlanId: planGroupId,
+              membershipActivatedAt:
+                u.membershipActivatedAt ?? new Date().toISOString(),
+              membershipRenewsAt:
+                u.membershipRenewsAt ??
+                planRenewalDate(
+                  (u.planId ?? planId) as MembershipPlanId,
+                  u.membershipActivatedAt ?? new Date().toISOString(),
+                ),
+            }
+          : u,
+      );
+      setAccounts((prev) => {
+        const acct: AuthAccount = {
+          id: newSeat.id,
+          email,
+          password: DEFAULT_DEMO_PASSWORD,
+          role: "diner",
+          name: `${seat.firstName} ${seat.lastName}`.trim(),
+          firstName: seat.firstName,
+          lastName: seat.lastName,
+          phone: seat.phone,
+          birthday: seat.birthday,
+          homeAddress: seat.homeAddress,
+          city: user.city,
+          isMember: true,
+          planId: user.planId ?? planId,
+          familySeats: nextSeats.length,
+          maxFamilySeats: MAX_FAMILY_SEATS,
+          householdPlanId: planGroupId,
+          isPlanPrimary: false,
+          householdMembers: nextSeats,
+          createdAt: new Date().toISOString(),
+        };
+        return [...prev.filter((a) => a.email.toLowerCase() !== email), acct];
+      });
+      return { ok: true };
+    },
+    [user, accounts],
+  );
+
+  const removeHouseholdSeat = useCallback(
+    (seatId: string) => {
+      if (!user || user.role !== "diner") {
+        return { ok: false, error: "Sign in as a member first." };
+      }
+      const seats = user.householdMembers ?? [];
+      if (seats.length < 2) {
+        return { ok: false, error: "Need at least two seats to remove one." };
+      }
+      const target = seats.find((s) => s.id === seatId);
+      if (!target) return { ok: false, error: "Seat not found." };
+      if (target.isPrimary) {
+        return { ok: false, error: "Cannot remove the primary billing seat." };
+      }
+      const nextSeats = seats.filter((s) => s.id !== seatId);
+      setUser((u) =>
+        u
+          ? {
+              ...u,
+              householdMembers: nextSeats,
+              familySeats: nextSeats.length,
+            }
+          : u,
+      );
+      setAccounts((prev) =>
+        prev.filter(
+          (a) => a.email.toLowerCase() !== target.email.trim().toLowerCase(),
+        ),
+      );
+      return { ok: true };
+    },
+    [user],
+  );
+
   const setRestaurantApproved = useCallback(
     (restaurantId: string, approved: boolean) => {
       setRestaurantApprovalOverrides((prev) => ({
@@ -1398,56 +1678,176 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRestaurantApprovalOverrides({});
     setNotifications([]);
     setAccounts([]);
+    setAutoApproveSettings([]);
     setCity("dallas");
   }, []);
 
-  const addPartnerEvent = useCallback((event: Omit<PartnerEvent, "id">) => {
-    setPartnerEvents((prev) => [
-      { ...event, id: `pev-${Date.now()}` },
-      ...prev,
-    ]);
-  }, []);
-
-  const addPartnerJob = useCallback(
-    (job: Omit<JobPosting, "id" | "postedAt">) => {
-      setPartnerJobs((prev) => [
+  const addPartnerEvent = useCallback(
+    (
+      event: Omit<
+        PartnerEvent,
+        | "id"
+        | "status"
+        | "createdAt"
+        | "aiFlagged"
+        | "aiReasons"
+        | "aiScore"
+      >,
+    ) => {
+      const mod = moderatePartnerContent({
+        title: event.title,
+        description: event.description,
+      });
+      const status = resolveContentStatus(
+        event.restaurantId,
+        "event",
+        mod.flagged,
+        autoApproveSettings,
+      );
+      const id = `pev-${Date.now()}`;
+      setPartnerEvents((prev) => [
         {
-          ...job,
-          id: `pjob-${Date.now()}`,
-          postedAt: new Date().toISOString().slice(0, 10),
+          ...event,
+          id,
+          status,
+          createdAt: new Date().toISOString(),
+          aiFlagged: mod.flagged,
+          aiReasons: mod.reasons,
+          aiScore: mod.score,
         },
         ...prev,
       ]);
+      return { id, status, aiFlagged: mod.flagged };
     },
-    [],
+    [autoApproveSettings],
+  );
+
+  const addPartnerJob = useCallback(
+    (
+      job: Omit<
+        JobPosting,
+        | "id"
+        | "postedAt"
+        | "status"
+        | "createdAt"
+        | "aiFlagged"
+        | "aiReasons"
+        | "aiScore"
+      >,
+    ) => {
+      const mod = moderatePartnerContent({
+        title: job.title,
+        description: job.description,
+        extra: job.payRange,
+      });
+      const status = resolveContentStatus(
+        job.restaurantId,
+        "job",
+        mod.flagged,
+        autoApproveSettings,
+      );
+      const id = `pjob-${Date.now()}`;
+      setPartnerJobs((prev) => [
+        {
+          ...job,
+          id,
+          postedAt: new Date().toISOString().slice(0, 10),
+          status,
+          createdAt: new Date().toISOString(),
+          aiFlagged: mod.flagged,
+          aiReasons: mod.reasons,
+          aiScore: mod.score,
+        },
+        ...prev,
+      ]);
+      return { id, status, aiFlagged: mod.flagged };
+    },
+    [autoApproveSettings],
   );
 
   const addPartnerDeal = useCallback(
     (
-      deal: Omit<PartnerDealDraft, "id" | "createdAt" | "active" | "status">,
+      deal: Omit<
+        PartnerDealDraft,
+        | "id"
+        | "createdAt"
+        | "active"
+        | "status"
+        | "aiFlagged"
+        | "aiReasons"
+        | "aiScore"
+      >,
     ) => {
+      const mod = moderatePartnerContent({
+        title: deal.title,
+        description: deal.description,
+      });
+      const status = resolveContentStatus(
+        deal.restaurantId,
+        "deal",
+        mod.flagged,
+        autoApproveSettings,
+      );
+      const id = `pdeal-${Date.now()}`;
       setPartnerDeals((prev) => [
         {
           ...deal,
-          id: `pdeal-${Date.now()}`,
-          active: false,
-          status: "pending",
+          id,
+          active: status === "approved",
+          status,
           createdAt: new Date().toISOString(),
+          aiFlagged: mod.flagged,
+          aiReasons: mod.reasons,
+          aiScore: mod.score,
         },
         ...prev,
       ]);
+      return { id, status, aiFlagged: mod.flagged };
     },
-    [],
+    [autoApproveSettings],
   );
 
   const addPartnerMenuItem = useCallback(
-    (item: Omit<PartnerMenuItem, "id">) => {
+    (
+      item: Omit<
+        PartnerMenuItem,
+        | "id"
+        | "status"
+        | "createdAt"
+        | "active"
+        | "aiFlagged"
+        | "aiReasons"
+        | "aiScore"
+      >,
+    ) => {
+      const mod = moderatePartnerContent({
+        title: item.name,
+        description: item.description,
+        extra: item.category,
+      });
+      const status = resolveContentStatus(
+        item.restaurantId,
+        "menu",
+        mod.flagged,
+        autoApproveSettings,
+      );
+      const id = `pmenu-${Date.now()}`;
       setPartnerMenuItems((prev) => [
-        { ...item, id: `pmenu-${Date.now()}` },
+        {
+          ...item,
+          id,
+          status,
+          active: status === "approved",
+          createdAt: new Date().toISOString(),
+          aiFlagged: mod.flagged,
+          aiReasons: mod.reasons,
+          aiScore: mod.score,
+        },
         ...prev,
       ]);
+      return { id, status, aiFlagged: mod.flagged };
     },
-    [],
+    [autoApproveSettings],
   );
 
   const submitPlateReview = useCallback(
@@ -1627,7 +2027,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     submitRestaurantApplication,
     setApplicationStatus,
     setPartnerDealStatus,
+    setPartnerMenuStatus,
+    setPartnerEventStatus,
+    setPartnerJobStatus,
     setRestaurantApproved,
+    autoApproveSettings,
+    getAutoApprove,
+    setAutoApprove,
+    addHouseholdSeat,
+    removeHouseholdSeat,
     hideFeedPost,
     unhideFeedPost,
     claimReward,

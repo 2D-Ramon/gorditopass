@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel, getRestaurant } from "@/lib/data";
+import { MENU_CATEGORIES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
 export default function RestaurantDetailPage() {
@@ -21,6 +22,8 @@ export default function RestaurantDetailPage() {
     submitPlateReview,
     getPlateRate,
     getReviewsForRestaurant,
+    partnerDeals,
+    partnerMenuItems,
   } = useStore();
 
   const [rateOpen, setRateOpen] = useState(false);
@@ -55,6 +58,65 @@ export default function RestaurantDetailPage() {
   const isFav = favorites.includes(restaurant.id);
   const isFollowing = following.includes(restaurant.id);
   const canRate = Boolean(user?.isMember || user?.role === "restaurant");
+
+  const liveDeals = useMemo(() => {
+    const seed = restaurant.deals.filter((d) => d.active);
+    const partner = partnerDeals.filter(
+      (d) =>
+        d.restaurantId === restaurant.id &&
+        (d.status ?? "pending") === "approved" &&
+        d.active,
+    );
+    return { seed, partner };
+  }, [restaurant, partnerDeals]);
+
+  const menuByCategory = useMemo(() => {
+    type Row = {
+      id: string;
+      name: string;
+      description: string;
+      priceUsd: number;
+      category: string;
+      imageEmoji?: string;
+      imageUrl?: string;
+      partner?: boolean;
+    };
+    const seed: Row[] = restaurant.menu.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      priceUsd: m.priceUsd,
+      category: m.category,
+      imageEmoji: m.imageEmoji,
+    }));
+    const partner: Row[] = partnerMenuItems
+      .filter(
+        (m) =>
+          m.restaurantId === restaurant.id &&
+          (m.status ?? "pending") === "approved",
+      )
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        priceUsd: m.priceUsd,
+        category: m.category || "Other",
+        imageUrl: m.imageDataUrls?.[0],
+        partner: true,
+      }));
+    const all = [...partner, ...seed];
+    const order = [...MENU_CATEGORIES, "Other"] as string[];
+    const cats = new Map<string, Row[]>();
+    for (const item of all) {
+      const cat = order.includes(item.category) ? item.category : "Other";
+      const list = cats.get(cat) ?? [];
+      list.push(item);
+      cats.set(cat, list);
+    }
+    return order
+      .filter((c) => (cats.get(c) ?? []).length > 0)
+      .map((c) => ({ category: c, items: cats.get(c)! }));
+  }, [restaurant, partnerMenuItems]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -192,77 +254,138 @@ export default function RestaurantDetailPage() {
       <section className="mt-10">
         <h2 className="text-xl font-bold">Member deals</h2>
         <p className="text-sm text-muted">
-          Everyone can see these. Redeem requires membership.
+          Everyone can see these. Redeem requires membership. Partner deals
+          appear after admin approval.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {restaurant.deals
-            .filter((d) => d.active)
-            .map((deal) => (
-              <div key={deal.id} className="gp-card p-5">
-                <p className="gp-badge">{deal.type.replace("_", " ")}</p>
-                <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
-                <p className="text-sm text-muted">{deal.description}</p>
-                {deal.excludesAlcohol && (
-                  <p className="mt-2 text-xs text-muted">
-                    % deals exclude alcohol where required by law.
-                  </p>
+          {liveDeals.seed.map((deal) => (
+            <div key={deal.id} className="gp-card p-5">
+              <p className="gp-badge">{deal.type.replace("_", " ")}</p>
+              <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
+              <p className="text-sm text-muted">{deal.description}</p>
+              <div className="mt-4">
+                {user?.isMember ? (
+                  <Link
+                    href={`/redeem/${deal.id}`}
+                    className="gp-btn gp-btn-primary text-sm"
+                  >
+                    Redeem now
+                  </Link>
+                ) : (
+                  <Link
+                    href="/membership"
+                    className="gp-btn gp-btn-secondary text-sm"
+                  >
+                    Join to redeem
+                  </Link>
                 )}
-                <div className="mt-4">
-                  {user?.isMember ? (
-                    <Link
-                      href={`/redeem/${deal.id}`}
-                      className="gp-btn gp-btn-primary text-sm"
-                    >
-                      Redeem now
-                    </Link>
-                  ) : (
-                    <Link
-                      href="/membership"
-                      className="gp-btn gp-btn-secondary text-sm"
-                    >
-                      Join to redeem
-                    </Link>
-                  )}
-                </div>
               </div>
-            ))}
+            </div>
+          ))}
+          {liveDeals.partner.map((deal) => (
+            <div key={deal.id} className="gp-card p-5">
+              {deal.imageDataUrls?.[0] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={deal.imageDataUrls[0]}
+                  alt=""
+                  className="mb-3 h-32 w-full rounded-lg object-cover ring-1 ring-border"
+                />
+              )}
+              <p className="gp-badge">{deal.type.replace("_", " ")}</p>
+              <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
+              <p className="text-sm text-muted">{deal.description}</p>
+              <div className="mt-4">
+                {user?.isMember ? (
+                  <Link
+                    href={`/redeem/${deal.id}`}
+                    className="gp-btn gp-btn-primary text-sm"
+                  >
+                    Redeem now
+                  </Link>
+                ) : (
+                  <Link
+                    href="/membership"
+                    className="gp-btn gp-btn-secondary text-sm"
+                  >
+                    Join to redeem
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+          {liveDeals.seed.length === 0 && liveDeals.partner.length === 0 && (
+            <p className="text-sm text-muted sm:col-span-2">
+              No active deals right now.
+            </p>
+          )}
         </div>
       </section>
 
       <section className="mt-10">
         <h2 className="text-xl font-bold">Menu · order online</h2>
         <p className="text-sm text-muted">
-          Full cart + checkout (demo). Delivery integration later.
+          Grouped by the same categories partners use when adding items. New
+          partner items appear here after admin approval.
         </p>
-        <div className="mt-4 space-y-2">
-          {restaurant.menu.map((item) => (
-            <div
-              key={item.id}
-              className="gp-card flex flex-wrap items-center justify-between gap-3 p-4"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{item.imageEmoji ?? "🍽️"}</span>
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-muted">{item.description}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-semibold">${item.priceUsd.toFixed(2)}</span>
-                <button
-                  type="button"
-                  className="gp-btn gp-btn-primary text-sm !py-2"
-                  onClick={() =>
-                    addToCart({
-                      menuItemId: item.id,
-                      restaurantId: restaurant.id,
-                      name: item.name,
-                      priceUsd: item.priceUsd,
-                    })
-                  }
-                >
-                  Add
-                </button>
+        <div className="mt-6 space-y-8">
+          {menuByCategory.map((group) => (
+            <div key={group.category}>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-brand">
+                {group.category}
+              </h3>
+              <div className="mt-3 space-y-2">
+                {group.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="gp-card flex flex-wrap items-center justify-between gap-3 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.imageUrl}
+                          alt=""
+                          className="h-12 w-12 rounded-md object-cover ring-1 ring-border"
+                        />
+                      ) : (
+                        <span className="text-2xl">
+                          {item.imageEmoji ?? "🍽️"}
+                        </span>
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {item.name}
+                          {item.partner && (
+                            <span className="ml-2 text-[10px] text-muted">
+                              partner
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted">{item.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold">
+                        ${item.priceUsd.toFixed(2)}
+                      </span>
+                      <button
+                        type="button"
+                        className="gp-btn gp-btn-primary text-sm !py-2"
+                        onClick={() =>
+                          addToCart({
+                            menuItemId: item.id,
+                            restaurantId: restaurant.id,
+                            name: item.name,
+                            priceUsd: item.priceUsd,
+                          })
+                        }
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

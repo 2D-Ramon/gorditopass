@@ -218,6 +218,9 @@ export interface MockUser {
   householdPlanId?: string;
   /** Whether this seat is the billing primary */
   isPlanPrimary?: boolean;
+  /** Membership billing window (ISO dates) */
+  membershipActivatedAt?: string;
+  membershipRenewsAt?: string;
 }
 
 export type NotificationType =
@@ -312,6 +315,17 @@ export interface AuthAccount {
 
 export type ContentStatus = "pending" | "approved" | "rejected";
 
+/** Shared moderation metadata on partner-submitted content */
+export interface ContentModerationMeta {
+  status: ContentStatus;
+  createdAt: string;
+  /** AI/demo flag — hold for human review */
+  aiFlagged?: boolean;
+  aiReasons?: string[];
+  aiScore?: number;
+  reviewedAt?: string;
+}
+
 export interface PartnerEvent {
   id: string;
   restaurantId: string;
@@ -327,6 +341,12 @@ export interface PartnerEvent {
   /** Ticket purchase / reserve URL (or demo path) */
   ticketUrl?: string;
   ticketPriceUsd?: number;
+  imageDataUrls?: string[];
+  status?: ContentStatus;
+  createdAt?: string;
+  aiFlagged?: boolean;
+  aiReasons?: string[];
+  aiScore?: number;
 }
 
 export interface JobPosting {
@@ -341,6 +361,12 @@ export interface JobPosting {
   payRange?: string;
   /** External business careers / application URL */
   applyUrl?: string;
+  imageDataUrls?: string[];
+  status?: ContentStatus;
+  createdAt?: string;
+  aiFlagged?: boolean;
+  aiReasons?: string[];
+  aiScore?: number;
 }
 
 export interface PartnerMenuItem {
@@ -351,6 +377,12 @@ export interface PartnerMenuItem {
   priceUsd: number;
   category: string;
   imageDataUrls?: string[];
+  status?: ContentStatus;
+  createdAt?: string;
+  active?: boolean;
+  aiFlagged?: boolean;
+  aiReasons?: string[];
+  aiScore?: number;
 }
 
 export interface PartnerDealDraft {
@@ -367,6 +399,9 @@ export interface PartnerDealDraft {
   createdAt: string;
   /** Admin approval before public (default pending for new partner deals) */
   status?: ContentStatus;
+  aiFlagged?: boolean;
+  aiReasons?: string[];
+  aiScore?: number;
 }
 
 export interface ModeratedFeedPost {

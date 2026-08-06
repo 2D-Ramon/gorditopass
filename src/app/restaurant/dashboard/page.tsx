@@ -311,7 +311,7 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!dealTitle.trim() || !regularPrice) return;
-              addPartnerDeal({
+              const res = addPartnerDeal({
                 restaurantId: restaurant.id,
                 title: dealTitle.trim(),
                 description: dealDesc.trim() || "Member deal",
@@ -329,7 +329,11 @@ export default function RestaurantDashboardPage() {
               setRegularPrice("");
               setDealImages([]);
               toast(
-                "Deal submitted for admin approval (pending until approved).",
+                res.aiFlagged
+                  ? "Deal flagged by AI for admin review (possible policy issue)."
+                  : res.status === "approved"
+                    ? "Deal auto-approved and live."
+                    : "Deal submitted — pending admin approval.",
               );
             }}
           >
@@ -435,16 +439,27 @@ export default function RestaurantDashboardPage() {
               </li>
             ))}
             {myDeals.map((d) => (
-              <li key={d.id} className="text-orange-200/90">
-                {d.title}
-                {d.regularPriceUsd != null && (
-                  <span className="text-xs text-muted">
-                    {" "}
-                    · reg ${d.regularPriceUsd}
+              <li key={d.id} className="flex flex-wrap items-center gap-2 text-orange-200/90">
+                {d.imageDataUrls?.[0] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={d.imageDataUrls[0]}
+                    alt=""
+                    className="h-8 w-8 rounded object-cover ring-1 ring-border"
+                  />
+                )}
+                <span>
+                  {d.title}
+                  {d.regularPriceUsd != null && (
+                    <span className="text-xs text-muted">
+                      {" "}
+                      · reg ${d.regularPriceUsd}
+                    </span>
+                  )}{" "}
+                  <span className="text-xs">
+                    ({d.status ?? "pending"}
+                    {d.aiFlagged ? " · AI flagged" : ""} · yours)
                   </span>
-                )}{" "}
-                <span className="text-xs">
-                  ({d.status ?? "pending"} · yours)
                 </span>
               </li>
             ))}
@@ -460,7 +475,7 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!menuName.trim()) return;
-              addPartnerMenuItem({
+              const res = addPartnerMenuItem({
                 restaurantId: restaurant.id,
                 name: menuName.trim(),
                 description: menuDesc.trim(),
@@ -472,7 +487,13 @@ export default function RestaurantDashboardPage() {
               setMenuDesc("");
               setMenuPrice("");
               setMenuImages([]);
-              toast("Menu item saved (demo).");
+              toast(
+                res.aiFlagged
+                  ? "Menu item flagged by AI for admin review."
+                  : res.status === "approved"
+                    ? "Menu item auto-approved and live."
+                    : "Menu item submitted — pending admin approval.",
+              );
             }}
           >
             <label className="block text-sm">
@@ -554,8 +575,22 @@ export default function RestaurantDashboardPage() {
           {myMenu.length > 0 && (
             <ul className="mt-4 space-y-1 text-sm text-muted">
               {myMenu.map((m) => (
-                <li key={m.id}>
-                  {m.name} · ${m.priceUsd.toFixed(2)} · {m.category}
+                <li key={m.id} className="flex flex-wrap items-center gap-2">
+                  {m.imageDataUrls?.[0] && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.imageDataUrls[0]}
+                      alt=""
+                      className="h-8 w-8 rounded object-cover ring-1 ring-border"
+                    />
+                  )}
+                  <span>
+                    {m.name} · ${m.priceUsd.toFixed(2)} · {m.category}{" "}
+                    <span className="text-xs">
+                      ({m.status ?? "pending"}
+                      {m.aiFlagged ? " · AI flagged" : ""})
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -571,7 +606,7 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!evTitle.trim() || !evDate.trim()) return;
-              addPartnerEvent({
+              const res = addPartnerEvent({
                 restaurantId: restaurant.id,
                 restaurantName: restaurant.name,
                 title: evTitle.trim(),
@@ -590,7 +625,13 @@ export default function RestaurantDashboardPage() {
               setEvDesc("");
               setEvDate("");
               setEvTime("");
-              toast("Event published (demo).");
+              toast(
+                res.aiFlagged
+                  ? "Event flagged by AI for admin review."
+                  : res.status === "approved"
+                    ? "Event auto-approved and live."
+                    : "Event submitted — pending admin approval.",
+              );
             }}
           >
             <label className="block text-sm">
@@ -692,7 +733,7 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!jobTitle.trim() || !jobApplyUrl.trim()) return;
-              addPartnerJob({
+              const res = addPartnerJob({
                 restaurantId: restaurant.id,
                 restaurantName: restaurant.name,
                 title: jobTitle.trim(),
@@ -706,7 +747,13 @@ export default function RestaurantDashboardPage() {
               setJobDesc("");
               setJobPay("");
               setJobApplyUrl("");
-              toast("Job posted (demo).");
+              toast(
+                res.aiFlagged
+                  ? "Job flagged by AI for admin review."
+                  : res.status === "approved"
+                    ? "Job auto-approved and live."
+                    : "Job submitted — pending admin approval.",
+              );
             }}
           >
             <label className="block text-sm">

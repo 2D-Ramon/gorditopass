@@ -6,7 +6,52 @@ import { FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
-type AdminTab = "apps" | "deals" | "restaurants" | "feed";
+type AdminTab =
+  | "apps"
+  | "deals"
+  | "menu"
+  | "events"
+  | "jobs"
+  | "restaurants"
+  | "auto"
+  | "feed";
+
+function Thumbs({ urls }: { urls?: string[] }) {
+  if (!urls?.length) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {urls.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={i}
+          src={src}
+          alt=""
+          className="h-16 w-16 rounded-md object-cover ring-1 ring-border"
+        />
+      ))}
+    </div>
+  );
+}
+
+function AiBadge({
+  flagged,
+  reasons,
+}: {
+  flagged?: boolean;
+  reasons?: string[];
+}) {
+  if (!flagged) return null;
+  return (
+    <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+      <p className="font-semibold">AI flag — review first</p>
+      {(reasons ?? []).map((r) => (
+        <p key={r} className="text-amber-200/80">
+          · {r}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const {
@@ -15,24 +60,61 @@ export default function AdminPage() {
     restaurantApplications,
     redemptions,
     partnerDeals,
+    partnerMenuItems,
+    partnerEvents,
+    partnerJobs,
     setApplicationStatus,
     setPartnerDealStatus,
+    setPartnerMenuStatus,
+    setPartnerEventStatus,
+    setPartnerJobStatus,
     setRestaurantApproved,
     isRestaurantApproved,
     hideFeedPost,
     unhideFeedPost,
     moderatedFeedPosts,
     resetDemoData,
+    getAutoApprove,
+    setAutoApprove,
   } = useStore();
   const [tab, setTab] = useState<AdminTab>("apps");
+  const [autoBiz, setAutoBiz] = useState(RESTAURANTS[0]?.id ?? "mi-tierra");
 
   const pendingApps = useMemo(
-    () => restaurantApplications.filter((a) => (a.status ?? "pending") === "pending"),
+    () =>
+      restaurantApplications.filter(
+        (a) => (a.status ?? "pending") === "pending",
+      ),
     [restaurantApplications],
   );
   const pendingDeals = useMemo(
     () => partnerDeals.filter((d) => (d.status ?? "pending") === "pending"),
     [partnerDeals],
+  );
+  const pendingMenu = useMemo(
+    () =>
+      partnerMenuItems.filter((m) => (m.status ?? "pending") === "pending"),
+    [partnerMenuItems],
+  );
+  const pendingEvents = useMemo(
+    () => partnerEvents.filter((e) => (e.status ?? "pending") === "pending"),
+    [partnerEvents],
+  );
+  const pendingJobs = useMemo(
+    () => partnerJobs.filter((j) => (j.status ?? "pending") === "pending"),
+    [partnerJobs],
+  );
+  const flaggedCount = useMemo(
+    () =>
+      [
+        ...partnerDeals,
+        ...partnerMenuItems,
+        ...partnerEvents,
+        ...partnerJobs,
+      ].filter(
+        (x) => x.aiFlagged && (x.status ?? "pending") === "pending",
+      ).length,
+    [partnerDeals, partnerMenuItems, partnerEvents, partnerJobs],
   );
 
   const feedQueue = useMemo(() => {
@@ -56,9 +138,9 @@ export default function AdminPage() {
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="gp-page-title">Admin</h1>
         <p className="mt-2 text-muted">
-          Approve restaurants & deals, moderate the city feed. Early caps:{" "}
-          {PLATFORM.earlyCapDiners} diners / {PLATFORM.earlyCapBusinesses}{" "}
-          businesses.
+          Approve applications, deals, menu, events, jobs · auto-approve · AI
+          flags. Caps: {PLATFORM.earlyCapDiners} diners /{" "}
+          {PLATFORM.earlyCapBusinesses} businesses.
         </p>
         <button
           type="button"
@@ -74,16 +156,22 @@ export default function AdminPage() {
   const tabs: { id: AdminTab; label: string; count?: number }[] = [
     { id: "apps", label: "Applications", count: pendingApps.length },
     { id: "deals", label: "Deals", count: pendingDeals.length },
+    { id: "menu", label: "Menu", count: pendingMenu.length },
+    { id: "events", label: "Events", count: pendingEvents.length },
+    { id: "jobs", label: "Jobs", count: pendingJobs.length },
+    { id: "auto", label: "Auto-approve" },
     { id: "restaurants", label: "Restaurants" },
     { id: "feed", label: "Feed" },
   ];
+
+  const auto = getAutoApprove(autoBiz);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="gp-page-title">Admin queue</h1>
       <p className="gp-page-sub">
-        Approve partner applications & deals, toggle live restaurants, hide feed
-        posts. Demo state is stored in this browser.
+        Review partner submissions with photos, AI flags, and per-business
+        auto-approve. Demo state is in this browser.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -94,12 +182,17 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="gp-card gp-card-static p-4">
-          <p className="text-xs text-muted">Pending apps</p>
-          <p className="text-2xl font-bold text-brand">{pendingApps.length}</p>
+          <p className="text-xs text-muted">Pending content</p>
+          <p className="text-2xl font-bold text-brand">
+            {pendingDeals.length +
+              pendingMenu.length +
+              pendingEvents.length +
+              pendingJobs.length}
+          </p>
         </div>
         <div className="gp-card gp-card-static p-4">
-          <p className="text-xs text-muted">Pending deals</p>
-          <p className="text-2xl font-bold text-brand">{pendingDeals.length}</p>
+          <p className="text-xs text-muted">AI flagged</p>
+          <p className="text-2xl font-bold text-amber-300">{flaggedCount}</p>
         </div>
         <div className="gp-card gp-card-static p-4">
           <p className="text-xs text-muted">Redemptions</p>
@@ -136,7 +229,7 @@ export default function AdminPage() {
             <p className="mt-2 text-sm text-muted">
               None yet.{" "}
               <Link href="/apply" className="text-brand underline">
-                Submit one on /apply
+                Submit on /apply
               </Link>
               .
             </p>
@@ -151,150 +244,86 @@ export default function AdminPage() {
                     key={id}
                     className="rounded-lg border border-border bg-background/50 p-4"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-lg font-semibold tracking-tight">
-                          {a.name}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          Submitted {new Date(a.at).toLocaleString()}
-                        </p>
-                      </div>
-                      <span
-                        className={`gp-badge !normal-case ${
-                          status === "approved"
-                            ? "!bg-success/15 !text-success !border-success/30"
-                            : status === "rejected"
-                              ? "!bg-red-500/10 !text-red-300 !border-red-500/30"
-                              : ""
-                        }`}
-                      >
-                        {status}
-                      </span>
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <p className="text-lg font-semibold">{a.name}</p>
+                      <span className="gp-badge !normal-case">{status}</span>
                     </div>
-
-                    <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                    <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                       <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          Business email
+                        <dt className="text-[10px] uppercase text-muted">
+                          Email
                         </dt>
-                        <dd className="text-stone-200">{a.email}</dd>
+                        <dd>{a.email}</dd>
                       </div>
                       <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          Contact name
+                        <dt className="text-[10px] uppercase text-muted">
+                          Contact
                         </dt>
-                        <dd className="text-stone-200">
-                          {a.contactName || "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          Position
-                        </dt>
-                        <dd className="text-stone-200 capitalize">
-                          {a.position || "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          Authority to decide
-                        </dt>
-                        <dd className="text-stone-200">
-                          {a.hasAuthority === true
-                            ? "Yes"
-                            : a.hasAuthority === false
-                              ? "No"
-                              : "—"}
+                        <dd>
+                          {a.contactName || "—"} ({a.position || "—"})
                         </dd>
                       </div>
                       <div className="sm:col-span-2">
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                        <dt className="text-[10px] uppercase text-muted">
                           Address
                         </dt>
-                        <dd className="text-stone-200">
-                          {a.address || "—"}
+                        <dd>
+                          {a.address || "—"} · {a.city || "—"}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          City
+                        <dt className="text-[10px] uppercase text-muted">
+                          Start
                         </dt>
-                        <dd className="text-stone-200">{a.city || "—"}</dd>
+                        <dd>{a.plannedStartDate || "—"}</dd>
                       </div>
                       <div>
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          Planned start
+                        <dt className="text-[10px] uppercase text-muted">
+                          Authority
                         </dt>
-                        <dd className="text-stone-200">
-                          {a.plannedStartDate || "—"}
-                        </dd>
+                        <dd>{a.hasAuthority ? "Yes" : "No / —"}</dd>
                       </div>
                       <div className="sm:col-span-2">
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          First promotion idea
+                        <dt className="text-[10px] uppercase text-muted">
+                          Promo idea
                         </dt>
-                        <dd className="text-stone-300">
-                          {a.promo?.trim() || "—"}
-                        </dd>
+                        <dd className="text-muted">{a.promo || "—"}</dd>
                       </div>
                     </dl>
-
-                    <div className="mt-4 border-t border-border pt-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                        Uploads ({uploads.length})
-                      </p>
-                      {uploads.length === 0 ? (
-                        <p className="mt-1 text-xs text-muted">
-                          No files attached on this application.
-                        </p>
-                      ) : (
-                        <ul className="mt-2 space-y-2">
-                          {uploads.map((u) => (
-                            <li
-                              key={`${u.label}-${u.fileName}`}
-                              className="rounded-md border border-border bg-elevated/40 px-3 py-2 text-xs"
-                            >
-                              <p className="font-medium text-stone-200">
-                                {u.label}
-                              </p>
-                              <p className="text-muted">
-                                {u.fileName}
-                                {u.sizeBytes != null
-                                  ? ` · ${(u.sizeBytes / 1024).toFixed(1)} KB`
-                                  : ""}
-                                {u.mimeType ? ` · ${u.mimeType}` : ""}
-                              </p>
-                              {u.dataUrl && u.mimeType?.startsWith("image/") && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={u.dataUrl}
-                                  alt={u.label}
-                                  className="mt-2 max-h-32 rounded-md object-contain ring-1 ring-border"
-                                />
-                              )}
-                              {u.dataUrl && !u.mimeType?.startsWith("image/") && (
-                                <a
-                                  href={u.dataUrl}
-                                  download={u.fileName}
-                                  className="mt-1 inline-block text-brand underline"
-                                >
-                                  Download file
-                                </a>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <p className="mt-2 text-[10px] text-muted">
-                        Demo stores file names + image previews in this browser.
-                        Live version will store files in secure cloud storage
-                        with full admin preview/download.
-                      </p>
-                    </div>
-
+                    <p className="mt-3 text-[10px] font-semibold uppercase text-muted">
+                      Uploads ({uploads.length})
+                    </p>
+                    {uploads.length === 0 ? (
+                      <p className="text-xs text-muted">None</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {uploads.map((u) => (
+                          <li
+                            key={`${u.label}-${u.fileName}`}
+                            className="flex items-start gap-3 rounded-md border border-border px-2 py-2 text-xs"
+                          >
+                            {u.dataUrl && u.mimeType?.startsWith("image/") ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={u.dataUrl}
+                                alt=""
+                                className="h-14 w-14 rounded object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-14 w-14 items-center justify-center rounded bg-elevated text-lg">
+                                📄
+                              </span>
+                            )}
+                            <div>
+                              <p className="font-medium">{u.label}</p>
+                              <p className="text-muted">{u.fileName}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {status === "pending" && (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-3 flex gap-2">
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
@@ -321,45 +350,42 @@ export default function AdminPage() {
 
       {tab === "deals" && (
         <section className="mt-6 gp-card gp-card-static p-5">
-          <h2 className="font-semibold">Partner deals awaiting approval</h2>
-          <p className="mt-1 text-sm text-muted">
-            New deals from the partner dashboard start as pending.
-          </p>
+          <h2 className="font-semibold">Deals for approval</h2>
           {partnerDeals.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">
-              No partner-created deals yet. Create one from the{" "}
-              <Link
-                href="/restaurant/dashboard"
-                className="text-brand underline"
-              >
+            <p className="mt-2 text-sm text-muted">
+              No partner deals yet. Create from{" "}
+              <Link href="/restaurant/dashboard" className="text-brand underline">
                 partner dashboard
-              </Link>{" "}
-              (owner login).
+              </Link>
+              .
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
               {partnerDeals.map((d) => {
-                const status = d.status ?? "pending";
                 const rest = RESTAURANTS.find((r) => r.id === d.restaurantId);
+                const status = d.status ?? "pending";
                 return (
                   <li
                     key={d.id}
-                    className="rounded-lg border border-border bg-background/50 p-3"
+                    className="rounded-lg border border-border bg-background/50 p-4"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex flex-wrap justify-between gap-2">
                       <div>
                         <p className="font-medium">{d.title}</p>
                         <p className="text-xs text-muted">
                           {rest?.name ?? d.restaurantId} · {d.type}
                           {d.regularPriceUsd != null &&
                             ` · reg $${d.regularPriceUsd}`}
+                          {d.value != null && ` · value ${d.value}`}
                         </p>
-                        <p className="mt-1 text-xs text-stone-400">
+                        <p className="mt-1 text-sm text-stone-400">
                           {d.description}
                         </p>
                       </div>
                       <span className="gp-badge !normal-case">{status}</span>
                     </div>
+                    <Thumbs urls={d.imageDataUrls} />
+                    <AiBadge flagged={d.aiFlagged} reasons={d.aiReasons} />
                     <div className="mt-3 flex flex-wrap gap-2">
                       {status !== "approved" && (
                         <button
@@ -382,7 +408,7 @@ export default function AdminPage() {
                       {status === "approved" && (
                         <button
                           type="button"
-                          className="gp-btn gp-btn-ghost text-xs !py-1.5 ring-1 ring-border"
+                          className="gp-btn gp-btn-ghost text-xs !py-1.5"
                           onClick={() => setPartnerDealStatus(d.id, "pending")}
                         >
                           Unpublish
@@ -397,25 +423,249 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === "menu" && (
+        <section className="mt-6 gp-card gp-card-static p-5">
+          <h2 className="font-semibold">Menu items for approval</h2>
+          {partnerMenuItems.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No partner menu items yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {partnerMenuItems.map((m) => {
+                const rest = RESTAURANTS.find((r) => r.id === m.restaurantId);
+                const status = m.status ?? "pending";
+                return (
+                  <li
+                    key={m.id}
+                    className="rounded-lg border border-border bg-background/50 p-4"
+                  >
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{m.name}</p>
+                        <p className="text-xs text-muted">
+                          {rest?.name} · {m.category} · $
+                          {m.priceUsd.toFixed(2)}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-400">
+                          {m.description}
+                        </p>
+                      </div>
+                      <span className="gp-badge !normal-case">{status}</span>
+                    </div>
+                    <Thumbs urls={m.imageDataUrls} />
+                    <AiBadge flagged={m.aiFlagged} reasons={m.aiReasons} />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {status !== "approved" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary text-xs !py-1.5"
+                          onClick={() => setPartnerMenuStatus(m.id, "approved")}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {status !== "rejected" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          onClick={() => setPartnerMenuStatus(m.id, "rejected")}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {tab === "events" && (
+        <section className="mt-6 gp-card gp-card-static p-5">
+          <h2 className="font-semibold">Events for approval</h2>
+          {partnerEvents.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No partner events yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {partnerEvents.map((e) => {
+                const status = e.status ?? "pending";
+                return (
+                  <li
+                    key={e.id}
+                    className="rounded-lg border border-border bg-background/50 p-4"
+                  >
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <div>
+                        <p className="font-medium">
+                          {e.emoji} {e.title}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {e.restaurantName} · {e.date} {e.time}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-400">
+                          {e.description}
+                        </p>
+                        {e.address && (
+                          <p className="text-xs text-muted">{e.address}</p>
+                        )}
+                      </div>
+                      <span className="gp-badge !normal-case">{status}</span>
+                    </div>
+                    <Thumbs urls={e.imageDataUrls} />
+                    <AiBadge flagged={e.aiFlagged} reasons={e.aiReasons} />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {status !== "approved" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary text-xs !py-1.5"
+                          onClick={() => setPartnerEventStatus(e.id, "approved")}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {status !== "rejected" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          onClick={() => setPartnerEventStatus(e.id, "rejected")}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {tab === "jobs" && (
+        <section className="mt-6 gp-card gp-card-static p-5">
+          <h2 className="font-semibold">Jobs for approval</h2>
+          {partnerJobs.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No partner jobs yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {partnerJobs.map((j) => {
+                const status = j.status ?? "pending";
+                return (
+                  <li
+                    key={j.id}
+                    className="rounded-lg border border-border bg-background/50 p-4"
+                  >
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{j.title}</p>
+                        <p className="text-xs text-muted">
+                          {j.restaurantName} · {j.type}
+                          {j.payRange ? ` · ${j.payRange}` : ""}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-400">
+                          {j.description}
+                        </p>
+                        {j.applyUrl && (
+                          <p className="mt-1 text-xs text-brand break-all">
+                            {j.applyUrl}
+                          </p>
+                        )}
+                      </div>
+                      <span className="gp-badge !normal-case">{status}</span>
+                    </div>
+                    <Thumbs urls={j.imageDataUrls} />
+                    <AiBadge flagged={j.aiFlagged} reasons={j.aiReasons} />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {status !== "approved" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary text-xs !py-1.5"
+                          onClick={() => setPartnerJobStatus(j.id, "approved")}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {status !== "rejected" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          onClick={() => setPartnerJobStatus(j.id, "rejected")}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {tab === "auto" && (
+        <section className="mt-6 gp-card gp-card-static p-5">
+          <h2 className="font-semibold">Auto-approve settings</h2>
+          <p className="mt-1 text-sm text-muted">
+            Per business and content type. AI-flagged items always stay pending
+            for human review, even if auto-approve is on.
+          </p>
+          <label className="mt-4 block text-sm">
+            Business
+            <select
+              className="gp-input mt-1"
+              value={autoBiz}
+              onChange={(e) => setAutoBiz(e.target.value)}
+            >
+              {RESTAURANTS.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-4 space-y-3">
+            {(
+              [
+                ["deal", "Deals"],
+                ["menu", "Menu items"],
+                ["event", "Events"],
+                ["job", "Jobs"],
+              ] as const
+            ).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <span>Auto-approve {label}</span>
+                <input
+                  type="checkbox"
+                  checked={auto[key]}
+                  onChange={(e) =>
+                    setAutoApprove(autoBiz, { [key]: e.target.checked })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
+
       {tab === "restaurants" && (
         <section className="mt-6 gp-card gp-card-static p-5">
-          <h2 className="font-semibold">Live restaurant directory</h2>
-          <p className="mt-1 text-sm text-muted">
-            Toggle visibility on Explore. Seed partners start approved.
-          </p>
+          <h2 className="font-semibold">Live restaurants</h2>
           <ul className="mt-4 space-y-2">
             {RESTAURANTS.map((r) => {
               const live = isRestaurantApproved(r.id);
               return (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background/50 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                 >
-                  <span className="text-sm">
-                    {r.emoji} {r.name}{" "}
-                    <span className="text-xs text-muted">
-                      · {r.neighborhood}
-                    </span>
+                  <span>
+                    {r.emoji} {r.name}
+                    <span className="ml-2 text-xs text-muted">{r.cuisine}</span>
                   </span>
                   <button
                     type="button"
@@ -424,7 +674,7 @@ export default function AdminPage() {
                     }`}
                     onClick={() => setRestaurantApproved(r.id, !live)}
                   >
-                    {live ? "Unpublish" : "Approve / publish"}
+                    {live ? "Unlist" : "List live"}
                   </button>
                 </li>
               );
@@ -435,40 +685,36 @@ export default function AdminPage() {
 
       {tab === "feed" && (
         <section className="mt-6 gp-card gp-card-static p-5">
-          <h2 className="font-semibold">City feed moderation</h2>
-          <p className="mt-1 text-sm text-muted">
-            Hide spam or policy-violating posts (no political content).
-          </p>
-          <ul className="mt-4 space-y-3">
+          <h2 className="font-semibold">Feed moderation</h2>
+          <ul className="mt-4 space-y-2">
             {feedQueue.map((p) => (
               <li
                 key={p.id}
-                className={`rounded-lg border border-border p-3 ${
-                  p.hidden ? "opacity-50" : "bg-background/50"
-                }`}
+                className="rounded-lg border border-border px-3 py-2 text-sm"
               >
-                <p className="text-xs text-muted">
-                  {p.author} · {p.city} ·{" "}
-                  {new Date(p.createdAt).toLocaleString()}
+                <p className="font-medium">
+                  {p.title}{" "}
                   {p.hidden && (
-                    <span className="ml-2 text-red-300">· hidden</span>
+                    <span className="text-xs text-red-300">(hidden)</span>
                   )}
                 </p>
-                <p className="mt-1 font-medium">{p.title}</p>
-                <p className="mt-1 text-sm text-stone-400">{p.body}</p>
+                <p className="text-xs text-muted">
+                  {p.author} · {p.city}
+                </p>
+                <p className="mt-1 text-muted">{p.body}</p>
                 <div className="mt-2">
                   {p.hidden ? (
                     <button
                       type="button"
-                      className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                      className="text-xs text-brand"
                       onClick={() => unhideFeedPost(p.id)}
                     >
-                      Restore post
+                      Unhide
                     </button>
                   ) : (
                     <button
                       type="button"
-                      className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                      className="text-xs text-red-300"
                       onClick={() =>
                         hideFeedPost({
                           id: p.id,
@@ -480,7 +726,7 @@ export default function AdminPage() {
                         })
                       }
                     >
-                      Hide post
+                      Hide
                     </button>
                   )}
                 </div>
@@ -490,23 +736,15 @@ export default function AdminPage() {
         </section>
       )}
 
-      <div className="mt-10 border-t border-border pt-6">
-        <button
-          type="button"
-          className="gp-btn gp-btn-ghost text-sm text-red-300 ring-1 ring-red-500/30"
-          onClick={() => {
-            if (
-              confirm(
-                "Reset all demo data in this browser (accounts, apps, deals, redemptions)?",
-              )
-            ) {
-              resetDemoData();
-            }
-          }}
-        >
-          Reset demo data
-        </button>
-      </div>
+      <button
+        type="button"
+        className="mt-8 text-xs text-red-300/80"
+        onClick={() => {
+          if (confirm("Reset all demo data?")) resetDemoData();
+        }}
+      >
+        Reset demo data
+      </button>
     </div>
   );
 }
