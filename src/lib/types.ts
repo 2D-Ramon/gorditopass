@@ -137,6 +137,19 @@ export interface CartLine {
 /** Restaurant staff permission level (partner accounts) */
 export type StaffRole = "owner" | "manager" | "marketing" | "employee";
 
+/** One person on a multi-seat membership (intake form) */
+export interface MemberSeatProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  birthday: string;
+  homeAddress: string;
+  /** Primary seat is the signed-in account holder */
+  isPrimary?: boolean;
+}
+
 export interface MockUser {
   id: string;
   name: string;
@@ -148,8 +161,11 @@ export interface MockUser {
   familySeats: number;
   maxFamilySeats: number;
   /** Profile fields (diners) */
+  firstName?: string;
+  lastName?: string;
   birthday?: string;
   phone?: string;
+  homeAddress?: string;
   favoriteRestaurant?: string;
   favoriteFoodType?: string;
   avatarDataUrl?: string;
@@ -161,6 +177,14 @@ export interface MockUser {
   rewardPointsLifetime?: number;
   /** Free-item rewards claimed */
   rewardsClaimed?: number;
+  /** Badge ids unlocked */
+  badges?: string[];
+  /** Household seats created at membership signup */
+  householdMembers?: MemberSeatProfile[];
+  /** One-time bonuses already awarded (action ids) */
+  awardedBonuses?: string[];
+  /** Count of city feed posts by this user (demo) */
+  feedPostCount?: number;
 }
 
 export interface Redemption {

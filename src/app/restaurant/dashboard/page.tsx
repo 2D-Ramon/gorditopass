@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { RESTAURANTS } from "@/lib/data";
+import { MENU_CATEGORIES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import {
   canManagePartnerContent,
@@ -115,8 +116,10 @@ export default function RestaurantDashboardPage() {
   function estimatedSavingsPreview(): string | null {
     const reg = Number(regularPrice);
     if (!reg || reg <= 0) return null;
-    if (dealType === "free_item") return `~$${reg.toFixed(2)} saved`;
-    if (dealType === "bogo") return `~$${(reg / 2).toFixed(2)} saved`;
+    // Free item & BOGO: member saves the full regularly priced item
+    if (dealType === "free_item" || dealType === "bogo") {
+      return `~$${reg.toFixed(2)} saved`;
+    }
     if (dealType === "percent_off" && dealValue) {
       return `~$${((reg * Number(dealValue)) / 100).toFixed(2)} saved`;
     }
@@ -374,7 +377,8 @@ export default function RestaurantDashboardPage() {
                 placeholder="e.g. 12.00"
               />
               <span className="mt-1 block text-xs text-muted">
-                Full price before the deal — used for savings & revenue totals.
+                Full price of one item before the deal. Free item & BOGO save
+                this full amount; percent/fixed use it for est. savings.
               </span>
             </label>
             {(dealType === "percent_off" || dealType === "fixed_price") && (
@@ -503,11 +507,17 @@ export default function RestaurantDashboardPage() {
               </label>
               <label className="block text-sm">
                 Category
-                <input
+                <select
                   className="gp-input mt-1"
                   value={menuCat}
                   onChange={(e) => setMenuCat(e.target.value)}
-                />
+                >
+                  {MENU_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
             <label className="block text-sm">

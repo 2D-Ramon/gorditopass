@@ -15,6 +15,7 @@ import type {
   CityId,
   ContentStatus,
   JobPosting,
+  MemberSeatProfile,
   MembershipPlanId,
   ModeratedFeedPost,
   MockUser,
@@ -27,10 +28,16 @@ import type {
   RewardEvent,
   StaffRole,
 } from "./types";
-import { MAX_FAMILY_SEATS, REWARDS } from "./pricing";
+import {
+  BADGES,
+  MAX_FAMILY_SEATS,
+  POINT_ACTIONS,
+  REWARDS,
+  type PointActionId,
+} from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
 
-const STORAGE_KEY = "gorditopass-mvp-v6";
+const STORAGE_KEY = "gorditopass-mvp-v7";
 
 interface Persisted {
   user: MockUser | null;
@@ -68,8 +75,21 @@ interface StoreValue {
   setCity: (c: CityId) => void;
   signInDemo: (role?: MockUser["role"], staffRole?: StaffRole) => void;
   signOut: () => void;
-  activateMembership: (planId: MembershipPlanId, seats: number) => void;
+  activateMembership: (
+    planId: MembershipPlanId,
+    seats: number,
+    members?: MemberSeatProfile[],
+  ) => void;
   updateProfile: (patch: Partial<MockUser>) => void;
+  /** Award points for a completed task (custom values in POINT_ACTIONS) */
+  awardPoints: (
+    action: PointActionId,
+    opts?: { note?: string; onceKey?: string },
+  ) => number;
+  /** Recompute badges from current stats */
+  evaluateBadges: () => string[];
+  householdMembers: MemberSeatProfile[];
+  earnedBadges: string[];
   addToCart: (line: Omit<CartLine, "qty">, qty?: number) => void;
   updateQty: (menuItemId: string, qty: number) => void;
   clearCart: () => void;
@@ -115,6 +135,7 @@ interface StoreValue {
   rewardPoints: number;
   rewardProgress: number;
   rewardsAvailable: number;
+  feedPostCount: number;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -157,6 +178,13 @@ const defaultUser = (
   rewardPoints: 0,
   rewardPointsLifetime: 0,
   rewardsClaimed: 0,
+  badges: [],
+  householdMembers: [],
+  awardedBonuses: [],
+  feedPostCount: 0,
+  firstName: "",
+  lastName: "",
+  homeAddress: "",
 });
 
 function emptyPersisted(): Persisted {
@@ -183,6 +211,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v6") ??
       localStorage.getItem("gorditopass-mvp-v5") ??
       localStorage.getItem("gorditopass-mvp-v4") ??
       localStorage.getItem("gorditopass-mvp-v3") ??
@@ -221,6 +250,10 @@ function load(): Persisted {
             rewardPoints: parsed.user.rewardPoints ?? 0,
             rewardPointsLifetime: parsed.user.rewardPointsLifetime ?? 0,
             rewardsClaimed: parsed.user.rewardsClaimed ?? 0,
+            badges: parsed.user.badges ?? [],
+            householdMembers: parsed.user.householdMembers ?? [],
+            awardedBonuses: parsed.user.awardedBonuses ?? [],
+            feedPostCount: parsed.user.feedPostCount ?? 0,
           }
         : null,
     };
@@ -240,7 +273,8 @@ function calcDealSavings(
       return { savingsUsd: reg, revenueUsd: reg };
     }
     if (type === "bogo") {
-      return { savingsUsd: reg / 2, revenueUsd: reg };
+      // Buy one get one free → save full price of the free item
+      return { savingsUsd: reg, revenueUsd: reg * 2 };
     }
     if (type === "percent_off" && value) {
       return {
@@ -258,7 +292,7 @@ function calcDealSavings(
   }
   // Fallback estimates when no regular price on file
   if (type === "free_item") return { savingsUsd: 6, revenueUsd: 12 };
-  if (type === "bogo") return { savingsUsd: 8, revenueUsd: 16 };
+  if (type === "bogo") return { savingsUsd: 12, revenueUsd: 24 };
   if (type === "percent_off" && value) {
     const base = 12;
     return {
@@ -424,27 +458,173 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const activateMembership = useCallback(
-    (planId: MembershipPlanId, seats: number) => {
+    (
+      planId: MembershipPlanId,
+      seats: number,
+      members?: MemberSeatProfile[],
+    ) => {
+      const seatCount = Math.min(Math.max(seats, 1), MAX_FAMILY_SEATS);
+      const list =
+        members && members.length > 0
+          ? members.slice(0, seatCount)
+          : undefined;
+      const primary = list?.find((m) => m.isPrimary) ?? list?.[0];
+      const joinPts = POINT_ACTIONS.join_member.points;
+
       setUser((u) => {
         const base = u ?? defaultUser("diner");
-        return {
+        const alreadyMember = base.isMember;
+        const fullName = primary
+          ? `${primary.firstName} ${primary.lastName}`.trim()
+          : base.name;
+        const next: MockUser = {
           ...base,
           isMember: true,
           planId,
-          familySeats: Math.min(Math.max(seats, 1), MAX_FAMILY_SEATS),
+          familySeats: seatCount,
           role: "diner",
+          name: fullName || base.name,
+          firstName: primary?.firstName ?? base.firstName,
+          lastName: primary?.lastName ?? base.lastName,
+          email: primary?.email || base.email,
+          phone: primary?.phone ?? base.phone,
+          birthday: primary?.birthday ?? base.birthday,
+          homeAddress: primary?.homeAddress ?? base.homeAddress,
+          householdMembers: list ?? base.householdMembers ?? [],
           rewardPoints: base.rewardPoints ?? 0,
           rewardPointsLifetime: base.rewardPointsLifetime ?? 0,
           rewardsClaimed: base.rewardsClaimed ?? 0,
+          badges: base.badges ?? [],
+          awardedBonuses: base.awardedBonuses ?? [],
+        };
+        if (!alreadyMember && joinPts > 0) {
+          next.rewardPoints = (next.rewardPoints ?? 0) + joinPts;
+          next.rewardPointsLifetime =
+            (next.rewardPointsLifetime ?? 0) + joinPts;
+        }
+        return next;
+      });
+
+      if (!user?.isMember && joinPts > 0) {
+        setRewardHistory((prev) => [
+          {
+            id: `rw-join-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: joinPts,
+            note: POINT_ACTIONS.join_member.label,
+          },
+          ...prev,
+        ]);
+      }
+    },
+    [user?.isMember],
+  );
+
+  const updateProfile = useCallback((patch: Partial<MockUser>) => {
+    setUser((u) => {
+      if (!u) return u;
+      const next = { ...u, ...patch };
+      if (patch.firstName != null || patch.lastName != null) {
+        const fn = patch.firstName ?? u.firstName ?? "";
+        const ln = patch.lastName ?? u.lastName ?? "";
+        if (fn || ln) next.name = `${fn} ${ln}`.trim();
+      }
+      return next;
+    });
+  }, []);
+
+  const awardPoints = useCallback(
+    (
+      action: PointActionId,
+      opts?: { note?: string; onceKey?: string },
+    ): number => {
+      const def = POINT_ACTIONS[action];
+      if (!def || def.points <= 0) return 0;
+      let earned = 0;
+      setUser((u) => {
+        if (!u || u.role !== "diner") return u;
+        const once = opts?.onceKey ?? action;
+        // onceKey unique bonuses
+        if (
+          opts?.onceKey &&
+          (u.awardedBonuses ?? []).includes(opts.onceKey)
+        ) {
+          return u;
+        }
+        earned = def.points;
+        return {
+          ...u,
+          rewardPoints: (u.rewardPoints ?? 0) + earned,
+          rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + earned,
+          awardedBonuses: opts?.onceKey
+            ? [...(u.awardedBonuses ?? []), once]
+            : u.awardedBonuses,
         };
       });
+      if (earned > 0) {
+        setRewardHistory((prev) => [
+          {
+            id: `rw-${action}-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: earned,
+            note: opts?.note ?? def.label,
+          },
+          ...prev,
+        ]);
+      }
+      return earned;
     },
     [],
   );
 
-  const updateProfile = useCallback((patch: Partial<MockUser>) => {
-    setUser((u) => (u ? { ...u, ...patch } : u));
-  }, []);
+  const evaluateBadges = useCallback((): string[] => {
+    let unlocked: string[] = [];
+    setUser((u) => {
+      if (!u || u.role !== "diner") return u;
+      const stats = {
+        redemptions: redemptions.length,
+        reviews: userReviews.filter((r) => r.author === u.name || r.fromFeed)
+          .length,
+        feed_posts: u.feedPostCount ?? 0,
+        lifetime_points: u.rewardPointsLifetime ?? 0,
+        savings_ytd: sumField(
+          redemptions,
+          "savingsUsd",
+          Date.now() - ytdStartMs(),
+        ),
+        rewards_claimed: u.rewardsClaimed ?? 0,
+        household: u.familySeats ?? 1,
+        favorites: favorites.length,
+      };
+      const have = new Set(u.badges ?? []);
+      const newly: string[] = [];
+      for (const b of BADGES) {
+        if (have.has(b.id)) continue;
+        const r = b.rule;
+        let ok = false;
+        if (r.type === "redemptions") ok = stats.redemptions >= r.min;
+        else if (r.type === "reviews") ok = stats.reviews >= r.min;
+        else if (r.type === "feed_posts") ok = stats.feed_posts >= r.min;
+        else if (r.type === "lifetime_points")
+          ok = stats.lifetime_points >= r.min;
+        else if (r.type === "savings_ytd") ok = stats.savings_ytd >= r.min;
+        else if (r.type === "rewards_claimed")
+          ok = stats.rewards_claimed >= r.min;
+        else if (r.type === "household") ok = stats.household >= r.min;
+        else if (r.type === "favorites") ok = stats.favorites >= r.min;
+        if (ok) {
+          have.add(b.id);
+          newly.push(b.id);
+        }
+      }
+      unlocked = Array.from(have);
+      if (newly.length === 0) return u;
+      return { ...u, badges: unlocked };
+    });
+    return unlocked;
+  }, [redemptions, userReviews, favorites]);
 
   const addToCart = useCallback(
     (line: Omit<CartLine, "qty">, qty = 1) => {
@@ -485,13 +665,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [cart],
   );
 
-  const toggleFavorite = useCallback((restaurantId: string) => {
-    setFavorites((prev) =>
-      prev.includes(restaurantId)
-        ? prev.filter((id) => id !== restaurantId)
-        : [...prev, restaurantId],
-    );
-  }, []);
+  const toggleFavorite = useCallback(
+    (restaurantId: string) => {
+      setFavorites((prev) => {
+        const removing = prev.includes(restaurantId);
+        if (removing) return prev.filter((id) => id !== restaurantId);
+        // Award points only when adding
+        queueMicrotask(() => {
+          awardPoints("favorite");
+          evaluateBadges();
+        });
+        return [...prev, restaurantId];
+      });
+    },
+    [awardPoints, evaluateBadges],
+  );
 
   const toggleFollow = useCallback((id: string) => {
     setFollowing((prev) =>
@@ -514,16 +702,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const recordRedemption = useCallback(
     (dealId: string, code: string) => {
       const meta = estimateSavings(dealId, partnerDeals);
-      setRedemptions((prev) => [
-        {
-          dealId,
-          code,
-          at: new Date().toISOString(),
-          ...meta,
-        },
-        ...prev,
-      ]);
-      const points = REWARDS.pointsPerRedeem;
+      let isFirst = false;
+      setRedemptions((prev) => {
+        isFirst = prev.length === 0;
+        return [
+          {
+            dealId,
+            code,
+            at: new Date().toISOString(),
+            ...meta,
+          },
+          ...prev,
+        ];
+      });
+      const basePts = POINT_ACTIONS.redeem.points;
+      const bonusPts = isFirst ? POINT_ACTIONS.first_redeem.points : 0;
+      const points = basePts + bonusPts;
       let totalPoints = points;
       setUser((u) => {
         if (!u || u.role !== "diner") return u;
@@ -532,21 +726,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...u,
           rewardPoints: totalPoints,
           rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + points,
+          awardedBonuses: isFirst
+            ? [...(u.awardedBonuses ?? []), "first_redeem"]
+            : u.awardedBonuses,
         };
       });
-      setRewardHistory((prev) => [
-        {
-          id: `rw-${Date.now()}`,
-          at: new Date().toISOString(),
-          type: "earn",
-          points,
-          note: `Redeemed deal · +${points} pts`,
-        },
-        ...prev,
-      ]);
+      setRewardHistory((prev) => {
+        const rows: RewardEvent[] = [
+          {
+            id: `rw-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: basePts,
+            note: POINT_ACTIONS.redeem.label,
+          },
+        ];
+        if (bonusPts > 0) {
+          rows.unshift({
+            id: `rw-first-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: bonusPts,
+            note: POINT_ACTIONS.first_redeem.label,
+          });
+        }
+        return [...rows, ...prev];
+      });
+      queueMicrotask(() => evaluateBadges());
       return { pointsEarned: points, totalPoints };
     },
-    [partnerDeals],
+    [partnerDeals, evaluateBadges],
   );
 
   const claimReward = useCallback(() => {
@@ -573,9 +782,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         },
         ...prev,
       ]);
+      queueMicrotask(() => evaluateBadges());
     }
     return ok;
-  }, []);
+  }, [evaluateBadges]);
 
   const submitRestaurantApplication = useCallback(
     (app: Omit<RestaurantApplication, "at" | "status" | "id">) => {
@@ -739,9 +949,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString().slice(0, 10),
       };
       setUserReviews((prev) => [full, ...prev]);
+      if (full.fromFeed) {
+        setUser((u) =>
+          u
+            ? { ...u, feedPostCount: (u.feedPostCount ?? 0) + 1 }
+            : u,
+        );
+        awardPoints("feed_post");
+      } else {
+        awardPoints("review");
+      }
+      queueMicrotask(() => evaluateBadges());
       return full;
     },
-    [user?.name],
+    [user?.name, awardPoints, evaluateBadges],
   );
 
   const getReviewsForRestaurant = useCallback(
@@ -790,8 +1011,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const orderId = `GP-${Date.now().toString(36).toUpperCase()}`;
     const total = cartTotal;
     setCart([]);
+    awardPoints("order");
     return { orderId, total };
-  }, [cartTotal]);
+  }, [cartTotal, awardPoints]);
 
   const rid = partnerRestaurantId();
   const weekMs = 7 * 24 * 60 * 60 * 1000;
@@ -831,6 +1053,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const rewardPoints = user?.rewardPoints ?? 0;
   const rewardProgress = rewardPoints % REWARDS.pointsPerReward;
   const rewardsAvailable = Math.floor(rewardPoints / REWARDS.pointsPerReward);
+  const householdMembers = user?.householdMembers ?? [];
+  const earnedBadges = user?.badges ?? [];
+  const feedPostCount = user?.feedPostCount ?? 0;
 
   const value: StoreValue = {
     user,
@@ -853,6 +1078,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     signOut,
     activateMembership,
     updateProfile,
+    awardPoints,
+    evaluateBadges,
+    householdMembers,
+    earnedBadges,
     addToCart,
     updateQty,
     clearCart,
@@ -889,6 +1118,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     rewardPoints,
     rewardProgress,
     rewardsAvailable,
+    feedPostCount,
   };
 
   return (

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { getRestaurant } from "@/lib/data";
-import { REWARDS } from "@/lib/pricing";
+import { BADGES, POINT_ACTIONS, REWARDS } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
 
@@ -28,6 +28,8 @@ export default function AccountPage() {
     claimReward,
     rewardHistory,
     resetDemoData,
+    earnedBadges,
+    householdMembers,
   } = useStore();
   const avatarRef = useRef<HTMLInputElement>(null);
   const [claimMsg, setClaimMsg] = useState("");
@@ -168,8 +170,8 @@ export default function AccountPage() {
                   <span className="text-sm font-medium text-muted">pts</span>
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  +{REWARDS.pointsPerRedeem} pts per redeem ·{" "}
-                  {REWARDS.pointsPerReward} pts = {REWARDS.rewardLabel}
+                  Custom points for each task · {REWARDS.pointsPerReward} pts ={" "}
+                  {REWARDS.rewardLabel}
                 </p>
               </div>
               <button
@@ -208,6 +210,19 @@ export default function AccountPage() {
                 />
               </div>
             </div>
+            <div className="mt-4 rounded-md border border-border/80 bg-elevated/50 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                How to earn points
+              </p>
+              <ul className="mt-2 grid gap-1 text-xs text-stone-300 sm:grid-cols-2">
+                {Object.values(POINT_ACTIONS).map((a) => (
+                  <li key={a.label}>
+                    <span className="font-semibold text-brand">+{a.points}</span>{" "}
+                    {a.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
             {claimMsg && (
               <p className="mt-3 text-sm text-success">{claimMsg}</p>
             )}
@@ -223,6 +238,71 @@ export default function AccountPage() {
               </ul>
             )}
           </div>
+
+          <div className="mt-4 gp-card gp-card-static p-5">
+            <p className="gp-section-label">Badges</p>
+            <p className="mt-1 text-xs text-muted">
+              Unlock achievements as you use GorditoPass.{" "}
+              {earnedBadges.length}/{BADGES.length} earned
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {BADGES.map((b) => {
+                const unlocked = earnedBadges.includes(b.id);
+                return (
+                  <div
+                    key={b.id}
+                    className={`rounded-lg border p-3 text-center transition ${
+                      unlocked
+                        ? "border-brand/40 bg-brand/10"
+                        : "border-border bg-elevated/40 opacity-50"
+                    }`}
+                    title={b.description}
+                  >
+                    <p className="text-2xl">{b.emoji}</p>
+                    <p className="mt-1 text-xs font-semibold tracking-tight">
+                      {b.name}
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-snug text-muted">
+                      {b.description}
+                    </p>
+                    {unlocked && (
+                      <p className="mt-1 text-[10px] font-medium text-success">
+                        Unlocked
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {householdMembers.length > 0 && (
+            <div className="mt-4 gp-card gp-card-static p-5">
+              <p className="gp-section-label">Household accounts</p>
+              <p className="mt-1 text-xs text-muted">
+                Created at signup from your family / friends seats.
+              </p>
+              <ul className="mt-3 space-y-2 text-sm">
+                {householdMembers.map((m) => (
+                  <li
+                    key={m.id}
+                    className="rounded-md border border-border bg-elevated/40 px-3 py-2"
+                  >
+                    <p className="font-medium">
+                      {m.firstName} {m.lastName}
+                      {m.isPrimary ? (
+                        <span className="ml-2 text-xs text-brand">Primary</span>
+                      ) : null}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {m.email} · {m.phone}
+                    </p>
+                    <p className="text-xs text-muted">{m.homeAddress}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
 
@@ -311,6 +391,26 @@ export default function AccountPage() {
 
         {isDiner && (
           <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-muted">First name</span>
+                <input
+                  className="gp-input mt-1"
+                  value={user.firstName ?? ""}
+                  onChange={(e) =>
+                    updateProfile({ firstName: e.target.value })
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="text-muted">Last name</span>
+                <input
+                  className="gp-input mt-1"
+                  value={user.lastName ?? ""}
+                  onChange={(e) => updateProfile({ lastName: e.target.value })}
+                />
+              </label>
+            </div>
             <label className="block">
               <span className="text-muted">Birthday</span>
               <input
@@ -328,6 +428,17 @@ export default function AccountPage() {
                 placeholder="(555) 555-5555"
                 value={user.phone ?? ""}
                 onChange={(e) => updateProfile({ phone: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="text-muted">Home address</span>
+              <input
+                className="gp-input mt-1"
+                placeholder="Street, city, state, ZIP"
+                value={user.homeAddress ?? ""}
+                onChange={(e) =>
+                  updateProfile({ homeAddress: e.target.value })
+                }
               />
             </label>
             <label className="block">

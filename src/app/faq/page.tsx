@@ -41,7 +41,15 @@ const FAQS = [
   },
   {
     q: "How do rewards work?",
-    a: "Members earn 10 points each time they redeem a deal. Every 100 points unlocks a free-item reward you can claim from your Account page. Points roll over.",
+    a: "You earn custom points for actions (redeem, review, feed post, favorite, order, join). Default: +10 redeem, +25 first redeem, +15 review, +10 feed post, +5 favorite, +10 order, +50 join. Every 100 points unlocks a free-item reward on your Account page. Point values can be changed by the platform.",
+  },
+  {
+    q: "What are badges?",
+    a: "Badges are achievements you unlock as you use the app — first redeem, multiple reviews, city feed posts, savings milestones, and more. See them on your Account page.",
+  },
+  {
+    q: "How does multi-person membership signup work?",
+    a: "Pick a plan and seats, then fill an intake form for each person (name, email, phone, birthday, home address). Each seat creates an account. Favorite restaurant and food type can be set later in profile.",
   },
 ];
 
