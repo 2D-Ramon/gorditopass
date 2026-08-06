@@ -67,6 +67,7 @@ export const POINT_ACTIONS = {
   order: { points: 10, label: "Place an online order" },
   profile_complete: { points: 20, label: "Complete your profile" },
   join_member: { points: 50, label: "Activate membership" },
+  passport_complete: { points: 40, label: "Complete a cuisine passport" },
 } as const;
 
 export type PointActionId = keyof typeof POINT_ACTIONS;

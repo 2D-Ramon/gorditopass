@@ -48,6 +48,14 @@ const FAQS = [
     a: "Badges are achievements you unlock as you use the app — first redeem, multiple reviews, city feed posts, savings milestones, and more. See them on your Account page.",
   },
   {
+    q: "What are cuisine passports?",
+    a: "Passports group partner restaurants by cuisine/region (Latin & Hispanic, Italian, East Asia, Caribbean, and more). Visit every live restaurant on a passport to earn it. If a new partner joins that category, the passport is paused and you get a notification — visit the new spot to earn it back.",
+  },
+  {
+    q: "How do I log in if my family shares a plan?",
+    a: "Each person on a multi-seat plan gets their own login (email + password or magic link). The plan is shared for billing; accounts are individual so points, passports, and redemptions stay personal. Businesses use staff logins with roles (owner / manager / marketing / employee).",
+  },
+  {
     q: "How does multi-person membership signup work?",
     a: "Pick a plan and seats, then fill an intake form for each person (name, email, phone, birthday, home address). Each seat creates an account. Favorite restaurant and food type can be set later in profile.",
   },

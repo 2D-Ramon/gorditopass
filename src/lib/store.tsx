@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  AppNotification,
   ApplicationStatus,
   CartLine,
   CityId,
@@ -36,8 +37,9 @@ import {
   type PointActionId,
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
+import { getPassportRestaurants, PASSPORTS } from "./passports";
 
-const STORAGE_KEY = "gorditopass-mvp-v7";
+const STORAGE_KEY = "gorditopass-mvp-v8";
 
 interface Persisted {
   user: MockUser | null;
@@ -54,6 +56,7 @@ interface Persisted {
   rewardHistory: RewardEvent[];
   moderatedFeedPosts: ModeratedFeedPost[];
   restaurantApprovalOverrides: Record<string, boolean>;
+  notifications: AppNotification[];
 }
 
 interface StoreValue {
@@ -88,8 +91,16 @@ interface StoreValue {
   ) => number;
   /** Recompute badges from current stats */
   evaluateBadges: () => string[];
+  /** Recompute cuisine passports (earn / revoke + notifications) */
+  evaluatePassports: () => void;
   householdMembers: MemberSeatProfile[];
   earnedBadges: string[];
+  completedPassports: string[];
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  dismissNotification: (id: string) => void;
   addToCart: (line: Omit<CartLine, "qty">, qty?: number) => void;
   updateQty: (menuItemId: string, qty: number) => void;
   clearCart: () => void;
@@ -185,6 +196,8 @@ const defaultUser = (
   firstName: "",
   lastName: "",
   homeAddress: "",
+  completedPassports: [],
+  passportSnapshots: {},
 });
 
 function emptyPersisted(): Persisted {
@@ -203,6 +216,7 @@ function emptyPersisted(): Persisted {
     rewardHistory: [],
     moderatedFeedPosts: [],
     restaurantApprovalOverrides: {},
+    notifications: [],
   };
 }
 
@@ -211,6 +225,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v7") ??
       localStorage.getItem("gorditopass-mvp-v6") ??
       localStorage.getItem("gorditopass-mvp-v5") ??
       localStorage.getItem("gorditopass-mvp-v4") ??
@@ -222,6 +237,7 @@ function load(): Persisted {
     return {
       ...emptyPersisted(),
       ...parsed,
+      notifications: parsed.notifications ?? [],
       redemptions: (parsed.redemptions ?? []).map((r) => ({
         ...r,
         savingsUsd: r.savingsUsd ?? 0,
@@ -254,6 +270,8 @@ function load(): Persisted {
             householdMembers: parsed.user.householdMembers ?? [],
             awardedBonuses: parsed.user.awardedBonuses ?? [],
             feedPostCount: parsed.user.feedPostCount ?? 0,
+            completedPassports: parsed.user.completedPassports ?? [],
+            passportSnapshots: parsed.user.passportSnapshots ?? {},
           }
         : null,
     };
@@ -386,6 +404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   >([]);
   const [restaurantApprovalOverrides, setRestaurantApprovalOverrides] =
     useState<Record<string, boolean>>({});
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [city, setCity] = useState<CityId>("dallas");
 
   useEffect(() => {
@@ -404,6 +423,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRewardHistory(data.rewardHistory);
     setModeratedFeedPosts(data.moderatedFeedPosts);
     setRestaurantApprovalOverrides(data.restaurantApprovalOverrides);
+    setNotifications(data.notifications ?? []);
     if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
@@ -425,6 +445,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       rewardHistory,
       moderatedFeedPosts,
       restaurantApprovalOverrides,
+      notifications,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -443,6 +464,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     rewardHistory,
     moderatedFeedPosts,
     restaurantApprovalOverrides,
+    notifications,
   ]);
 
   const signInDemo = useCallback(
@@ -579,6 +601,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const isRestaurantApproved = useCallback(
+    (restaurantId: string) => {
+      const base = RESTAURANTS.find((r) => r.id === restaurantId)?.approved;
+      const override = restaurantApprovalOverrides[restaurantId];
+      if (override !== undefined) return override;
+      return base ?? false;
+    },
+    [restaurantApprovalOverrides],
+  );
+
   const evaluateBadges = useCallback((): string[] => {
     let unlocked: string[] = [];
     setUser((u) => {
@@ -619,12 +651,116 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           newly.push(b.id);
         }
       }
+      // Passport badges mirror completedPassports
+      for (const pid of u.completedPassports ?? []) {
+        const badgeId = `passport_${pid}`;
+        if (!have.has(badgeId)) {
+          have.add(badgeId);
+          newly.push(badgeId);
+        }
+      }
       unlocked = Array.from(have);
-      if (newly.length === 0) return u;
+      if (newly.length === 0 && unlocked.length === (u.badges ?? []).length)
+        return u;
       return { ...u, badges: unlocked };
     });
     return unlocked;
   }, [redemptions, userReviews, favorites]);
+
+  const evaluatePassports = useCallback(() => {
+    const visited = new Set(
+      redemptions
+        .map((r) => r.restaurantId)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    const notes: AppNotification[] = [];
+    let pointsToAward = 0;
+    let pointNotes: string[] = [];
+
+    setUser((u) => {
+      if (!u || u.role !== "diner") return u;
+
+      let completed = [...(u.completedPassports ?? [])];
+      const snapshots = { ...(u.passportSnapshots ?? {}) };
+      let badges = new Set(u.badges ?? []);
+      let changed = false;
+
+      for (const p of PASSPORTS) {
+        const list = getPassportRestaurants(p, isRestaurantApproved);
+        const currentIds = list.map((r) => r.id).sort();
+        const allVisited =
+          currentIds.length > 0 && currentIds.every((id) => visited.has(id));
+        const wasHeld = completed.includes(p.id);
+        const snap = snapshots[p.id] ?? [];
+        const badgeId = `passport_${p.id}`;
+
+        if (wasHeld) {
+          const newSpots = list.filter((r) => !snap.includes(r.id));
+          if (newSpots.length > 0 || !allVisited) {
+            completed = completed.filter((id) => id !== p.id);
+            delete snapshots[p.id];
+            badges.delete(badgeId);
+            changed = true;
+            const names = newSpots.map((r) => r.name).join(", ");
+            notes.push({
+              id: `n-revoke-${p.id}-${Date.now()}`,
+              at: new Date().toISOString(),
+              type: "passport_revoked",
+              title: `${p.emoji} ${p.name} paused`,
+              body: newSpots.length
+                ? `A new spot joined this passport: ${names}. Visit ${newSpots.length === 1 ? "it" : "them"} to earn your stamp back.`
+                : `Your ${p.name} is incomplete again. Visit the remaining partners to restore it.`,
+              read: false,
+              passportId: p.id,
+            });
+          }
+        } else if (allVisited) {
+          completed.push(p.id);
+          snapshots[p.id] = currentIds;
+          badges.add(badgeId);
+          changed = true;
+          pointsToAward += p.completePoints;
+          pointNotes.push(`${p.name} complete`);
+          notes.push({
+            id: `n-earn-${p.id}-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "passport_earned",
+            title: `${p.emoji} ${p.name} earned!`,
+            body: `You visited every live partner on this passport (+${p.completePoints} pts). Keep exploring the world of food.`,
+            read: false,
+            passportId: p.id,
+          });
+        }
+      }
+
+      if (!changed) return u;
+      return {
+        ...u,
+        completedPassports: completed,
+        passportSnapshots: snapshots,
+        badges: Array.from(badges),
+        rewardPoints: (u.rewardPoints ?? 0) + pointsToAward,
+        rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + pointsToAward,
+      };
+    });
+
+    if (notes.length) {
+      setNotifications((prev) => [...notes, ...prev]);
+    }
+    if (pointsToAward > 0) {
+      setRewardHistory((prev) => [
+        ...pointNotes.map((note, i) => ({
+          id: `rw-pass-${Date.now()}-${i}`,
+          at: new Date().toISOString(),
+          type: "earn" as const,
+          points: Math.round(pointsToAward / pointNotes.length),
+          note,
+        })),
+        ...prev,
+      ]);
+    }
+  }, [redemptions, isRestaurantApproved]);
 
   const addToCart = useCallback(
     (line: Omit<CartLine, "qty">, qty = 1) => {
@@ -752,10 +888,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return [...rows, ...prev];
       });
-      queueMicrotask(() => evaluateBadges());
+      queueMicrotask(() => {
+        evaluateBadges();
+        evaluatePassports();
+      });
       return { pointsEarned: points, totalPoints };
     },
-    [partnerDeals, evaluateBadges],
+    [partnerDeals, evaluateBadges, evaluatePassports],
   );
 
   const claimReward = useCallback(() => {
@@ -834,19 +973,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...prev,
         [restaurantId]: approved,
       }));
+      // New live partner may expand a cuisine passport → revoke if held
+      queueMicrotask(() => evaluatePassports());
     },
-    [],
+    [evaluatePassports],
   );
 
-  const isRestaurantApproved = useCallback(
-    (restaurantId: string) => {
-      if (restaurantId in restaurantApprovalOverrides) {
-        return restaurantApprovalOverrides[restaurantId];
-      }
-      return getRestaurant(restaurantId)?.approved ?? false;
-    },
-    [restaurantApprovalOverrides],
-  );
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   const hideFeedPost = useCallback((post: Omit<ModeratedFeedPost, "hidden">) => {
     setModeratedFeedPosts((prev) => {
@@ -882,6 +1027,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRewardHistory([]);
     setModeratedFeedPosts([]);
     setRestaurantApprovalOverrides({});
+    setNotifications([]);
     setCity("dallas");
   }, []);
 
@@ -1056,6 +1202,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const householdMembers = user?.householdMembers ?? [];
   const earnedBadges = user?.badges ?? [];
   const feedPostCount = user?.feedPostCount ?? 0;
+  const completedPassports = user?.completedPassports ?? [];
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
 
   const value: StoreValue = {
     user,
@@ -1080,8 +1231,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateProfile,
     awardPoints,
     evaluateBadges,
+    evaluatePassports,
     householdMembers,
     earnedBadges,
+    completedPassports,
+    notifications,
+    unreadNotificationCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+    dismissNotification,
     addToCart,
     updateQty,
     clearCart,

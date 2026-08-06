@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { getRestaurant } from "@/lib/data";
 import { BADGES, POINT_ACTIONS, REWARDS } from "@/lib/pricing";
+import { PASSPORTS, passportProgress } from "@/lib/passports";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
 
@@ -30,6 +31,12 @@ export default function AccountPage() {
     resetDemoData,
     earnedBadges,
     householdMembers,
+    completedPassports,
+    isRestaurantApproved,
+    notifications,
+    unreadNotificationCount,
+    markNotificationRead,
+    dismissNotification,
   } = useStore();
   const avatarRef = useRef<HTMLInputElement>(null);
   const [claimMsg, setClaimMsg] = useState("");
@@ -239,11 +246,117 @@ export default function AccountPage() {
             )}
           </div>
 
+          {(unreadNotificationCount > 0 || notifications.length > 0) && (
+            <div className="mt-4 gp-card gp-card-static p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="gp-section-label">
+                  Notifications
+                  {unreadNotificationCount > 0 && (
+                    <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] text-white">
+                      {unreadNotificationCount}
+                    </span>
+                  )}
+                </p>
+                <Link
+                  href="/passports"
+                  className="text-xs text-brand underline"
+                >
+                  Passports →
+                </Link>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {notifications.slice(0, 4).map((n) => (
+                  <li
+                    key={n.id}
+                    className={`rounded-md border px-3 py-2 text-xs ${
+                      n.read
+                        ? "border-border text-muted"
+                        : "border-brand/30 bg-brand/10 text-stone-200"
+                    }`}
+                  >
+                    <p className="font-medium">{n.title}</p>
+                    <p className="mt-0.5 text-muted">{n.body}</p>
+                    <div className="mt-1 flex gap-2">
+                      {!n.read && (
+                        <button
+                          type="button"
+                          className="text-brand"
+                          onClick={() => markNotificationRead(n.id)}
+                        >
+                          Mark read
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="text-muted"
+                        onClick={() => dismissNotification(n.id)}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-4 gp-card gp-card-static p-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="gp-section-label">Cuisine passports</p>
+              <Link href="/passports" className="text-xs text-brand underline">
+                View all
+              </Link>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Visit every live restaurant in a cuisine category. New partners
+              pause the passport until you stamp them.{" "}
+              {completedPassports.length} held
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {PASSPORTS.slice(0, 6).map((p) => {
+                const held = completedPassports.includes(p.id);
+                const visitedIds = new Set(
+                  redemptions
+                    .map((r) => r.restaurantId)
+                    .filter((id): id is string => Boolean(id)),
+                );
+                const prog = passportProgress(
+                  p,
+                  visitedIds,
+                  isRestaurantApproved,
+                );
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-lg border p-3 text-center ${
+                      held
+                        ? "border-brand/40 bg-brand/10"
+                        : "border-border bg-elevated/40"
+                    }`}
+                  >
+                    <p className="text-xl">{p.emoji}</p>
+                    <p className="mt-1 text-[11px] font-semibold leading-tight">
+                      {p.name.replace(" Passport", "")}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted">
+                      {prog.restaurants.length === 0
+                        ? "Soon"
+                        : held
+                          ? "Held ✓"
+                          : `${prog.visited.length}/${prog.restaurants.length}`}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="mt-4 gp-card gp-card-static p-5">
             <p className="gp-section-label">Badges</p>
             <p className="mt-1 text-xs text-muted">
               Unlock achievements as you use GorditoPass.{" "}
-              {earnedBadges.length}/{BADGES.length} earned
+              {earnedBadges.filter((b) => !b.startsWith("passport_")).length}/
+              {BADGES.length} earned · passports count separately
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {BADGES.map((b) => {

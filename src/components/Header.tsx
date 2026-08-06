@@ -10,6 +10,7 @@ import type { CityId } from "@/lib/types";
 
 const dinerLinks = [
   { href: "/explore", label: "Explore" },
+  { href: "/passports", label: "Passports" },
   { href: "/events", label: "Events" },
   { href: "/jobs", label: "Jobs" },
   { href: "/feed", label: "City feed" },
@@ -20,7 +21,15 @@ const businessLinks = [{ href: "/for-restaurants", label: "For restaurants" }];
 
 export function Header() {
   const pathname = usePathname();
-  const { user, cartCount, signInDemo, signOut, city, setCity } = useStore();
+  const {
+    user,
+    cartCount,
+    signInDemo,
+    signOut,
+    city,
+    setCity,
+    unreadNotificationCount,
+  } = useStore();
   const [open, setOpen] = useState(false);
 
   const isActive = (href: string) =>
@@ -91,6 +100,20 @@ export function Header() {
               ))}
             </select>
           </label>
+
+          <Link
+            href="/passports"
+            className="gp-btn gp-btn-ghost relative text-sm"
+            aria-label="Passports and notifications"
+            title="Passports"
+          >
+            🛂
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+              </span>
+            )}
+          </Link>
 
           <Link
             href="/cart"

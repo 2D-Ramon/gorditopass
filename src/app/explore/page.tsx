@@ -9,11 +9,18 @@ import type { Cuisine } from "@/lib/types";
 const CUISINES: (Cuisine | "all")[] = [
   "all",
   "mexican",
+  "latin",
   "pizza",
+  "italian",
   "bbq",
   "wings",
   "american",
-  "italian",
+  "japanese",
+  "thai",
+  "indian",
+  "mediterranean",
+  "french",
+  "caribbean",
 ];
 
 export default function ExplorePage() {

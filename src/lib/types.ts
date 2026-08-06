@@ -2,11 +2,28 @@ export type CityId = "dallas" | "kansas-city" | "tulsa" | "okc";
 
 export type Cuisine =
   | "mexican"
+  | "latin"
+  | "texmex"
   | "italian"
   | "bbq"
   | "american"
   | "wings"
   | "pizza"
+  | "japanese"
+  | "chinese"
+  | "korean"
+  | "thai"
+  | "vietnamese"
+  | "indian"
+  | "mediterranean"
+  | "greek"
+  | "middle_eastern"
+  | "french"
+  | "caribbean"
+  | "african"
+  | "ethiopian"
+  | "moroccan"
+  | "german"
   | "other";
 
 export type DealType =
@@ -185,6 +202,28 @@ export interface MockUser {
   awardedBonuses?: string[];
   /** Count of city feed posts by this user (demo) */
   feedPostCount?: number;
+  /**
+   * Passport ids currently held (all restaurants in category visited).
+   * Revoked when a new restaurant joins that passport until visited.
+   */
+  completedPassports?: string[];
+  /** Restaurant ids that counted when the passport was last earned */
+  passportSnapshots?: Record<string, string[]>;
+}
+
+export type NotificationType =
+  | "passport_earned"
+  | "passport_revoked"
+  | "info";
+
+export interface AppNotification {
+  id: string;
+  at: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  read: boolean;
+  passportId?: string;
 }
 
 export interface Redemption {
