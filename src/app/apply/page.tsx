@@ -30,7 +30,13 @@ export default function ApplyPage() {
   const [address, setAddress] = useState("");
   const [plannedStartDate, setPlannedStartDate] = useState(minStartDate());
   const [uploads, setUploads] = useState<
-    { label: string; fileName: string }[]
+    {
+      label: string;
+      fileName: string;
+      sizeBytes?: number;
+      mimeType?: string;
+      dataUrl?: string;
+    }[]
   >([]);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -39,10 +45,23 @@ export default function ApplyPage() {
 
   function addUpload(label: string, file: File | undefined) {
     if (!file) return;
-    setUploads((prev) => {
-      const without = prev.filter((u) => u.label !== label);
-      return [...without, { label, fileName: file.name }];
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploads((prev) => {
+        const without = prev.filter((u) => u.label !== label);
+        return [
+          ...without,
+          {
+            label,
+            fileName: file.name,
+            sizeBytes: file.size,
+            mimeType: file.type,
+            dataUrl: String(reader.result),
+          },
+        ];
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
   return (

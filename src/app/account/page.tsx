@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { getRestaurant } from "@/lib/data";
 import { BADGES, POINT_ACTIONS, REWARDS } from "@/lib/pricing";
 import { PASSPORTS, passportProgress } from "@/lib/passports";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
 
-export default function AccountPage() {
+type TabId = "profile" | "passports" | "badges" | "household" | "staff";
+
+function AccountInner() {
+  const search = useSearchParams();
   const {
     user,
     signInDemo,
@@ -36,44 +40,73 @@ export default function AccountPage() {
     notifications,
     unreadNotificationCount,
     markNotificationRead,
+    markAllNotificationsRead,
     dismissNotification,
+    inviteStaffAccount,
+    accounts,
+    loginWithPassword,
   } = useStore();
+
   const avatarRef = useRef<HTMLInputElement>(null);
   const [claimMsg, setClaimMsg] = useState("");
+  const [tab, setTab] = useState<TabId>("profile");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState<StaffRole>("employee");
+  const [staffMsg, setStaffMsg] = useState("");
+
+  useEffect(() => {
+    const t = search.get("tab");
+    if (
+      t === "passports" ||
+      t === "badges" ||
+      t === "household" ||
+      t === "staff" ||
+      t === "profile"
+    ) {
+      setTab(t);
+    }
+  }, [search]);
+
+  const visited = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of redemptions) {
+      if (r.restaurantId) s.add(r.restaurantId);
+    }
+    return s;
+  }, [redemptions]);
 
   if (!user) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="gp-page-title">Account</h1>
-        <p className="mt-2 text-muted">Demo auth — pick a role to explore.</p>
+        <p className="mt-2 text-muted">
+          Sign in with your own email — one person, one login.
+        </p>
         <div className="mt-6 flex flex-col gap-2">
+          <Link href="/login" className="gp-btn gp-btn-primary">
+            Sign in / create account
+          </Link>
           <button
             type="button"
-            className="gp-btn gp-btn-primary"
+            className="gp-btn gp-btn-secondary"
             onClick={() => signInDemo("diner")}
           >
-            Sign in as diner
+            Quick demo diner
           </button>
           <button
             type="button"
             className="gp-btn gp-btn-secondary"
             onClick={() => signInDemo("restaurant", "owner")}
           >
-            Sign in as restaurant (owner)
-          </button>
-          <button
-            type="button"
-            className="gp-btn gp-btn-secondary"
-            onClick={() => signInDemo("restaurant", "employee")}
-          >
-            Sign in as restaurant (employee)
+            Quick demo restaurant (owner)
           </button>
           <button
             type="button"
             className="gp-btn gp-btn-secondary"
             onClick={() => signInDemo("admin")}
           >
-            Sign in as admin
+            Quick demo admin
           </button>
         </div>
       </div>
@@ -82,10 +115,33 @@ export default function AccountPage() {
 
   const isDiner = user.role === "diner";
   const isRestaurant = user.role === "restaurant";
+  const canInviteStaff =
+    isRestaurant &&
+    (user.staffRole === "owner" || user.staffRole === "manager");
+
+  const tabs: { id: TabId; label: string; show: boolean }[] = [
+    { id: "profile", label: "Profile", show: true },
+    { id: "passports", label: "Passports", show: isDiner },
+    { id: "badges", label: "Badges", show: isDiner },
+    {
+      id: "household",
+      label: "Household",
+      show: isDiner && (householdMembers.length > 0 || user.isMember),
+    },
+    { id: "staff", label: "Staff logins", show: canInviteStaff },
+  ];
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-10">
+    <div className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="gp-page-title">Account</h1>
+      <p className="gp-page-sub">
+        {user.name} · {user.email}
+        {unreadNotificationCount > 0 && isDiner ? (
+          <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">
+            {unreadNotificationCount} new
+          </span>
+        ) : null}
+      </p>
 
       {(isDiner || isRestaurant) && (
         <div className="mt-6 flex items-center gap-4">
@@ -129,149 +185,311 @@ export default function AccountPage() {
             <p className="font-semibold">{user.name}</p>
             <p className="text-xs text-muted">
               {isRestaurant
-                ? `Tap to upload logo / photo · ${user.staffRole ?? "owner"}`
-                : "Tap icon to upload a photo"}
+                ? `Tap to upload logo · ${user.staffRole ?? "owner"}`
+                : "Tap to upload a photo"}
             </p>
           </div>
         </div>
       )}
 
       {isDiner && (
-        <>
-          <div className="mt-6 grid grid-cols-3 gap-2">
-            <div className="gp-card gp-card-static p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                Week
-              </p>
-              <p className="mt-1 text-lg font-bold text-success">
-                ${savingsWeek.toFixed(0)}
-              </p>
-              <p className="text-[10px] text-muted">saved</p>
-            </div>
-            <div className="gp-card gp-card-static p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                Month
-              </p>
-              <p className="mt-1 text-lg font-bold text-success">
-                ${savingsMonth.toFixed(0)}
-              </p>
-              <p className="text-[10px] text-muted">saved</p>
-            </div>
-            <div className="gp-card gp-card-static p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                YTD
-              </p>
-              <p className="mt-1 text-lg font-bold text-success">
-                ${savingsYtd.toFixed(0)}
-              </p>
-              <p className="text-[10px] text-muted">saved</p>
-            </div>
+        <div className="mt-6 grid grid-cols-3 gap-2">
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Week
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${savingsWeek.toFixed(0)}
+            </p>
           </div>
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Month
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${savingsMonth.toFixed(0)}
+            </p>
+          </div>
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+              YTD
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${savingsYtd.toFixed(0)}
+            </p>
+          </div>
+        </div>
+      )}
 
-          <div className="mt-4 gp-card gp-card-static p-5">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="gp-section-label">Rewards</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight">
-                  {rewardPoints}{" "}
-                  <span className="text-sm font-medium text-muted">pts</span>
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  Custom points for each task · {REWARDS.pointsPerReward} pts ={" "}
-                  {REWARDS.rewardLabel}
-                </p>
+      {isRestaurant && (
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase text-muted">
+              Rev · week
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${partnerRevenueWeek.toFixed(0)}
+            </p>
+          </div>
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase text-muted">
+              Rev · month
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${partnerRevenueMonth.toFixed(0)}
+            </p>
+          </div>
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase text-muted">
+              Rev · YTD
+            </p>
+            <p className="mt-1 text-lg font-bold text-success">
+              ${partnerRevenueYtd.toFixed(0)}
+            </p>
+          </div>
+          <div className="gp-card gp-card-static p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase text-muted">
+              Redeems
+            </p>
+            <p className="mt-1 text-lg font-bold text-brand-gold">
+              {partnerRedemptionCount}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mt-8 flex flex-wrap gap-1 border-b border-border pb-2">
+        {tabs
+          .filter((t) => t.show)
+          .map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                tab === t.id
+                  ? "bg-brand/20 text-brand"
+                  : "text-muted hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              {t.label}
+              {t.id === "passports" && unreadNotificationCount > 0
+                ? ` (${unreadNotificationCount})`
+                : ""}
+            </button>
+          ))}
+      </div>
+
+      {tab === "profile" && (
+        <div className="mt-6 space-y-4">
+          {isDiner && (
+            <div className="gp-card gp-card-static p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="gp-section-label">Rewards</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {rewardPoints}{" "}
+                    <span className="text-sm font-medium text-muted">pts</span>
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {REWARDS.pointsPerReward} pts = {REWARDS.rewardLabel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={rewardsAvailable < 1}
+                  className="gp-btn gp-btn-primary text-sm disabled:opacity-40"
+                  onClick={() => {
+                    const ok = claimReward();
+                    setClaimMsg(
+                      ok
+                        ? `Claimed ${REWARDS.rewardLabel}!`
+                        : `Need ${REWARDS.pointsPerReward - rewardProgress} more pts.`,
+                    );
+                  }}
+                >
+                  Claim reward
+                  {rewardsAvailable > 0 ? ` (${rewardsAvailable})` : ""}
+                </button>
               </div>
-              <button
-                type="button"
-                disabled={rewardsAvailable < 1}
-                className="gp-btn gp-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={() => {
-                  const ok = claimReward();
-                  setClaimMsg(
-                    ok
-                      ? `Claimed ${REWARDS.rewardLabel}! Show this to staff.`
-                      : `Need ${REWARDS.pointsPerReward - rewardProgress} more points.`,
-                  );
-                }}
-              >
-                Claim reward
-                {rewardsAvailable > 0 ? ` (${rewardsAvailable})` : ""}
-              </button>
-            </div>
-            <div className="mt-4">
-              <div className="mb-1 flex justify-between text-[11px] text-muted">
-                <span>Progress to next free item</span>
-                <span>
-                  {rewardProgress}/{REWARDS.pointsPerReward}
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-elevated ring-1 ring-border">
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-elevated ring-1 ring-border">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand to-brand-gold transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-brand to-brand-gold"
                   style={{
-                    width: `${Math.min(
-                      100,
-                      (rewardProgress / REWARDS.pointsPerReward) * 100,
-                    )}%`,
+                    width: `${Math.min(100, (rewardProgress / REWARDS.pointsPerReward) * 100)}%`,
                   }}
                 />
               </div>
-            </div>
-            <div className="mt-4 rounded-md border border-border/80 bg-elevated/50 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                How to earn points
-              </p>
-              <ul className="mt-2 grid gap-1 text-xs text-stone-300 sm:grid-cols-2">
+              {claimMsg && (
+                <p className="mt-2 text-sm text-success">{claimMsg}</p>
+              )}
+              <ul className="mt-3 space-y-1 text-[11px] text-muted sm:grid sm:grid-cols-2 sm:gap-1">
                 {Object.values(POINT_ACTIONS).map((a) => (
                   <li key={a.label}>
-                    <span className="font-semibold text-brand">+{a.points}</span>{" "}
-                    {a.label}
+                    <span className="text-brand">+{a.points}</span> {a.label}
                   </li>
                 ))}
               </ul>
+              {rewardHistory.length > 0 && (
+                <ul className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted">
+                  {rewardHistory.slice(0, 4).map((h) => (
+                    <li key={h.id}>
+                      {h.type === "earn" ? "+" : ""}
+                      {h.points} · {h.note}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {claimMsg && (
-              <p className="mt-3 text-sm text-success">{claimMsg}</p>
+          )}
+
+          <div className="gp-card gp-card-static space-y-3 p-5 text-sm">
+            <p>
+              <span className="text-muted">Email:</span> {user.email}
+            </p>
+            <p>
+              <span className="text-muted">Role:</span> {user.role}
+              {user.staffRole ? ` · ${user.staffRole}` : ""}
+            </p>
+            {isDiner && (
+              <p>
+                <span className="text-muted">Member:</span>{" "}
+                {user.isMember
+                  ? `Yes (${user.planId}, ${user.familySeats} seats)`
+                  : "No"}
+              </p>
             )}
-            {rewardHistory.length > 0 && (
-              <ul className="mt-4 space-y-1 border-t border-border pt-3 text-xs text-muted">
-                {rewardHistory.slice(0, 5).map((h) => (
-                  <li key={h.id}>
-                    {h.type === "earn" ? "+" : ""}
-                    {h.points} · {h.note} ·{" "}
-                    {new Date(h.at).toLocaleString()}
-                  </li>
-                ))}
-              </ul>
+            {isRestaurant && (
+              <label className="block">
+                <span className="text-muted">Staff role (demo)</span>
+                <select
+                  className="gp-input mt-1"
+                  value={user.staffRole ?? "owner"}
+                  onChange={(e) =>
+                    updateProfile({ staffRole: e.target.value as StaffRole })
+                  }
+                >
+                  <option value="owner">Owner</option>
+                  <option value="manager">Manager</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="employee">Employee</option>
+                </select>
+              </label>
+            )}
+            {isDiner && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-muted">First name</span>
+                    <input
+                      className="gp-input mt-1"
+                      value={user.firstName ?? ""}
+                      onChange={(e) =>
+                        updateProfile({ firstName: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-muted">Last name</span>
+                    <input
+                      className="gp-input mt-1"
+                      value={user.lastName ?? ""}
+                      onChange={(e) =>
+                        updateProfile({ lastName: e.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-muted">Birthday</span>
+                  <input
+                    type="date"
+                    className="gp-input mt-1"
+                    value={user.birthday ?? ""}
+                    onChange={(e) =>
+                      updateProfile({ birthday: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-muted">Phone</span>
+                  <input
+                    type="tel"
+                    className="gp-input mt-1"
+                    value={user.phone ?? ""}
+                    onChange={(e) => updateProfile({ phone: e.target.value })}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-muted">Home address</span>
+                  <input
+                    className="gp-input mt-1"
+                    value={user.homeAddress ?? ""}
+                    onChange={(e) =>
+                      updateProfile({ homeAddress: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-muted">Favorite restaurant</span>
+                  <input
+                    className="gp-input mt-1"
+                    value={user.favoriteRestaurant ?? ""}
+                    onChange={(e) =>
+                      updateProfile({ favoriteRestaurant: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-muted">Favorite food type</span>
+                  <input
+                    className="gp-input mt-1"
+                    value={user.favoriteFoodType ?? ""}
+                    onChange={(e) =>
+                      updateProfile({ favoriteFoodType: e.target.value })
+                    }
+                  />
+                </label>
+              </>
             )}
           </div>
+        </div>
+      )}
 
-          {(unreadNotificationCount > 0 || notifications.length > 0) && (
-            <div className="mt-4 gp-card gp-card-static p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="gp-section-label">
-                  Notifications
-                  {unreadNotificationCount > 0 && (
-                    <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] text-white">
-                      {unreadNotificationCount}
-                    </span>
-                  )}
+      {tab === "passports" && isDiner && (
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="gp-section-label">Notifications</p>
+                <p className="mt-1 text-xs text-muted">
+                  New restaurants to stamp — your points never go down.
                 </p>
-                <Link
-                  href="/passports"
-                  className="text-xs text-brand underline"
-                >
-                  Passports →
-                </Link>
               </div>
+              {unreadNotificationCount > 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-brand underline"
+                  onClick={markAllNotificationsRead}
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+            {notifications.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">No notifications yet.</p>
+            ) : (
               <ul className="mt-3 space-y-2">
-                {notifications.slice(0, 4).map((n) => (
+                {notifications.slice(0, 10).map((n) => (
                   <li
                     key={n.id}
                     className={`rounded-md border px-3 py-2 text-xs ${
                       n.read
                         ? "border-border text-muted"
-                        : "border-brand/30 bg-brand/10 text-stone-200"
+                        : n.type === "passport_revoked"
+                          ? "border-amber-500/40 bg-amber-500/10 text-stone-200"
+                          : "border-brand/30 bg-brand/10 text-stone-200"
                     }`}
                   >
                     <p className="font-medium">{n.title}</p>
@@ -297,296 +515,296 @@ export default function AccountPage() {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          <div className="mt-4 gp-card gp-card-static p-5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="gp-section-label">Cuisine passports</p>
-              <Link href="/passports" className="text-xs text-brand underline">
-                View all
-              </Link>
-            </div>
-            <p className="mt-1 text-xs text-muted">
-              Visit every live restaurant in a cuisine category. New partners
-              pause the passport until you stamp them.{" "}
-              {completedPassports.length} held
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {PASSPORTS.slice(0, 6).map((p) => {
-                const held = completedPassports.includes(p.id);
-                const visitedIds = new Set(
-                  redemptions
-                    .map((r) => r.restaurantId)
-                    .filter((id): id is string => Boolean(id)),
-                );
-                const prog = passportProgress(
-                  p,
-                  visitedIds,
-                  isRestaurantApproved,
-                );
-                return (
-                  <div
-                    key={p.id}
-                    className={`rounded-lg border p-3 text-center ${
-                      held
-                        ? "border-brand/40 bg-brand/10"
-                        : "border-border bg-elevated/40"
-                    }`}
-                  >
-                    <p className="text-xl">{p.emoji}</p>
-                    <p className="mt-1 text-[11px] font-semibold leading-tight">
-                      {p.name.replace(" Passport", "")}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted">
-                      {prog.restaurants.length === 0
-                        ? "Soon"
-                        : held
-                          ? "Held ✓"
-                          : `${prog.visited.length}/${prog.restaurants.length}`}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+            )}
           </div>
 
-          <div className="mt-4 gp-card gp-card-static p-5">
-            <p className="gp-section-label">Badges</p>
-            <p className="mt-1 text-xs text-muted">
-              Unlock achievements as you use GorditoPass.{" "}
-              {earnedBadges.filter((b) => !b.startsWith("passport_")).length}/
-              {BADGES.length} earned · passports count separately
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {BADGES.map((b) => {
-                const unlocked = earnedBadges.includes(b.id);
-                return (
-                  <div
-                    key={b.id}
-                    className={`rounded-lg border p-3 text-center transition ${
-                      unlocked
-                        ? "border-brand/40 bg-brand/10"
-                        : "border-border bg-elevated/40 opacity-50"
-                    }`}
-                    title={b.description}
-                  >
-                    <p className="text-2xl">{b.emoji}</p>
-                    <p className="mt-1 text-xs font-semibold tracking-tight">
-                      {b.name}
+          <p className="text-sm text-muted">
+            Visit every live partner in a category to earn the passport badge.
+            First completion awards points once. New partners pause the badge
+            only — points stay.
+          </p>
+
+          {PASSPORTS.map((p) => {
+            const prog = passportProgress(p, visited, isRestaurantApproved);
+            const held = completedPassports.includes(p.id);
+            return (
+              <article
+                key={p.id}
+                className={`gp-card gp-card-static p-5 ${
+                  held ? "ring-1 ring-brand/40" : ""
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-2xl">{p.emoji}</p>
+                    <h2 className="mt-1 font-semibold tracking-tight">
+                      {p.name}
+                    </h2>
+                    <p className="text-xs uppercase tracking-wider text-muted">
+                      {p.region}
                     </p>
-                    <p className="mt-0.5 text-[10px] leading-snug text-muted">
-                      {b.description}
-                    </p>
-                    {unlocked && (
-                      <p className="mt-1 text-[10px] font-medium text-success">
-                        Unlocked
-                      </p>
+                    <p className="mt-2 text-sm text-muted">{p.description}</p>
+                  </div>
+                  <div className="text-right text-sm">
+                    {held ? (
+                      <span className="text-brand font-semibold">Held ✓</span>
+                    ) : prog.restaurants.length === 0 ? (
+                      <span className="text-muted">Coming soon</span>
+                    ) : (
+                      <span className="text-muted">
+                        {prog.visited.length}/{prog.restaurants.length} ·{" "}
+                        {prog.percent}%
+                      </span>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+                {prog.restaurants.length > 0 && (
+                  <>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-elevated ring-1 ring-border">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-brand to-brand-gold"
+                        style={{ width: `${prog.percent}%` }}
+                      />
+                    </div>
+                    <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {prog.restaurants.map((r) => {
+                        const stamped = visited.has(r.id);
+                        return (
+                          <li key={r.id}>
+                            <Link
+                              href={`/restaurants/${r.id}`}
+                              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                                stamped
+                                  ? "border-success/30 bg-success/10"
+                                  : "border-border bg-elevated/40"
+                              }`}
+                            >
+                              <span>{r.emoji}</span>
+                              <span className="flex-1 font-medium">
+                                {r.name}
+                              </span>
+                              <span className="text-[10px] text-muted">
+                                {stamped ? "✓" : "Visit"}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </article>
+            );
+          })}
 
-          {householdMembers.length > 0 && (
-            <div className="mt-4 gp-card gp-card-static p-5">
-              <p className="gp-section-label">Household accounts</p>
-              <p className="mt-1 text-xs text-muted">
-                Created at signup from your family / friends seats.
-              </p>
-              <ul className="mt-3 space-y-2 text-sm">
-                {householdMembers.map((m) => (
-                  <li
-                    key={m.id}
-                    className="rounded-md border border-border bg-elevated/40 px-3 py-2"
-                  >
-                    <p className="font-medium">
-                      {m.firstName} {m.lastName}
-                      {m.isPrimary ? (
-                        <span className="ml-2 text-xs text-brand">Primary</span>
-                      ) : null}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {m.email} · {m.phone}
-                    </p>
-                    <p className="text-xs text-muted">{m.homeAddress}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+          <p className="text-xs text-muted">
+            Demo: complete Latin (Mi Tierra + Casa Arepa), then as admin approve{" "}
+            <strong className="text-stone-300">El Sabor Nuevo</strong> — Latin
+            badge pauses with a notification; other passports stay; points stay.
+          </p>
+        </div>
       )}
 
-      {isRestaurant && (
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="gp-card gp-card-static p-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-              Rev · week
-            </p>
-            <p className="mt-1 text-lg font-bold text-success">
-              ${partnerRevenueWeek.toFixed(0)}
-            </p>
-          </div>
-          <div className="gp-card gp-card-static p-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-              Rev · month
-            </p>
-            <p className="mt-1 text-lg font-bold text-success">
-              ${partnerRevenueMonth.toFixed(0)}
-            </p>
-          </div>
-          <div className="gp-card gp-card-static p-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-              Rev · YTD
-            </p>
-            <p className="mt-1 text-lg font-bold text-success">
-              ${partnerRevenueYtd.toFixed(0)}
-            </p>
-          </div>
-          <div className="gp-card gp-card-static p-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-              Redemptions
-            </p>
-            <p className="mt-1 text-lg font-bold text-brand-gold">
-              {partnerRedemptionCount}
-            </p>
-            <p className="text-[10px] text-muted">total</p>
+      {tab === "badges" && isDiner && (
+        <div className="mt-6 gp-card gp-card-static p-5">
+          <p className="gp-section-label">Achievement badges</p>
+          <p className="mt-1 text-xs text-muted">
+            {earnedBadges.filter((b) => !b.startsWith("passport_")).length}/
+            {BADGES.length} earned
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {BADGES.map((b) => {
+              const unlocked = earnedBadges.includes(b.id);
+              return (
+                <div
+                  key={b.id}
+                  className={`rounded-lg border p-3 text-center ${
+                    unlocked
+                      ? "border-brand/40 bg-brand/10"
+                      : "border-border bg-elevated/40 opacity-50"
+                  }`}
+                >
+                  <p className="text-2xl">{b.emoji}</p>
+                  <p className="mt-1 text-xs font-semibold">{b.name}</p>
+                  <p className="mt-0.5 text-[10px] text-muted">
+                    {b.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <div className="mt-6 gp-card gp-card-static space-y-3 p-5 text-sm">
-        <p>
-          <span className="text-muted">Name:</span> {user.name}
-        </p>
-        <p>
-          <span className="text-muted">Email:</span> {user.email}
-        </p>
-        <p>
-          <span className="text-muted">Role:</span> {user.role}
-          {user.staffRole ? ` · ${user.staffRole}` : ""}
-        </p>
-        <p>
-          <span className="text-muted">City:</span> {user.city}
-        </p>
-        {isDiner && (
-          <p>
-            <span className="text-muted">Member:</span>{" "}
-            {user.isMember
-              ? `Yes (${user.planId}, ${user.familySeats} seats)`
-              : "No"}
+      {tab === "household" && isDiner && (
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Household / plan seats</p>
+            <p className="mt-1 text-sm text-muted">
+              Shared billing plan — each person signs in with{" "}
+              <strong className="text-stone-300">their own email</strong>. Default
+              demo password: <code className="text-stone-300">demo1234</code>
+            </p>
+            {householdMembers.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">
+                No household seats yet.{" "}
+                <Link href="/membership" className="text-brand underline">
+                  Add seats at membership signup
+                </Link>
+                .
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-2">
+                {householdMembers.map((m) => {
+                  const hasLogin = accounts.some(
+                    (a) =>
+                      a.email.toLowerCase() === m.email.trim().toLowerCase(),
+                  );
+                  return (
+                    <li
+                      key={m.id}
+                      className="rounded-md border border-border bg-elevated/40 px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium">
+                        {m.firstName} {m.lastName}
+                        {m.isPrimary ? (
+                          <span className="ml-2 text-xs text-brand">
+                            Primary (billing)
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {m.email} · {m.phone}
+                      </p>
+                      <p className="text-xs text-muted">{m.homeAddress}</p>
+                      <p className="mt-1 text-[11px] text-success">
+                        {hasLogin
+                          ? "Login account ready"
+                          : "Login created at signup"}
+                      </p>
+                      {!m.isPrimary && hasLogin && (
+                        <button
+                          type="button"
+                          className="mt-2 text-xs text-brand underline"
+                          onClick={() => {
+                            loginWithPassword(m.email, "demo1234");
+                          }}
+                        >
+                          Switch to this person (demo)
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "staff" && canInviteStaff && (
+        <div className="mt-6 gp-card gp-card-static p-5">
+          <p className="gp-section-label">Invite staff (separate logins)</p>
+          <p className="mt-1 text-sm text-muted">
+            Never share the owner password. Each employee gets their own email
+            login and role.
           </p>
-        )}
-
-        {isRestaurant && (
-          <label className="block">
-            <span className="text-muted">Staff role (demo switch)</span>
-            <select
-              className="gp-input mt-1"
-              value={user.staffRole ?? "owner"}
-              onChange={(e) =>
-                updateProfile({ staffRole: e.target.value as StaffRole })
+          <form
+            className="mt-4 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const res = inviteStaffAccount({
+                email: staffEmail,
+                name: staffName,
+                staffRole,
+              });
+              setStaffMsg(
+                res.ok
+                  ? `Invited ${staffEmail} as ${staffRole}. They sign in with password demo1234.`
+                  : res.error ?? "Failed",
+              );
+              if (res.ok) {
+                setStaffEmail("");
+                setStaffName("");
               }
-            >
-              <option value="owner">Owner</option>
-              <option value="manager">Manager</option>
-              <option value="marketing">Marketing</option>
-              <option value="employee">Employee</option>
-            </select>
-            <span className="mt-1 block text-xs text-muted">
-              Only owner / manager / marketing can edit deals, menu, events, and
-              jobs. Employees can redeem only.
-            </span>
-          </label>
-        )}
+            }}
+          >
+            <label className="block text-sm">
+              Name
+              <input
+                required
+                className="gp-input mt-1"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Email
+              <input
+                required
+                type="email"
+                className="gp-input mt-1"
+                value={staffEmail}
+                onChange={(e) => setStaffEmail(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Role
+              <select
+                className="gp-input mt-1"
+                value={staffRole}
+                onChange={(e) => setStaffRole(e.target.value as StaffRole)}
+              >
+                <option value="manager">Manager</option>
+                <option value="marketing">Marketing</option>
+                <option value="employee">Employee (redeem only)</option>
+                <option value="owner">Owner</option>
+              </select>
+            </label>
+            <button type="submit" className="gp-btn gp-btn-primary text-sm">
+              Create staff login
+            </button>
+            {staffMsg && (
+              <p className="text-sm text-success">{staffMsg}</p>
+            )}
+          </form>
+          <ul className="mt-4 space-y-1 text-xs text-muted">
+            {accounts
+              .filter((a) => a.role === "restaurant")
+              .map((a) => (
+                <li key={a.id}>
+                  {a.name} · {a.email} · {a.staffRole ?? "—"}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
-        {isDiner && (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-muted">First name</span>
-                <input
-                  className="gp-input mt-1"
-                  value={user.firstName ?? ""}
-                  onChange={(e) =>
-                    updateProfile({ firstName: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block">
-                <span className="text-muted">Last name</span>
-                <input
-                  className="gp-input mt-1"
-                  value={user.lastName ?? ""}
-                  onChange={(e) => updateProfile({ lastName: e.target.value })}
-                />
-              </label>
-            </div>
-            <label className="block">
-              <span className="text-muted">Birthday</span>
-              <input
-                type="date"
-                className="gp-input mt-1"
-                value={user.birthday ?? ""}
-                onChange={(e) => updateProfile({ birthday: e.target.value })}
-              />
-            </label>
-            <label className="block">
-              <span className="text-muted">Phone number</span>
-              <input
-                type="tel"
-                className="gp-input mt-1"
-                placeholder="(555) 555-5555"
-                value={user.phone ?? ""}
-                onChange={(e) => updateProfile({ phone: e.target.value })}
-              />
-            </label>
-            <label className="block">
-              <span className="text-muted">Home address</span>
-              <input
-                className="gp-input mt-1"
-                placeholder="Street, city, state, ZIP"
-                value={user.homeAddress ?? ""}
-                onChange={(e) =>
-                  updateProfile({ homeAddress: e.target.value })
-                }
-              />
-            </label>
-            <label className="block">
-              <span className="text-muted">Favorite restaurant</span>
-              <input
-                className="gp-input mt-1"
-                placeholder="e.g. Mi Tierra Cocina"
-                value={user.favoriteRestaurant ?? ""}
-                onChange={(e) =>
-                  updateProfile({ favoriteRestaurant: e.target.value })
-                }
-              />
-            </label>
-            <label className="block">
-              <span className="text-muted">Favorite food type</span>
-              <input
-                className="gp-input mt-1"
-                placeholder="e.g. Mexican, BBQ, pizza"
-                value={user.favoriteFoodType ?? ""}
-                onChange={(e) =>
-                  updateProfile({ favoriteFoodType: e.target.value })
-                }
-              />
-            </label>
-          </>
-        )}
-      </div>
+      {isDiner && favorites.length > 0 && tab === "profile" && (
+        <div className="mt-6 gp-card gp-card-static p-5">
+          <p className="gp-section-label">Want to try</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {favorites.map((id) => (
+              <li key={id}>
+                <Link
+                  href={`/restaurants/${id}`}
+                  className="text-brand underline"
+                >
+                  {getRestaurant(id)?.name ?? id}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {!user.isMember && user.role === "diner" && (
+      <div className="mt-8 flex flex-wrap gap-2">
+        {!user.isMember && isDiner && (
           <Link href="/membership" className="gp-btn gp-btn-primary text-sm">
             Get membership
           </Link>
         )}
-        {user.role === "restaurant" && (
+        {isRestaurant && (
           <Link
             href="/restaurant/dashboard"
             className="gp-btn gp-btn-secondary text-sm"
@@ -599,6 +817,9 @@ export default function AccountPage() {
             Admin
           </Link>
         )}
+        <Link href="/login" className="gp-btn gp-btn-ghost text-sm">
+          Switch account
+        </Link>
         <button
           type="button"
           onClick={signOut}
@@ -618,58 +839,20 @@ export default function AccountPage() {
           Reset demo
         </button>
       </div>
-
-      {isDiner && (
-        <>
-          <div className="mt-8">
-            <h2 className="font-semibold tracking-tight">Want to try</h2>
-            {favorites.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">
-                No restaurants saved yet. Tap “Want to try” on a restaurant
-                page.
-              </p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {favorites.map((id) => {
-                  const r = getRestaurant(id);
-                  return (
-                    <li key={id}>
-                      <Link
-                        href={`/restaurants/${id}`}
-                        className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm hover:border-brand/40"
-                      >
-                        <span>{r?.emoji ?? "🍽️"}</span>
-                        <span className="font-medium">{r?.name ?? id}</span>
-                        {r && (
-                          <span className="text-xs text-muted">
-                            · {r.neighborhood}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          <div className="mt-8">
-            <h2 className="font-semibold tracking-tight">Recent redemptions</h2>
-            <ul className="mt-2 space-y-1.5 text-sm text-muted">
-              {redemptions.slice(0, 8).map((r) => (
-                <li key={r.at + r.code}>
-                  {r.restaurantName ?? r.dealId} · saved $
-                  {(r.savingsUsd ?? 0).toFixed(2)} · {r.code} ·{" "}
-                  {new Date(r.at).toLocaleString()}
-                </li>
-              ))}
-              {redemptions.length === 0 && (
-                <li>None yet — redeem a deal to start tracking savings.</li>
-              )}
-            </ul>
-          </div>
-        </>
-      )}
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-lg px-4 py-16 text-center text-muted">
+          Loading account…
+        </div>
+      }
+    >
+      <AccountInner />
+    </Suspense>
   );
 }

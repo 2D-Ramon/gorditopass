@@ -53,7 +53,11 @@ const FAQS = [
   },
   {
     q: "How do I log in if my family shares a plan?",
-    a: "Each person on a multi-seat plan gets their own login (email + password or magic link). The plan is shared for billing; accounts are individual so points, passports, and redemptions stay personal. Businesses use staff logins with roles (owner / manager / marketing / employee).",
+    a: "Each person on a multi-seat plan gets their own login (email + password or magic link) at /login. The plan is shared for billing; accounts are individual so points, passports, and redemptions stay personal. Business owners invite staff by email with roles (owner / manager / marketing / employee) — never share one password.",
+  },
+  {
+    q: "What happens when a new restaurant joins my passport?",
+    a: "You get a notification that there’s a new place to stamp. The passport badge pauses until you visit the new partner(s). Points from the first completion stay forever — no clawback and no double points when you restore the badge.",
   },
   {
     q: "How does multi-person membership signup work?",

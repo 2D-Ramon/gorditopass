@@ -141,32 +141,24 @@ export default function AdminPage() {
               .
             </p>
           ) : (
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-4 space-y-4">
               {restaurantApplications.map((a) => {
                 const id = a.id ?? a.at + a.email;
                 const status = a.status ?? "pending";
+                const uploads = a.uploads ?? [];
                 return (
                   <li
                     key={id}
-                    className="rounded-lg border border-border bg-background/50 p-3"
+                    className="rounded-lg border border-border bg-background/50 p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{a.name}</p>
-                        <p className="text-xs text-muted">
-                          {a.email}
-                          {a.contactName ? ` · ${a.contactName}` : ""}
-                          {a.position ? ` (${a.position})` : ""}
+                        <p className="text-lg font-semibold tracking-tight">
+                          {a.name}
                         </p>
-                        <p className="mt-1 text-xs text-muted">
-                          {a.city ?? "—"} · {a.address ?? "no address"} ·{" "}
-                          {new Date(a.at).toLocaleString()}
+                        <p className="mt-0.5 text-xs text-muted">
+                          Submitted {new Date(a.at).toLocaleString()}
                         </p>
-                        {a.promo && (
-                          <p className="mt-1 text-xs text-stone-400">
-                            Promo: {a.promo}
-                          </p>
-                        )}
                       </div>
                       <span
                         className={`gp-badge !normal-case ${
@@ -180,8 +172,129 @@ export default function AdminPage() {
                         {status}
                       </span>
                     </div>
+
+                    <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Business email
+                        </dt>
+                        <dd className="text-stone-200">{a.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Contact name
+                        </dt>
+                        <dd className="text-stone-200">
+                          {a.contactName || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Position
+                        </dt>
+                        <dd className="text-stone-200 capitalize">
+                          {a.position || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Authority to decide
+                        </dt>
+                        <dd className="text-stone-200">
+                          {a.hasAuthority === true
+                            ? "Yes"
+                            : a.hasAuthority === false
+                              ? "No"
+                              : "—"}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Address
+                        </dt>
+                        <dd className="text-stone-200">
+                          {a.address || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          City
+                        </dt>
+                        <dd className="text-stone-200">{a.city || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Planned start
+                        </dt>
+                        <dd className="text-stone-200">
+                          {a.plannedStartDate || "—"}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          First promotion idea
+                        </dt>
+                        <dd className="text-stone-300">
+                          {a.promo?.trim() || "—"}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <div className="mt-4 border-t border-border pt-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                        Uploads ({uploads.length})
+                      </p>
+                      {uploads.length === 0 ? (
+                        <p className="mt-1 text-xs text-muted">
+                          No files attached on this application.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 space-y-2">
+                          {uploads.map((u) => (
+                            <li
+                              key={`${u.label}-${u.fileName}`}
+                              className="rounded-md border border-border bg-elevated/40 px-3 py-2 text-xs"
+                            >
+                              <p className="font-medium text-stone-200">
+                                {u.label}
+                              </p>
+                              <p className="text-muted">
+                                {u.fileName}
+                                {u.sizeBytes != null
+                                  ? ` · ${(u.sizeBytes / 1024).toFixed(1)} KB`
+                                  : ""}
+                                {u.mimeType ? ` · ${u.mimeType}` : ""}
+                              </p>
+                              {u.dataUrl && u.mimeType?.startsWith("image/") && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={u.dataUrl}
+                                  alt={u.label}
+                                  className="mt-2 max-h-32 rounded-md object-contain ring-1 ring-border"
+                                />
+                              )}
+                              {u.dataUrl && !u.mimeType?.startsWith("image/") && (
+                                <a
+                                  href={u.dataUrl}
+                                  download={u.fileName}
+                                  className="mt-1 inline-block text-brand underline"
+                                >
+                                  Download file
+                                </a>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="mt-2 text-[10px] text-muted">
+                        Demo stores file names + image previews in this browser.
+                        Live version will store files in secure cloud storage
+                        with full admin preview/download.
+                      </p>
+                    </div>
+
                     {status === "pending" && (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"

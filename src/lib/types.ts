@@ -203,12 +203,21 @@ export interface MockUser {
   /** Count of city feed posts by this user (demo) */
   feedPostCount?: number;
   /**
-   * Passport ids currently held (all restaurants in category visited).
-   * Revoked when a new restaurant joins that passport until visited.
+   * Passport ids currently held (badge active — all restaurants visited).
+   * Badge pauses when a new restaurant joins until that stamp is earned.
+   * Points for first completion are never clawed back.
    */
   completedPassports?: string[];
-  /** Restaurant ids that counted when the passport was last earned */
+  /** Restaurant ids that counted when the passport was last earned / last known set */
   passportSnapshots?: Record<string, string[]>;
+  /** Passport ids that already paid completion points (never award again) */
+  passportPointsClaimed?: string[];
+  /** Demo password for recommended per-person login (not for production) */
+  demoPassword?: string;
+  /** Household plan group id — shared billing, separate logins */
+  householdPlanId?: string;
+  /** Whether this seat is the billing primary */
+  isPlanPrimary?: boolean;
 }
 
 export type NotificationType =
@@ -239,6 +248,15 @@ export interface Redemption {
 
 export type ApplicationStatus = "pending" | "approved" | "rejected";
 
+export interface ApplicationUpload {
+  label: string;
+  fileName: string;
+  sizeBytes?: number;
+  mimeType?: string;
+  /** Demo-only preview (data URL) so admin can open images in queue */
+  dataUrl?: string;
+}
+
 export interface RestaurantApplication {
   id?: string;
   name: string;
@@ -251,8 +269,45 @@ export interface RestaurantApplication {
   plannedStartDate?: string;
   city?: string;
   promo?: string;
-  uploads?: { label: string; fileName: string }[];
+  uploads?: ApplicationUpload[];
   status?: ApplicationStatus;
+}
+
+/** Saved login identity — one person, one account (recommended model) */
+export interface AuthAccount {
+  id: string;
+  email: string;
+  /** Demo only — live app uses hashed passwords / magic links */
+  password: string;
+  role: "diner" | "restaurant" | "admin";
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  birthday?: string;
+  homeAddress?: string;
+  city: CityId;
+  isMember: boolean;
+  planId: MembershipPlanId | null;
+  familySeats: number;
+  maxFamilySeats: number;
+  staffRole?: StaffRole;
+  householdPlanId?: string;
+  isPlanPrimary?: boolean;
+  householdMembers?: MemberSeatProfile[];
+  rewardPoints?: number;
+  rewardPointsLifetime?: number;
+  rewardsClaimed?: number;
+  badges?: string[];
+  completedPassports?: string[];
+  passportSnapshots?: Record<string, string[]>;
+  passportPointsClaimed?: string[];
+  awardedBonuses?: string[];
+  feedPostCount?: number;
+  favoriteRestaurant?: string;
+  favoriteFoodType?: string;
+  avatarDataUrl?: string;
+  createdAt: string;
 }
 
 export type ContentStatus = "pending" | "approved" | "rejected";

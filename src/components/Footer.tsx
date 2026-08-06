@@ -24,14 +24,7 @@ export function Footer() {
                 Explore
               </Link>
             </li>
-            <li>
-              <Link
-                href="/passports"
-                className="text-stone-300 hover:text-brand"
-              >
-                Passports
-              </Link>
-            </li>
+
             <li>
               <Link href="/events" className="text-stone-300 hover:text-brand">
                 Events

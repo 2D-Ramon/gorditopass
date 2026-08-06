@@ -12,6 +12,7 @@ import {
 import type {
   AppNotification,
   ApplicationStatus,
+  AuthAccount,
   CartLine,
   CityId,
   ContentStatus,
@@ -39,7 +40,8 @@ import {
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
 import { getPassportRestaurants, PASSPORTS } from "./passports";
 
-const STORAGE_KEY = "gorditopass-mvp-v8";
+const STORAGE_KEY = "gorditopass-mvp-v9";
+const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
   user: MockUser | null;
@@ -57,6 +59,8 @@ interface Persisted {
   moderatedFeedPosts: ModeratedFeedPost[];
   restaurantApprovalOverrides: Record<string, boolean>;
   notifications: AppNotification[];
+  /** Per-person accounts (recommended login model) */
+  accounts: AuthAccount[];
 }
 
 interface StoreValue {
@@ -78,6 +82,29 @@ interface StoreValue {
   setCity: (c: CityId) => void;
   signInDemo: (role?: MockUser["role"], staffRole?: StaffRole) => void;
   signOut: () => void;
+  /** Recommended model: each person logs in with their own email */
+  loginWithPassword: (
+    email: string,
+    password: string,
+  ) => { ok: boolean; error?: string };
+  /** Demo magic link — “sends” a link then signs that account in */
+  loginWithMagicLink: (email: string) => { ok: boolean; error?: string };
+  /** Create or update a diner account (signup) */
+  registerDinerAccount: (input: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  }) => { ok: boolean; error?: string };
+  /** Owner invites staff — separate login, role-gated */
+  inviteStaffAccount: (input: {
+    email: string;
+    name: string;
+    staffRole: StaffRole;
+    password?: string;
+  }) => { ok: boolean; error?: string };
+  accounts: AuthAccount[];
   activateMembership: (
     planId: MembershipPlanId,
     seats: number,
@@ -198,6 +225,8 @@ const defaultUser = (
   homeAddress: "",
   completedPassports: [],
   passportSnapshots: {},
+  passportPointsClaimed: [],
+  demoPassword: "demo1234",
 });
 
 function emptyPersisted(): Persisted {
@@ -217,7 +246,91 @@ function emptyPersisted(): Persisted {
     moderatedFeedPosts: [],
     restaurantApprovalOverrides: {},
     notifications: [],
+    accounts: [],
   };
+}
+
+function mockUserFromAccount(a: AuthAccount): MockUser {
+  return {
+    id: a.id,
+    name: a.name,
+    email: a.email,
+    role: a.role,
+    city: a.city,
+    isMember: a.isMember,
+    planId: a.planId,
+    familySeats: a.familySeats,
+    maxFamilySeats: a.maxFamilySeats,
+    firstName: a.firstName,
+    lastName: a.lastName,
+    phone: a.phone,
+    birthday: a.birthday,
+    homeAddress: a.homeAddress,
+    favoriteRestaurant: a.favoriteRestaurant,
+    favoriteFoodType: a.favoriteFoodType,
+    avatarDataUrl: a.avatarDataUrl,
+    staffRole: a.staffRole,
+    rewardPoints: a.rewardPoints ?? 0,
+    rewardPointsLifetime: a.rewardPointsLifetime ?? 0,
+    rewardsClaimed: a.rewardsClaimed ?? 0,
+    badges: a.badges ?? [],
+    householdMembers: a.householdMembers ?? [],
+    awardedBonuses: a.awardedBonuses ?? [],
+    feedPostCount: a.feedPostCount ?? 0,
+    completedPassports: a.completedPassports ?? [],
+    passportSnapshots: a.passportSnapshots ?? {},
+    passportPointsClaimed: a.passportPointsClaimed ?? [],
+    demoPassword: a.password,
+    householdPlanId: a.householdPlanId,
+    isPlanPrimary: a.isPlanPrimary,
+  };
+}
+
+function upsertAccountFromUser(
+  accounts: AuthAccount[],
+  user: MockUser,
+  password?: string,
+): AuthAccount[] {
+  const email = user.email.trim().toLowerCase();
+  const existing = accounts.find((a) => a.email.toLowerCase() === email);
+  const base: AuthAccount = {
+    id: existing?.id ?? user.id ?? `acct-${Date.now()}`,
+    email,
+    password: password ?? existing?.password ?? DEFAULT_DEMO_PASSWORD,
+    role: user.role,
+    name: user.name,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+    birthday: user.birthday,
+    homeAddress: user.homeAddress,
+    city: user.city,
+    isMember: user.isMember,
+    planId: user.planId,
+    familySeats: user.familySeats,
+    maxFamilySeats: user.maxFamilySeats,
+    staffRole: user.staffRole,
+    householdPlanId: user.householdPlanId,
+    isPlanPrimary: user.isPlanPrimary,
+    householdMembers: user.householdMembers,
+    rewardPoints: user.rewardPoints,
+    rewardPointsLifetime: user.rewardPointsLifetime,
+    rewardsClaimed: user.rewardsClaimed,
+    badges: user.badges,
+    completedPassports: user.completedPassports,
+    passportSnapshots: user.passportSnapshots,
+    passportPointsClaimed: user.passportPointsClaimed,
+    awardedBonuses: user.awardedBonuses,
+    feedPostCount: user.feedPostCount,
+    favoriteRestaurant: user.favoriteRestaurant,
+    favoriteFoodType: user.favoriteFoodType,
+    avatarDataUrl: user.avatarDataUrl,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+  };
+  if (existing) {
+    return accounts.map((a) => (a.email.toLowerCase() === email ? base : a));
+  }
+  return [...accounts, base];
 }
 
 function load(): Persisted {
@@ -225,6 +338,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v8") ??
       localStorage.getItem("gorditopass-mvp-v7") ??
       localStorage.getItem("gorditopass-mvp-v6") ??
       localStorage.getItem("gorditopass-mvp-v5") ??
@@ -238,6 +352,7 @@ function load(): Persisted {
       ...emptyPersisted(),
       ...parsed,
       notifications: parsed.notifications ?? [],
+      accounts: parsed.accounts ?? [],
       redemptions: (parsed.redemptions ?? []).map((r) => ({
         ...r,
         savingsUsd: r.savingsUsd ?? 0,
@@ -272,6 +387,7 @@ function load(): Persisted {
             feedPostCount: parsed.user.feedPostCount ?? 0,
             completedPassports: parsed.user.completedPassports ?? [],
             passportSnapshots: parsed.user.passportSnapshots ?? {},
+            passportPointsClaimed: parsed.user.passportPointsClaimed ?? [],
           }
         : null,
     };
@@ -405,6 +521,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [restaurantApprovalOverrides, setRestaurantApprovalOverrides] =
     useState<Record<string, boolean>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [accounts, setAccounts] = useState<AuthAccount[]>([]);
   const [city, setCity] = useState<CityId>("dallas");
 
   useEffect(() => {
@@ -424,6 +541,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setModeratedFeedPosts(data.moderatedFeedPosts);
     setRestaurantApprovalOverrides(data.restaurantApprovalOverrides);
     setNotifications(data.notifications ?? []);
+    setAccounts(data.accounts ?? []);
     if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
@@ -446,6 +564,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       moderatedFeedPosts,
       restaurantApprovalOverrides,
       notifications,
+      accounts,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -465,11 +584,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     moderatedFeedPosts,
     restaurantApprovalOverrides,
     notifications,
+    accounts,
   ]);
+
+  // Keep logged-in user mirrored into accounts list
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    setAccounts((prev) => upsertAccountFromUser(prev, user));
+  }, [hydrated, user]);
 
   const signInDemo = useCallback(
     (role: MockUser["role"] = "diner", staffRole: StaffRole = "owner") => {
-      setUser(defaultUser(role, staffRole));
+      const u = defaultUser(role, staffRole);
+      u.demoPassword = DEFAULT_DEMO_PASSWORD;
+      setUser(u);
+      setAccounts((prev) => upsertAccountFromUser(prev, u, DEFAULT_DEMO_PASSWORD));
     },
     [],
   );
@@ -478,6 +607,137 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setCart([]);
   }, []);
+
+  const loginWithPassword = useCallback(
+    (email: string, password: string) => {
+      const key = email.trim().toLowerCase();
+      if (!key || !password) {
+        return { ok: false, error: "Email and password required." };
+      }
+      const acct = accounts.find((a) => a.email.toLowerCase() === key);
+      if (!acct) {
+        return {
+          ok: false,
+          error:
+            "No account for that email. Use Sign up, membership intake, or demo sign-in first.",
+        };
+      }
+      if (acct.password !== password) {
+        return { ok: false, error: "Incorrect password." };
+      }
+      setUser(mockUserFromAccount(acct));
+      if (acct.city) setCity(acct.city);
+      return { ok: true };
+    },
+    [accounts],
+  );
+
+  const loginWithMagicLink = useCallback(
+    (email: string) => {
+      const key = email.trim().toLowerCase();
+      if (!key.includes("@")) {
+        return { ok: false, error: "Enter a valid email." };
+      }
+      let acct = accounts.find((a) => a.email.toLowerCase() === key);
+      if (!acct) {
+        // Create a light diner account on first magic link (demo)
+        acct = {
+          id: `acct-ml-${Date.now()}`,
+          email: key,
+          password: DEFAULT_DEMO_PASSWORD,
+          role: "diner",
+          name: key.split("@")[0],
+          city: "dallas",
+          isMember: false,
+          planId: null,
+          familySeats: 1,
+          maxFamilySeats: MAX_FAMILY_SEATS,
+          createdAt: new Date().toISOString(),
+        };
+        setAccounts((prev) => [...prev, acct!]);
+      }
+      setUser(mockUserFromAccount(acct));
+      return { ok: true };
+    },
+    [accounts],
+  );
+
+  const registerDinerAccount = useCallback(
+    (input: {
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      phone?: string;
+    }) => {
+      const key = input.email.trim().toLowerCase();
+      if (!key.includes("@") || input.password.length < 6) {
+        return {
+          ok: false,
+          error: "Valid email and password (6+ chars) required.",
+        };
+      }
+      if (accounts.some((a) => a.email.toLowerCase() === key)) {
+        return { ok: false, error: "An account already exists for that email." };
+      }
+      const name = `${input.firstName} ${input.lastName}`.trim();
+      const acct: AuthAccount = {
+        id: `acct-${Date.now()}`,
+        email: key,
+        password: input.password,
+        role: "diner",
+        name: name || key,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        phone: input.phone,
+        city: "dallas",
+        isMember: false,
+        planId: null,
+        familySeats: 1,
+        maxFamilySeats: MAX_FAMILY_SEATS,
+        createdAt: new Date().toISOString(),
+      };
+      setAccounts((prev) => [...prev, acct]);
+      setUser(mockUserFromAccount(acct));
+      return { ok: true };
+    },
+    [accounts],
+  );
+
+  const inviteStaffAccount = useCallback(
+    (input: {
+      email: string;
+      name: string;
+      staffRole: StaffRole;
+      password?: string;
+    }) => {
+      const key = input.email.trim().toLowerCase();
+      if (!key.includes("@") || !input.name.trim()) {
+        return { ok: false, error: "Name and email required." };
+      }
+      const password = input.password || DEFAULT_DEMO_PASSWORD;
+      const acct: AuthAccount = {
+        id: `staff-${Date.now()}`,
+        email: key,
+        password,
+        role: "restaurant",
+        name: input.name.trim(),
+        city: "dallas",
+        isMember: true,
+        planId: null,
+        familySeats: 1,
+        maxFamilySeats: MAX_FAMILY_SEATS,
+        staffRole: input.staffRole,
+        createdAt: new Date().toISOString(),
+      };
+      setAccounts((prev) => {
+        const without = prev.filter((a) => a.email.toLowerCase() !== key);
+        return [...without, acct];
+      });
+      return { ok: true };
+    },
+    [],
+  );
 
   const activateMembership = useCallback(
     (
@@ -492,6 +752,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : undefined;
       const primary = list?.find((m) => m.isPrimary) ?? list?.[0];
       const joinPts = POINT_ACTIONS.join_member.points;
+      const planGroupId = `plan-${Date.now()}`;
+
+      // Create a separate login account for every seat (recommended model)
+      if (list && list.length > 0) {
+        setAccounts((prev) => {
+          let next = [...prev];
+          for (const m of list) {
+            const email = m.email.trim().toLowerCase();
+            const name = `${m.firstName} ${m.lastName}`.trim();
+            const isPrimary = Boolean(m.isPrimary);
+            const existing = next.find((a) => a.email.toLowerCase() === email);
+            const acct: AuthAccount = {
+              id: existing?.id ?? m.id ?? `acct-${email}`,
+              email,
+              password: existing?.password ?? DEFAULT_DEMO_PASSWORD,
+              role: "diner",
+              name: name || email,
+              firstName: m.firstName,
+              lastName: m.lastName,
+              phone: m.phone,
+              birthday: m.birthday,
+              homeAddress: m.homeAddress,
+              city: "dallas",
+              isMember: true,
+              planId,
+              familySeats: seatCount,
+              maxFamilySeats: MAX_FAMILY_SEATS,
+              householdPlanId: planGroupId,
+              isPlanPrimary: isPrimary,
+              householdMembers: list,
+              rewardPoints: isPrimary
+                ? (existing?.rewardPoints ?? 0) +
+                  (existing?.isMember ? 0 : joinPts)
+                : (existing?.rewardPoints ?? 0),
+              rewardPointsLifetime: isPrimary
+                ? (existing?.rewardPointsLifetime ?? 0) +
+                  (existing?.isMember ? 0 : joinPts)
+                : (existing?.rewardPointsLifetime ?? 0),
+              createdAt: existing?.createdAt ?? new Date().toISOString(),
+            };
+            next = next.filter((a) => a.email.toLowerCase() !== email);
+            next.push(acct);
+          }
+          return next;
+        });
+      }
 
       setUser((u) => {
         const base = u ?? defaultUser("diner");
@@ -513,11 +819,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           birthday: primary?.birthday ?? base.birthday,
           homeAddress: primary?.homeAddress ?? base.homeAddress,
           householdMembers: list ?? base.householdMembers ?? [],
+          householdPlanId: planGroupId,
+          isPlanPrimary: true,
+          demoPassword: base.demoPassword ?? DEFAULT_DEMO_PASSWORD,
           rewardPoints: base.rewardPoints ?? 0,
           rewardPointsLifetime: base.rewardPointsLifetime ?? 0,
           rewardsClaimed: base.rewardsClaimed ?? 0,
           badges: base.badges ?? [],
           awardedBonuses: base.awardedBonuses ?? [],
+          passportPointsClaimed: base.passportPointsClaimed ?? [],
         };
         if (!alreadyMember && joinPts > 0) {
           next.rewardPoints = (next.rewardPoints ?? 0) + joinPts;
@@ -675,90 +985,149 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
 
     const notes: AppNotification[] = [];
+    const historyRows: RewardEvent[] = [];
     let pointsToAward = 0;
-    let pointNotes: string[] = [];
 
     setUser((u) => {
       if (!u || u.role !== "diner") return u;
 
       let completed = [...(u.completedPassports ?? [])];
       const snapshots = { ...(u.passportSnapshots ?? {}) };
+      const pointsClaimed = new Set(u.passportPointsClaimed ?? []);
       let badges = new Set(u.badges ?? []);
+      let pts = u.rewardPoints ?? 0;
+      let ptsLife = u.rewardPointsLifetime ?? 0;
       let changed = false;
 
       for (const p of PASSPORTS) {
         const list = getPassportRestaurants(p, isRestaurantApproved);
         const currentIds = list.map((r) => r.id).sort();
-        const allVisited =
-          currentIds.length > 0 && currentIds.every((id) => visited.has(id));
-        const wasHeld = completed.includes(p.id);
-        const snap = snapshots[p.id] ?? [];
-        const badgeId = `passport_${p.id}`;
+        if (currentIds.length === 0) continue;
 
+        const allVisited = currentIds.every((id) => visited.has(id));
+        const wasHeld = completed.includes(p.id);
+        const snap = snapshots[p.id];
+        const badgeId = `passport_${p.id}`;
+        const newSpots =
+          snap && snap.length > 0
+            ? list.filter((r) => !snap.includes(r.id))
+            : [];
+
+        // Held badge: only THIS passport pauses when NEW partners join
         if (wasHeld) {
-          const newSpots = list.filter((r) => !snap.includes(r.id));
-          if (newSpots.length > 0 || !allVisited) {
+          if (!snap || snap.length === 0) {
+            // Repair missing snapshot — do not wipe other passports
+            snapshots[p.id] = currentIds;
+            changed = true;
+            if (!allVisited) {
+              completed = completed.filter((id) => id !== p.id);
+              badges.delete(badgeId);
+            }
+            continue;
+          }
+
+          if (newSpots.length > 0) {
             completed = completed.filter((id) => id !== p.id);
-            delete snapshots[p.id];
             badges.delete(badgeId);
+            snapshots[p.id] = currentIds;
             changed = true;
             const names = newSpots.map((r) => r.name).join(", ");
             notes.push({
-              id: `n-revoke-${p.id}-${Date.now()}`,
+              id: `n-travel-${p.id}-${Date.now()}`,
               at: new Date().toISOString(),
               type: "passport_revoked",
-              title: `${p.emoji} ${p.name} paused`,
-              body: newSpots.length
-                ? `A new spot joined this passport: ${names}. Visit ${newSpots.length === 1 ? "it" : "them"} to earn your stamp back.`
-                : `Your ${p.name} is incomplete again. Visit the remaining partners to restore it.`,
+              title: `${p.emoji} New place to stamp`,
+              body: `${names} joined your ${p.name}. Your points stay. Visit ${newSpots.length === 1 ? "this partner" : "these partners"} to restore the passport badge.`,
               read: false,
               passportId: p.id,
             });
           }
-        } else if (allVisited) {
-          completed.push(p.id);
+          continue;
+        }
+
+        // Not held: notify if more partners appeared while in progress
+        if (snap && newSpots.length > 0 && !allVisited) {
           snapshots[p.id] = currentIds;
-          badges.add(badgeId);
           changed = true;
-          pointsToAward += p.completePoints;
-          pointNotes.push(`${p.name} complete`);
+          const names = newSpots.map((r) => r.name).join(", ");
           notes.push({
-            id: `n-earn-${p.id}-${Date.now()}`,
+            id: `n-travel2-${p.id}-${Date.now()}`,
             at: new Date().toISOString(),
-            type: "passport_earned",
-            title: `${p.emoji} ${p.name} earned!`,
-            body: `You visited every live partner on this passport (+${p.completePoints} pts). Keep exploring the world of food.`,
+            type: "info",
+            title: `${p.emoji} Passport path updated`,
+            body: `${names} added to ${p.name}. Keep collecting stamps — points you’ve earned stay.`,
             read: false,
             passportId: p.id,
           });
         }
+
+        // Complete / restore badge
+        if (allVisited) {
+          if (!completed.includes(p.id)) {
+            completed.push(p.id);
+            changed = true;
+          }
+          snapshots[p.id] = currentIds;
+          badges.add(badgeId);
+          changed = true;
+
+          const firstTimePoints = !pointsClaimed.has(p.id);
+          if (firstTimePoints) {
+            pointsClaimed.add(p.id);
+            pointsToAward += p.completePoints;
+            pts += p.completePoints;
+            ptsLife += p.completePoints;
+            historyRows.push({
+              id: `rw-pass-${p.id}-${Date.now()}`,
+              at: new Date().toISOString(),
+              type: "earn",
+              points: p.completePoints,
+              note: `${p.name} complete`,
+            });
+            notes.push({
+              id: `n-earn-${p.id}-${Date.now()}`,
+              at: new Date().toISOString(),
+              type: "passport_earned",
+              title: `${p.emoji} ${p.name} earned!`,
+              body: `Every live partner stamped. +${p.completePoints} pts (one-time). Keep exploring.`,
+              read: false,
+              passportId: p.id,
+            });
+          } else if (!wasHeld) {
+            notes.push({
+              id: `n-restore-${p.id}-${Date.now()}`,
+              at: new Date().toISOString(),
+              type: "passport_earned",
+              title: `${p.emoji} ${p.name} restored`,
+              body: `Badge is back after your new stamp(s). No extra points (already awarded once).`,
+              read: false,
+              passportId: p.id,
+            });
+          }
+        } else if (!snap) {
+          // Track known set for progress (no badge yet)
+          snapshots[p.id] = currentIds;
+          changed = true;
+        }
       }
 
-      if (!changed) return u;
+      if (!changed && pointsToAward === 0 && notes.length === 0) return u;
       return {
         ...u,
         completedPassports: completed,
         passportSnapshots: snapshots,
+        passportPointsClaimed: Array.from(pointsClaimed),
         badges: Array.from(badges),
-        rewardPoints: (u.rewardPoints ?? 0) + pointsToAward,
-        rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + pointsToAward,
+        rewardPoints: pts,
+        rewardPointsLifetime: ptsLife,
       };
     });
 
     if (notes.length) {
       setNotifications((prev) => [...notes, ...prev]);
     }
-    if (pointsToAward > 0) {
-      setRewardHistory((prev) => [
-        ...pointNotes.map((note, i) => ({
-          id: `rw-pass-${Date.now()}-${i}`,
-          at: new Date().toISOString(),
-          type: "earn" as const,
-          points: Math.round(pointsToAward / pointNotes.length),
-          note,
-        })),
-        ...prev,
-      ]);
+    if (historyRows.length) {
+      setRewardHistory((prev) => [...historyRows, ...prev]);
     }
   }, [redemptions, isRestaurantApproved]);
 
@@ -1028,6 +1397,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setModeratedFeedPosts([]);
     setRestaurantApprovalOverrides({});
     setNotifications([]);
+    setAccounts([]);
     setCity("dallas");
   }, []);
 
@@ -1227,6 +1597,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCity,
     signInDemo,
     signOut,
+    loginWithPassword,
+    loginWithMagicLink,
+    registerDinerAccount,
+    inviteStaffAccount,
+    accounts,
     activateMembership,
     updateProfile,
     awardPoints,
