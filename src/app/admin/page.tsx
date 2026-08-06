@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { FEED_POSTS, RESTAURANTS } from "@/lib/data";
+import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
@@ -333,7 +333,7 @@ export default function AdminPage() {
                                 : ""}{" "}
                               · {c.locationCount} loc
                               {c.cuisineOrTheme
-                                ? ` · ${c.cuisineOrTheme}`
+                                ? ` · ${cuisineLabel(c.cuisineOrTheme)}`
                                 : ""}
                               {c.cities ? ` · ${c.cities}` : ""}
                             </li>

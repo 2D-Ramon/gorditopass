@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { APPLY_CUISINE_OPTIONS } from "@/lib/data";
 import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type {
   ApplicationConcept,
   BusinessTypeId,
+  Cuisine,
   OwnershipTypeId,
 } from "@/lib/types";
 
@@ -30,7 +32,7 @@ function emptyConcept(): ApplicationConcept {
     id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     conceptName: "",
     businessType: "restaurant",
-    cuisineOrTheme: "",
+    cuisineOrTheme: "american",
     locationCount: 1,
     cities: "",
     notes: "",
@@ -56,6 +58,7 @@ export default function ApplyPage() {
   const [plannedStartDate, setPlannedStartDate] = useState(minStartDate());
   const [businessType, setBusinessType] = useState<BusinessTypeId>("restaurant");
   const [businessTypeOther, setBusinessTypeOther] = useState("");
+  const [primaryCuisine, setPrimaryCuisine] = useState<Cuisine>("american");
   const [ownershipType, setOwnershipType] =
     useState<OwnershipTypeId>("independently_owned");
   const [ownershipTypeOther, setOwnershipTypeOther] = useState("");
@@ -210,7 +213,7 @@ export default function ApplyPage() {
                 ? concepts.map((c) => ({
                     ...c,
                     conceptName: c.conceptName.trim(),
-                    cuisineOrTheme: c.cuisineOrTheme?.trim(),
+                    cuisineOrTheme: c.cuisineOrTheme || "other",
                     cities: c.cities?.trim(),
                   }))
                 : [
@@ -222,6 +225,7 @@ export default function ApplyPage() {
                         businessType === "other"
                           ? businessTypeOther.trim()
                           : undefined,
+                      cuisineOrTheme: primaryCuisine,
                       locationCount: totalLocations,
                       cities: city,
                     },
@@ -333,6 +337,27 @@ export default function ApplyPage() {
                   />
                 </label>
               )}
+              <label className="block text-sm font-medium">
+                Cuisine *
+                <select
+                  required
+                  className="gp-input mt-1.5"
+                  value={primaryCuisine}
+                  onChange={(e) =>
+                    setPrimaryCuisine(e.target.value as Cuisine)
+                  }
+                >
+                  {APPLY_CUISINE_OPTIONS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs text-muted">
+                  Same list as explore / partner profiles so approval maps into
+                  the system cleanly.
+                </span>
+              </label>
             </>
           ) : (
             <div className="space-y-3 rounded-lg border border-border bg-elevated/40 p-4">
@@ -448,15 +473,23 @@ export default function ApplyPage() {
                     </label>
                   )}
                   <label className="block text-sm">
-                    Cuisine / theme
-                    <input
+                    Cuisine *
+                    <select
+                      required
                       className="gp-input mt-1"
-                      value={c.cuisineOrTheme ?? ""}
+                      value={c.cuisineOrTheme || "american"}
                       onChange={(e) =>
-                        updateConcept(c.id, { cuisineOrTheme: e.target.value })
+                        updateConcept(c.id, {
+                          cuisineOrTheme: e.target.value,
+                        })
                       }
-                      placeholder="e.g. Mexican, BBQ, Italian"
-                    />
+                    >
+                      {APPLY_CUISINE_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="block text-sm">
                     Cities / markets (optional)
@@ -522,7 +555,7 @@ export default function ApplyPage() {
             </span>
           </label>
           <label className="block text-sm font-medium">
-            Address
+            Full Address
             <input
               required
               className="gp-input mt-1.5"
