@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PARTNER_EVENTS } from "@/lib/data";
-import { useStore } from "@/lib/store";
+import { isPartnerContentLive, useStore } from "@/lib/store";
 import type { PartnerEvent } from "@/lib/types";
 
 function mapsUrl(address: string) {
@@ -33,7 +33,7 @@ export default function EventsPage() {
     const month = now.getMonth();
     const year = now.getFullYear();
     const all = [
-      ...partnerEvents.filter((e) => (e.status ?? "pending") === "approved"),
+      ...partnerEvents.filter((e) => isPartnerContentLive(e)),
       ...PARTNER_EVENTS,
     ];
     return all

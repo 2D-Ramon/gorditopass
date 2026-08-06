@@ -13,6 +13,7 @@ const dinerLinks = [
   { href: "/events", label: "Events" },
   { href: "/jobs", label: "Jobs" },
   { href: "/feed", label: "City feed" },
+  { href: "/chat", label: "Chat" },
   { href: "/membership", label: "Membership" },
 ];
 

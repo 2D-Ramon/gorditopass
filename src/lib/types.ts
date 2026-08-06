@@ -120,6 +120,9 @@ export interface FeedPost {
   id: string;
   city: CityId;
   author: string;
+  /** Profile user id when known (for public profile links) */
+  authorId?: string;
+  authorAvatar?: string;
   title: string;
   body: string;
   createdAt: string;
@@ -137,6 +140,8 @@ export interface FeedPost {
   replies: {
     id: string;
     author: string;
+    authorId?: string;
+    authorAvatar?: string;
     body: string;
     createdAt: string;
     media?: FeedMedia[];
@@ -260,6 +265,34 @@ export interface ApplicationUpload {
   dataUrl?: string;
 }
 
+/** Business category on partner apply intake */
+export type BusinessTypeId =
+  | "restaurant"
+  | "food_truck"
+  | "grocery"
+  | "bakery"
+  | "coffee_shop"
+  | "fast_food"
+  | "event_center"
+  | "candy_store"
+  | "ice_cream"
+  | "bar"
+  | "snow_cone"
+  | "zoo"
+  | "movie_theater"
+  | "tea_shop"
+  | "home_plates"
+  | "other";
+
+/** Ownership / brand structure */
+export type OwnershipTypeId =
+  | "independently_owned"
+  | "franchise"
+  | "chain"
+  | "family_owned"
+  | "co_op"
+  | "other";
+
 export interface RestaurantApplication {
   id?: string;
   name: string;
@@ -272,6 +305,10 @@ export interface RestaurantApplication {
   plannedStartDate?: string;
   city?: string;
   promo?: string;
+  businessType?: BusinessTypeId;
+  businessTypeOther?: string;
+  ownershipType?: OwnershipTypeId;
+  ownershipTypeOther?: string;
   uploads?: ApplicationUpload[];
   status?: ApplicationStatus;
 }
@@ -347,6 +384,9 @@ export interface PartnerEvent {
   aiFlagged?: boolean;
   aiReasons?: string[];
   aiScore?: number;
+  /** Optional auto-expire (ISO date) */
+  expiresAt?: string | null;
+  expireEnabled?: boolean;
 }
 
 export interface JobPosting {
@@ -367,6 +407,8 @@ export interface JobPosting {
   aiFlagged?: boolean;
   aiReasons?: string[];
   aiScore?: number;
+  expiresAt?: string | null;
+  expireEnabled?: boolean;
 }
 
 export interface PartnerMenuItem {
@@ -383,6 +425,8 @@ export interface PartnerMenuItem {
   aiFlagged?: boolean;
   aiReasons?: string[];
   aiScore?: number;
+  expiresAt?: string | null;
+  expireEnabled?: boolean;
 }
 
 export interface PartnerDealDraft {
@@ -402,6 +446,41 @@ export interface PartnerDealDraft {
   aiFlagged?: boolean;
   aiReasons?: string[];
   aiScore?: number;
+  expiresAt?: string | null;
+  expireEnabled?: boolean;
+}
+
+/** Claimable reward catalog placeholders */
+export interface RewardCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  pointsCost: number;
+  emoji: string;
+  /** placeholder until real claim flow */
+  placeholder?: boolean;
+}
+
+/** Direct / group chat */
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  body: string;
+  at: string;
+}
+
+export interface ChatThread {
+  id: string;
+  type: "dm" | "group";
+  title: string;
+  memberIds: string[];
+  memberNames: string[];
+  createdAt: string;
+  lastMessageAt: string;
+  messages: ChatMessage[];
 }
 
 export interface ModeratedFeedPost {

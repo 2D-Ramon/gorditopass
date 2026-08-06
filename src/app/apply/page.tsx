@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
+import type { BusinessTypeId, OwnershipTypeId } from "@/lib/types";
 
 const UPLOAD_LABELS = [
   "Logo",
@@ -29,6 +31,11 @@ export default function ApplyPage() {
   const [hasAuthority, setHasAuthority] = useState(false);
   const [address, setAddress] = useState("");
   const [plannedStartDate, setPlannedStartDate] = useState(minStartDate());
+  const [businessType, setBusinessType] = useState<BusinessTypeId>("restaurant");
+  const [businessTypeOther, setBusinessTypeOther] = useState("");
+  const [ownershipType, setOwnershipType] =
+    useState<OwnershipTypeId>("independently_owned");
+  const [ownershipTypeOther, setOwnershipTypeOther] = useState("");
   const [uploads, setUploads] = useState<
     {
       label: string;
@@ -98,6 +105,14 @@ export default function ApplyPage() {
               setError("Planned start date must be at least 2 weeks from today.");
               return;
             }
+            if (businessType === "other" && !businessTypeOther.trim()) {
+              setError("Please describe your business type (Other).");
+              return;
+            }
+            if (ownershipType === "other" && !ownershipTypeOther.trim()) {
+              setError("Please describe ownership type (Other).");
+              return;
+            }
             submitRestaurantApplication({
               name,
               email,
@@ -108,6 +123,14 @@ export default function ApplyPage() {
               hasAuthority,
               address,
               plannedStartDate,
+              businessType,
+              businessTypeOther:
+                businessType === "other" ? businessTypeOther.trim() : undefined,
+              ownershipType,
+              ownershipTypeOther:
+                ownershipType === "other"
+                  ? ownershipTypeOther.trim()
+                  : undefined,
               uploads,
             });
             setDone(true);
@@ -122,6 +145,61 @@ export default function ApplyPage() {
               onChange={(e) => setName(e.target.value)}
             />
           </label>
+          <label className="block text-sm font-medium">
+            Business type
+            <select
+              className="gp-input mt-1.5"
+              value={businessType}
+              onChange={(e) =>
+                setBusinessType(e.target.value as BusinessTypeId)
+              }
+            >
+              {BUSINESS_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {businessType === "other" && (
+            <label className="block text-sm font-medium">
+              Describe business type *
+              <input
+                required
+                className="gp-input mt-1.5"
+                value={businessTypeOther}
+                onChange={(e) => setBusinessTypeOther(e.target.value)}
+                placeholder="e.g. catering kitchen, brewery taproom…"
+              />
+            </label>
+          )}
+          <label className="block text-sm font-medium">
+            Ownership structure
+            <select
+              className="gp-input mt-1.5"
+              value={ownershipType}
+              onChange={(e) =>
+                setOwnershipType(e.target.value as OwnershipTypeId)
+              }
+            >
+              {OWNERSHIP_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {ownershipType === "other" && (
+            <label className="block text-sm font-medium">
+              Describe ownership *
+              <input
+                required
+                className="gp-input mt-1.5"
+                value={ownershipTypeOther}
+                onChange={(e) => setOwnershipTypeOther(e.target.value)}
+              />
+            </label>
+          )}
           <label className="block text-sm font-medium">
             Business email
             <input

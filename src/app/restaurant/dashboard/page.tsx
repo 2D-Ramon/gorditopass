@@ -14,6 +14,43 @@ import {
 
 type Tab = "scan" | "deal" | "menu" | "event" | "job";
 
+function ExpireFields({
+  enabled,
+  date,
+  onEnabled,
+  onDate,
+}: {
+  enabled: boolean;
+  date: string;
+  onEnabled: (v: boolean) => void;
+  onDate: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-elevated/40 p-3">
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>Auto-expire on a date</span>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => onEnabled(e.target.checked)}
+        />
+      </label>
+      {enabled && (
+        <label className="mt-2 block text-sm">
+          Expiration date
+          <input
+            type="date"
+            required={enabled}
+            className="gp-input mt-1 max-w-[12rem]"
+            value={date}
+            onChange={(e) => onDate(e.target.value)}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 function readImages(files: FileList | null): Promise<string[]> {
   if (!files?.length) return Promise.resolve([]);
   return Promise.all(
@@ -41,6 +78,14 @@ export default function RestaurantDashboardPage() {
     addPartnerMenuItem,
     addPartnerEvent,
     addPartnerJob,
+    updatePartnerDeal,
+    updatePartnerMenuItem,
+    updatePartnerEvent,
+    updatePartnerJob,
+    deletePartnerDeal,
+    deletePartnerMenuItem,
+    deletePartnerEvent,
+    deletePartnerJob,
     partnerRevenueWeek,
     partnerRevenueMonth,
     partnerRevenueYtd,
@@ -51,6 +96,7 @@ export default function RestaurantDashboardPage() {
   const [scanCode, setScanCode] = useState("");
   const [scanMsg, setScanMsg] = useState("");
   const [flash, setFlash] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Deal form
   const [dealTitle, setDealTitle] = useState("");
@@ -59,6 +105,8 @@ export default function RestaurantDashboardPage() {
   const [dealValue, setDealValue] = useState("");
   const [regularPrice, setRegularPrice] = useState("");
   const [dealImages, setDealImages] = useState<string[]>([]);
+  const [dealExpireOn, setDealExpireOn] = useState(false);
+  const [dealExpiresAt, setDealExpiresAt] = useState("");
 
   // Menu form
   const [menuName, setMenuName] = useState("");
@@ -66,6 +114,8 @@ export default function RestaurantDashboardPage() {
   const [menuPrice, setMenuPrice] = useState("");
   const [menuCat, setMenuCat] = useState("Mains");
   const [menuImages, setMenuImages] = useState<string[]>([]);
+  const [menuExpireOn, setMenuExpireOn] = useState(false);
+  const [menuExpiresAt, setMenuExpiresAt] = useState("");
 
   // Event form
   const [evTitle, setEvTitle] = useState("");
@@ -76,6 +126,8 @@ export default function RestaurantDashboardPage() {
   const [evTicketUrl, setEvTicketUrl] = useState("");
   const [evTicketPrice, setEvTicketPrice] = useState("0");
   const [evEmoji, setEvEmoji] = useState("🎉");
+  const [evExpireOn, setEvExpireOn] = useState(false);
+  const [evExpiresAt, setEvExpiresAt] = useState("");
 
   // Job form
   const [jobTitle, setJobTitle] = useState("");
@@ -85,6 +137,8 @@ export default function RestaurantDashboardPage() {
   >("part-time");
   const [jobPay, setJobPay] = useState("");
   const [jobApplyUrl, setJobApplyUrl] = useState("");
+  const [jobExpireOn, setJobExpireOn] = useState(false);
+  const [jobExpiresAt, setJobExpiresAt] = useState("");
 
   const canManage = canManagePartnerContent(user?.staffRole);
 
@@ -162,10 +216,10 @@ export default function RestaurantDashboardPage() {
 
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [
     { id: "scan", label: "Redeem scan", managersOnly: false },
-    { id: "deal", label: "New deal", managersOnly: true },
-    { id: "menu", label: "Menu item", managersOnly: true },
-    { id: "event", label: "Event", managersOnly: true },
-    { id: "job", label: "Job", managersOnly: true },
+    { id: "deal", label: "Promotions", managersOnly: true },
+    { id: "menu", label: "Menu items", managersOnly: true },
+    { id: "event", label: "Events", managersOnly: true },
+    { id: "job", label: "Jobs", managersOnly: true },
   ];
   const tabs = allTabs.filter((t) => !t.managersOnly || canManage);
 
@@ -300,41 +354,66 @@ export default function RestaurantDashboardPage() {
 
       {activeTab === "deal" && canManage && (
         <section className="mt-6 gp-card gp-card-static p-5">
-          <h2 className="font-semibold">Create a deal</h2>
+          <h2 className="font-semibold">
+            {editId && tab === "deal" ? "Edit promotion" : "Promotions"}
+          </h2>
           <p className="text-sm text-muted">
-            Set regular price so member savings and partner revenue can be
-            calculated. New deals go to the admin queue for approval before
-            they go live.
+            Create and manage member promotions. Submissions go to admin unless
+            auto-approved. Optional auto-expire date.
           </p>
           <form
             className="mt-4 space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
               if (!dealTitle.trim() || !regularPrice) return;
-              const res = addPartnerDeal({
-                restaurantId: restaurant.id,
-                title: dealTitle.trim(),
-                description: dealDesc.trim() || "Member deal",
-                type: dealType,
-                value:
-                  dealType === "percent_off" || dealType === "fixed_price"
-                    ? Number(dealValue) || null
-                    : null,
-                regularPriceUsd: Number(regularPrice) || 0,
-                imageDataUrls: dealImages.length ? dealImages : undefined,
-              });
+              const expire = {
+                expireEnabled: dealExpireOn,
+                expiresAt: dealExpireOn ? dealExpiresAt || null : null,
+              };
+              if (editId && tab === "deal") {
+                updatePartnerDeal(editId, {
+                  title: dealTitle.trim(),
+                  description: dealDesc.trim() || "Member deal",
+                  type: dealType,
+                  value:
+                    dealType === "percent_off" || dealType === "fixed_price"
+                      ? Number(dealValue) || null
+                      : null,
+                  regularPriceUsd: Number(regularPrice) || 0,
+                  imageDataUrls: dealImages.length ? dealImages : undefined,
+                  ...expire,
+                });
+                setEditId(null);
+                toast("Promotion updated.");
+              } else {
+                const res = addPartnerDeal({
+                  restaurantId: restaurant.id,
+                  title: dealTitle.trim(),
+                  description: dealDesc.trim() || "Member deal",
+                  type: dealType,
+                  value:
+                    dealType === "percent_off" || dealType === "fixed_price"
+                      ? Number(dealValue) || null
+                      : null,
+                  regularPriceUsd: Number(regularPrice) || 0,
+                  imageDataUrls: dealImages.length ? dealImages : undefined,
+                  ...expire,
+                });
+                toast(
+                  res.aiFlagged
+                    ? "Promotion flagged by AI for admin review."
+                    : res.status === "approved"
+                      ? "Promotion auto-approved and live."
+                      : "Promotion submitted — pending admin approval.",
+                );
+              }
               setDealTitle("");
               setDealDesc("");
               setDealValue("");
               setRegularPrice("");
               setDealImages([]);
-              toast(
-                res.aiFlagged
-                  ? "Deal flagged by AI for admin review (possible policy issue)."
-                  : res.status === "approved"
-                    ? "Deal auto-approved and live."
-                    : "Deal submitted — pending admin approval.",
-              );
+              setDealExpireOn(false);
+              setDealExpiresAt("");
             }}
           >
             <label className="block text-sm">
@@ -401,6 +480,12 @@ export default function RestaurantDashboardPage() {
                 Est. member savings: {estimatedSavingsPreview()}
               </p>
             )}
+            <ExpireFields
+              enabled={dealExpireOn}
+              date={dealExpiresAt}
+              onEnabled={setDealExpireOn}
+              onDate={setDealExpiresAt}
+            />
             <label className="block text-sm">
               Photos
               <input
@@ -428,39 +513,85 @@ export default function RestaurantDashboardPage() {
                 ))}
               </div>
             )}
-            <button type="submit" className="gp-btn gp-btn-primary text-sm">
-              Publish deal
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="gp-btn gp-btn-primary text-sm">
+                {editId && tab === "deal" ? "Save changes" : "Submit promotion"}
+              </button>
+              {editId && tab === "deal" && (
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-ghost text-sm"
+                  onClick={() => {
+                    setEditId(null);
+                    setDealTitle("");
+                    setDealDesc("");
+                    setDealImages([]);
+                  }}
+                >
+                  Cancel edit
+                </button>
+              )}
+            </div>
           </form>
-          <ul className="mt-4 space-y-1 text-sm text-muted">
-            {restaurant.deals.map((d) => (
-              <li key={d.id}>
-                {d.title} <span className="text-xs">(seed)</span>
-              </li>
-            ))}
+          <h3 className="mt-6 text-sm font-semibold">Your promotions</h3>
+          <ul className="mt-2 space-y-2 text-sm">
+            {myDeals.length === 0 && (
+              <li className="text-muted">No promotions yet.</li>
+            )}
             {myDeals.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-center gap-2 text-orange-200/90">
+              <li
+                key={d.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-elevated/40 px-3 py-2"
+              >
                 {d.imageDataUrls?.[0] && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={d.imageDataUrls[0]}
                     alt=""
-                    className="h-8 w-8 rounded object-cover ring-1 ring-border"
+                    className="h-10 w-10 rounded object-cover"
                   />
                 )}
-                <span>
-                  {d.title}
-                  {d.regularPriceUsd != null && (
-                    <span className="text-xs text-muted">
-                      {" "}
-                      · reg ${d.regularPriceUsd}
-                    </span>
-                  )}{" "}
-                  <span className="text-xs">
-                    ({d.status ?? "pending"}
-                    {d.aiFlagged ? " · AI flagged" : ""} · yours)
-                  </span>
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-orange-100">{d.title}</p>
+                  <p className="text-xs text-muted">
+                    {d.status ?? "pending"}
+                    {d.aiFlagged ? " · AI flagged" : ""}
+                    {d.expireEnabled && d.expiresAt
+                      ? ` · expires ${d.expiresAt}`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-brand"
+                  onClick={() => {
+                    setEditId(d.id);
+                    setDealTitle(d.title);
+                    setDealDesc(d.description);
+                    setDealType(d.type);
+                    setDealValue(d.value != null ? String(d.value) : "");
+                    setRegularPrice(
+                      d.regularPriceUsd != null ? String(d.regularPriceUsd) : "",
+                    );
+                    setDealImages(d.imageDataUrls ?? []);
+                    setDealExpireOn(Boolean(d.expireEnabled));
+                    setDealExpiresAt(d.expiresAt ?? "");
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-red-300"
+                  onClick={() => {
+                    if (confirm("Remove this promotion?")) {
+                      deletePartnerDeal(d.id);
+                      toast("Promotion removed.");
+                    }
+                  }}
+                >
+                  Remove
+                </button>
               </li>
             ))}
           </ul>
@@ -475,25 +606,45 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!menuName.trim()) return;
-              const res = addPartnerMenuItem({
-                restaurantId: restaurant.id,
-                name: menuName.trim(),
-                description: menuDesc.trim(),
-                priceUsd: Number(menuPrice) || 0,
-                category: menuCat.trim() || "Mains",
-                imageDataUrls: menuImages.length ? menuImages : undefined,
-              });
+              const expire = {
+                expireEnabled: menuExpireOn,
+                expiresAt: menuExpireOn ? menuExpiresAt || null : null,
+              };
+              if (editId && tab === "menu") {
+                updatePartnerMenuItem(editId, {
+                  name: menuName.trim(),
+                  description: menuDesc.trim(),
+                  priceUsd: Number(menuPrice) || 0,
+                  category: menuCat.trim() || "Mains",
+                  imageDataUrls: menuImages.length ? menuImages : undefined,
+                  ...expire,
+                });
+                setEditId(null);
+                toast("Menu item updated.");
+              } else {
+                const res = addPartnerMenuItem({
+                  restaurantId: restaurant.id,
+                  name: menuName.trim(),
+                  description: menuDesc.trim(),
+                  priceUsd: Number(menuPrice) || 0,
+                  category: menuCat.trim() || "Mains",
+                  imageDataUrls: menuImages.length ? menuImages : undefined,
+                  ...expire,
+                });
+                toast(
+                  res.aiFlagged
+                    ? "Menu item flagged by AI for admin review."
+                    : res.status === "approved"
+                      ? "Menu item auto-approved and live."
+                      : "Menu item submitted — pending admin approval.",
+                );
+              }
               setMenuName("");
               setMenuDesc("");
               setMenuPrice("");
               setMenuImages([]);
-              toast(
-                res.aiFlagged
-                  ? "Menu item flagged by AI for admin review."
-                  : res.status === "approved"
-                    ? "Menu item auto-approved and live."
-                    : "Menu item submitted — pending admin approval.",
-              );
+              setMenuExpireOn(false);
+              setMenuExpiresAt("");
             }}
           >
             <label className="block text-sm">
@@ -555,6 +706,12 @@ export default function RestaurantDashboardPage() {
                 }}
               />
             </label>
+            <ExpireFields
+              enabled={menuExpireOn}
+              date={menuExpiresAt}
+              onEnabled={setMenuExpireOn}
+              onDate={setMenuExpiresAt}
+            />
             {menuImages.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {menuImages.map((src, i) => (
@@ -569,32 +726,69 @@ export default function RestaurantDashboardPage() {
               </div>
             )}
             <button type="submit" className="gp-btn gp-btn-primary text-sm">
-              Add to menu
+              {editId && tab === "menu" ? "Save menu item" : "Add to menu"}
             </button>
           </form>
-          {myMenu.length > 0 && (
-            <ul className="mt-4 space-y-1 text-sm text-muted">
-              {myMenu.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center gap-2">
-                  {m.imageDataUrls?.[0] && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={m.imageDataUrls[0]}
-                      alt=""
-                      className="h-8 w-8 rounded object-cover ring-1 ring-border"
-                    />
-                  )}
-                  <span>
-                    {m.name} · ${m.priceUsd.toFixed(2)} · {m.category}{" "}
-                    <span className="text-xs">
-                      ({m.status ?? "pending"}
-                      {m.aiFlagged ? " · AI flagged" : ""})
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <h3 className="mt-6 text-sm font-semibold">Your menu items</h3>
+          <ul className="mt-2 space-y-2 text-sm">
+            {myMenu.length === 0 && (
+              <li className="text-muted">No menu items yet.</li>
+            )}
+            {myMenu.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2"
+              >
+                {m.imageDataUrls?.[0] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.imageDataUrls[0]}
+                    alt=""
+                    className="h-10 w-10 rounded object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {m.name} · ${m.priceUsd.toFixed(2)} · {m.category}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {m.status ?? "pending"}
+                    {m.expireEnabled && m.expiresAt
+                      ? ` · expires ${m.expiresAt}`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-brand"
+                  onClick={() => {
+                    setEditId(m.id);
+                    setMenuName(m.name);
+                    setMenuDesc(m.description);
+                    setMenuPrice(String(m.priceUsd));
+                    setMenuCat(m.category);
+                    setMenuImages(m.imageDataUrls ?? []);
+                    setMenuExpireOn(Boolean(m.expireEnabled));
+                    setMenuExpiresAt(m.expiresAt ?? "");
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-red-300"
+                  onClick={() => {
+                    if (confirm("Remove menu item?")) {
+                      deletePartnerMenuItem(m.id);
+                      toast("Menu item removed.");
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -606,32 +800,55 @@ export default function RestaurantDashboardPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!evTitle.trim() || !evDate.trim()) return;
-              const res = addPartnerEvent({
-                restaurantId: restaurant.id,
-                restaurantName: restaurant.name,
-                title: evTitle.trim(),
-                description: evDesc.trim(),
-                date: evDate,
-                time: evTime || "TBA",
-                city: restaurant.city as CityId,
-                emoji: evEmoji || "🎉",
-                address: evAddress,
-                ticketUrl:
-                  evTicketUrl.trim() ||
-                  `https://example.com/tickets/${restaurant.id}`,
-                ticketPriceUsd: Number(evTicketPrice) || 0,
-              });
+              const expire = {
+                expireEnabled: evExpireOn,
+                expiresAt: evExpireOn ? evExpiresAt || null : null,
+              };
+              if (editId && tab === "event") {
+                updatePartnerEvent(editId, {
+                  title: evTitle.trim(),
+                  description: evDesc.trim(),
+                  date: evDate,
+                  time: evTime || "TBA",
+                  address: evAddress,
+                  ticketUrl: evTicketUrl.trim() || undefined,
+                  ticketPriceUsd: Number(evTicketPrice) || 0,
+                  emoji: evEmoji || "🎉",
+                  ...expire,
+                });
+                setEditId(null);
+                toast("Event updated.");
+              } else {
+                const res = addPartnerEvent({
+                  restaurantId: restaurant.id,
+                  restaurantName: restaurant.name,
+                  title: evTitle.trim(),
+                  description: evDesc.trim(),
+                  date: evDate,
+                  time: evTime || "TBA",
+                  city: restaurant.city as CityId,
+                  emoji: evEmoji || "🎉",
+                  address: evAddress,
+                  ticketUrl:
+                    evTicketUrl.trim() ||
+                    `https://example.com/tickets/${restaurant.id}`,
+                  ticketPriceUsd: Number(evTicketPrice) || 0,
+                  ...expire,
+                });
+                toast(
+                  res.aiFlagged
+                    ? "Event flagged by AI for admin review."
+                    : res.status === "approved"
+                      ? "Event auto-approved and live."
+                      : "Event submitted — pending admin approval.",
+                );
+              }
               setEvTitle("");
               setEvDesc("");
               setEvDate("");
               setEvTime("");
-              toast(
-                res.aiFlagged
-                  ? "Event flagged by AI for admin review."
-                  : res.status === "approved"
-                    ? "Event auto-approved and live."
-                    : "Event submitted — pending admin approval.",
-              );
+              setEvExpireOn(false);
+              setEvExpiresAt("");
             }}
           >
             <label className="block text-sm">
@@ -709,51 +926,123 @@ export default function RestaurantDashboardPage() {
                 />
               </label>
             </div>
+            <ExpireFields
+              enabled={evExpireOn}
+              date={evExpiresAt}
+              onEnabled={setEvExpireOn}
+              onDate={setEvExpiresAt}
+            />
             <button type="submit" className="gp-btn gp-btn-primary text-sm">
-              Publish event
+              {editId && tab === "event" ? "Save event" : "Submit event"}
             </button>
           </form>
-          {myEvents.length > 0 && (
-            <ul className="mt-4 space-y-1 text-sm text-muted">
-              {myEvents.map((ev) => (
-                <li key={ev.id}>
-                  {ev.emoji} {ev.title} · {ev.date}
-                </li>
-              ))}
-            </ul>
-          )}
+          <h3 className="mt-6 text-sm font-semibold">Your events</h3>
+          <ul className="mt-2 space-y-2 text-sm">
+            {myEvents.length === 0 && (
+              <li className="text-muted">No events yet.</li>
+            )}
+            {myEvents.map((ev) => (
+              <li
+                key={ev.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {ev.emoji} {ev.title} · {ev.date}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {ev.status ?? "pending"}
+                    {ev.expireEnabled && ev.expiresAt
+                      ? ` · expires ${ev.expiresAt}`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-brand"
+                  onClick={() => {
+                    setEditId(ev.id);
+                    setEvTitle(ev.title);
+                    setEvDesc(ev.description);
+                    setEvDate(ev.date);
+                    setEvTime(ev.time);
+                    setEvAddress(ev.address ?? "");
+                    setEvTicketUrl(ev.ticketUrl ?? "");
+                    setEvTicketPrice(String(ev.ticketPriceUsd ?? 0));
+                    setEvEmoji(ev.emoji);
+                    setEvExpireOn(Boolean(ev.expireEnabled));
+                    setEvExpiresAt(ev.expiresAt ?? "");
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-red-300"
+                  onClick={() => {
+                    if (confirm("Remove event?")) {
+                      deletePartnerEvent(ev.id);
+                      toast("Event removed.");
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
       {activeTab === "job" && canManage && (
         <section className="mt-6 gp-card gp-card-static p-5">
-          <h2 className="font-semibold">Post a job</h2>
+          <h2 className="font-semibold">Jobs</h2>
           <form
             className="mt-4 space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
               if (!jobTitle.trim() || !jobApplyUrl.trim()) return;
-              const res = addPartnerJob({
-                restaurantId: restaurant.id,
-                restaurantName: restaurant.name,
-                title: jobTitle.trim(),
-                description: jobDesc.trim(),
-                type: jobType,
-                city: restaurant.city as CityId,
-                payRange: jobPay.trim() || undefined,
-                applyUrl: jobApplyUrl.trim(),
-              });
+              const expire = {
+                expireEnabled: jobExpireOn,
+                expiresAt: jobExpireOn ? jobExpiresAt || null : null,
+              };
+              if (editId && tab === "job") {
+                updatePartnerJob(editId, {
+                  title: jobTitle.trim(),
+                  description: jobDesc.trim(),
+                  type: jobType,
+                  payRange: jobPay.trim() || undefined,
+                  applyUrl: jobApplyUrl.trim(),
+                  ...expire,
+                });
+                setEditId(null);
+                toast("Job updated.");
+              } else {
+                const res = addPartnerJob({
+                  restaurantId: restaurant.id,
+                  restaurantName: restaurant.name,
+                  title: jobTitle.trim(),
+                  description: jobDesc.trim(),
+                  type: jobType,
+                  city: restaurant.city as CityId,
+                  payRange: jobPay.trim() || undefined,
+                  applyUrl: jobApplyUrl.trim(),
+                  ...expire,
+                });
+                toast(
+                  res.aiFlagged
+                    ? "Job flagged by AI for admin review."
+                    : res.status === "approved"
+                      ? "Job auto-approved and live."
+                      : "Job submitted — pending admin approval.",
+                );
+              }
               setJobTitle("");
               setJobDesc("");
               setJobPay("");
               setJobApplyUrl("");
-              toast(
-                res.aiFlagged
-                  ? "Job flagged by AI for admin review."
-                  : res.status === "approved"
-                    ? "Job auto-approved and live."
-                    : "Job submitted — pending admin approval.",
-              );
+              setJobExpireOn(false);
+              setJobExpiresAt("");
             }}
           >
             <label className="block text-sm">
@@ -814,19 +1103,68 @@ export default function RestaurantDashboardPage() {
                 onChange={(e) => setJobApplyUrl(e.target.value)}
               />
             </label>
+            <ExpireFields
+              enabled={jobExpireOn}
+              date={jobExpiresAt}
+              onEnabled={setJobExpireOn}
+              onDate={setJobExpiresAt}
+            />
             <button type="submit" className="gp-btn gp-btn-primary text-sm">
-              Post job
+              {editId && tab === "job" ? "Save job" : "Submit job"}
             </button>
           </form>
-          {myJobs.length > 0 && (
-            <ul className="mt-4 space-y-1 text-sm text-muted">
-              {myJobs.map((j) => (
-                <li key={j.id}>
-                  {j.title} · {j.type}
-                </li>
-              ))}
-            </ul>
-          )}
+          <h3 className="mt-6 text-sm font-semibold">Your jobs</h3>
+          <ul className="mt-2 space-y-2 text-sm">
+            {myJobs.length === 0 && (
+              <li className="text-muted">No jobs yet.</li>
+            )}
+            {myJobs.map((j) => (
+              <li
+                key={j.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {j.title} · {j.type}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {j.status ?? "pending"}
+                    {j.expireEnabled && j.expiresAt
+                      ? ` · expires ${j.expiresAt}`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-brand"
+                  onClick={() => {
+                    setEditId(j.id);
+                    setJobTitle(j.title);
+                    setJobDesc(j.description);
+                    setJobType(j.type);
+                    setJobPay(j.payRange ?? "");
+                    setJobApplyUrl(j.applyUrl ?? "");
+                    setJobExpireOn(Boolean(j.expireEnabled));
+                    setJobExpiresAt(j.expiresAt ?? "");
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-red-300"
+                  onClick={() => {
+                    if (confirm("Remove job?")) {
+                      deletePartnerJob(j.id);
+                      toast("Job removed.");
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

@@ -229,6 +229,7 @@ function AccountInner() {
             <p className="mt-1 text-lg font-bold text-success">
               ${savingsWeek.toFixed(0)}
             </p>
+            <p className="text-[10px] font-medium text-success/90">saved</p>
           </div>
           <div className="gp-card gp-card-static p-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
@@ -237,6 +238,7 @@ function AccountInner() {
             <p className="mt-1 text-lg font-bold text-success">
               ${savingsMonth.toFixed(0)}
             </p>
+            <p className="text-[10px] font-medium text-success/90">saved</p>
           </div>
           <div className="gp-card gp-card-static p-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
@@ -245,6 +247,7 @@ function AccountInner() {
             <p className="mt-1 text-lg font-bold text-success">
               ${savingsYtd.toFixed(0)}
             </p>
+            <p className="text-[10px] font-medium text-success/90">saved</p>
           </div>
         </div>
       )}
@@ -734,6 +737,36 @@ function AccountInner() {
             >
               Open full rewards page →
             </Link>
+          </div>
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Claim catalog (placeholders)</p>
+            <p className="mt-1 text-xs text-muted">
+              Six sample rewards — claim process later.
+            </p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {[
+                "🍟 Free fries voucher",
+                "🥤 Free soft drink",
+                "🍰 Free dessert bite",
+                "🥗 Free appetizer credit",
+                "✨ Sticker pack",
+                "🎟️ Raffle entry",
+              ].map((label) => (
+                <li
+                  key={label}
+                  className="rounded-md border border-border px-3 py-2 text-xs"
+                >
+                  {label}
+                  <button
+                    type="button"
+                    disabled
+                    className="mt-1 block text-[10px] text-muted"
+                  >
+                    Claim soon
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="gp-card gp-card-static p-5">
             <p className="gp-section-label">Recent redemptions</p>

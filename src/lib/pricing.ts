@@ -118,6 +118,87 @@ export interface BadgeDef {
     | { type: "favorites"; min: number };
 }
 
+/** Business type options on partner apply */
+export const BUSINESS_TYPES: { id: string; label: string }[] = [
+  { id: "restaurant", label: "Restaurant" },
+  { id: "food_truck", label: "Food truck" },
+  { id: "grocery", label: "Grocery store" },
+  { id: "bakery", label: "Bakery" },
+  { id: "coffee_shop", label: "Coffee shop" },
+  { id: "fast_food", label: "Fast food" },
+  { id: "event_center", label: "Event center" },
+  { id: "candy_store", label: "Candy store" },
+  { id: "ice_cream", label: "Ice cream shop" },
+  { id: "bar", label: "Bar" },
+  { id: "snow_cone", label: "Snow cone stand" },
+  { id: "zoo", label: "Zoo" },
+  { id: "movie_theater", label: "Movie theater" },
+  { id: "tea_shop", label: "Tea shop" },
+  { id: "home_plates", label: "Home plates / home kitchen" },
+  { id: "other", label: "Other" },
+];
+
+export const OWNERSHIP_TYPES: { id: string; label: string }[] = [
+  { id: "independently_owned", label: "Independently owned" },
+  { id: "franchise", label: "Franchise" },
+  { id: "chain", label: "Chain" },
+  { id: "family_owned", label: "Family owned" },
+  { id: "co_op", label: "Co-op / collective" },
+  { id: "other", label: "Other" },
+];
+
+/** Placeholder claimable rewards (claim flow later) */
+export const REWARD_CATALOG = [
+  {
+    id: "rw-free-fries",
+    name: "Free fries voucher",
+    description: "Redeem at participating partners (placeholder).",
+    pointsCost: 100,
+    emoji: "🍟",
+    placeholder: true,
+  },
+  {
+    id: "rw-drink",
+    name: "Free soft drink",
+    description: "One complimentary fountain drink (placeholder).",
+    pointsCost: 80,
+    emoji: "🥤",
+    placeholder: true,
+  },
+  {
+    id: "rw-dessert",
+    name: "Free dessert bite",
+    description: "Sweet treat on us (placeholder).",
+    pointsCost: 120,
+    emoji: "🍰",
+    placeholder: true,
+  },
+  {
+    id: "rw-app",
+    name: "Free appetizer credit",
+    description: "Toward a partner app plate (placeholder).",
+    pointsCost: 150,
+    emoji: "🥗",
+    placeholder: true,
+  },
+  {
+    id: "rw-swag",
+    name: "GorditoPass sticker pack",
+    description: "Merch drop placeholder.",
+    pointsCost: 60,
+    emoji: "✨",
+    placeholder: true,
+  },
+  {
+    id: "rw-entry",
+    name: "Member raffle entry",
+    description: "Monthly prize drawing entry (placeholder).",
+    pointsCost: 50,
+    emoji: "🎟️",
+    placeholder: true,
+  },
+] as const;
+
 export const BADGES: BadgeDef[] = [
   {
     id: "first_bite",

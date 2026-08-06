@@ -14,6 +14,7 @@ import type {
   ApplicationStatus,
   AuthAccount,
   CartLine,
+  ChatThread,
   CityId,
   ContentStatus,
   JobPosting,
@@ -47,7 +48,7 @@ import {
 } from "./contentModeration";
 import { MEMBERSHIP_PLANS } from "./pricing";
 
-const STORAGE_KEY = "gorditopass-mvp-v10";
+const STORAGE_KEY = "gorditopass-mvp-v11";
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
@@ -70,6 +71,7 @@ interface Persisted {
   accounts: AuthAccount[];
   /** Admin: auto-approve settings per restaurant + content type */
   autoApproveSettings: RestaurantAutoApprove[];
+  chats: ChatThread[];
 }
 
 interface StoreValue {
@@ -220,6 +222,24 @@ interface StoreValue {
       | "aiScore"
     >,
   ) => { id: string; status: ContentStatus; aiFlagged: boolean };
+  updatePartnerDeal: (
+    id: string,
+    patch: Partial<PartnerDealDraft>,
+  ) => void;
+  updatePartnerMenuItem: (
+    id: string,
+    patch: Partial<PartnerMenuItem>,
+  ) => void;
+  updatePartnerEvent: (id: string, patch: Partial<PartnerEvent>) => void;
+  updatePartnerJob: (id: string, patch: Partial<JobPosting>) => void;
+  deletePartnerDeal: (id: string) => void;
+  deletePartnerMenuItem: (id: string) => void;
+  deletePartnerEvent: (id: string) => void;
+  deletePartnerJob: (id: string) => void;
+  chats: ChatThread[];
+  createDmChat: (otherUserId: string, otherName: string) => string;
+  createGroupChat: (title: string, memberIds: string[], memberNames: string[]) => string;
+  sendChatMessage: (chatId: string, body: string) => void;
   submitPlateReview: (
     review: Omit<Review, "id" | "createdAt" | "author"> & { author?: string },
   ) => Review;
@@ -312,7 +332,24 @@ function emptyPersisted(): Persisted {
     notifications: [],
     accounts: [],
     autoApproveSettings: [],
+    chats: [],
   };
+}
+
+/** Content is public when approved and not past expire date */
+export function isPartnerContentLive(item: {
+  status?: ContentStatus;
+  active?: boolean;
+  expireEnabled?: boolean;
+  expiresAt?: string | null;
+}): boolean {
+  if ((item.status ?? "pending") !== "approved") return false;
+  if (item.active === false) return false;
+  if (item.expireEnabled && item.expiresAt) {
+    const end = new Date(item.expiresAt + "T23:59:59").getTime();
+    if (Date.now() > end) return false;
+  }
+  return true;
 }
 
 function planRenewalDate(planId: MembershipPlanId, fromIso: string): string {
@@ -424,6 +461,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v10") ??
       localStorage.getItem("gorditopass-mvp-v9") ??
       localStorage.getItem("gorditopass-mvp-v8") ??
       localStorage.getItem("gorditopass-mvp-v7") ??
@@ -441,6 +479,7 @@ function load(): Persisted {
       notifications: parsed.notifications ?? [],
       accounts: parsed.accounts ?? [],
       autoApproveSettings: parsed.autoApproveSettings ?? [],
+      chats: parsed.chats ?? [],
       redemptions: (parsed.redemptions ?? []).map((r) => ({
         ...r,
         savingsUsd: r.savingsUsd ?? 0,
@@ -625,6 +664,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [autoApproveSettings, setAutoApproveSettings] = useState<
     RestaurantAutoApprove[]
   >([]);
+  const [chats, setChats] = useState<ChatThread[]>([]);
   const [city, setCity] = useState<CityId>("dallas");
 
   useEffect(() => {
@@ -646,6 +686,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotifications(data.notifications ?? []);
     setAccounts(data.accounts ?? []);
     setAutoApproveSettings(data.autoApproveSettings ?? []);
+    setChats(data.chats ?? []);
     if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
@@ -670,6 +711,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       notifications,
       accounts,
       autoApproveSettings,
+      chats,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -691,6 +733,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     notifications,
     accounts,
     autoApproveSettings,
+    chats,
   ]);
 
   // Keep logged-in user mirrored into accounts list
@@ -1282,10 +1325,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toggleFavorite = useCallback(
     (restaurantId: string) => {
+      // Guests cannot save — need an account to attach favorites
+      if (!user) return;
       setFavorites((prev) => {
         const removing = prev.includes(restaurantId);
         if (removing) return prev.filter((id) => id !== restaurantId);
-        // Award points only when adding
         queueMicrotask(() => {
           awardPoints("favorite");
           evaluateBadges();
@@ -1293,14 +1337,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return [...prev, restaurantId];
       });
     },
-    [awardPoints, evaluateBadges],
+    [awardPoints, evaluateBadges, user],
   );
 
-  const toggleFollow = useCallback((id: string) => {
-    setFollowing((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  }, []);
+  const toggleFollow = useCallback(
+    (id: string) => {
+      if (!user) return;
+      setFollowing((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      );
+    },
+    [user],
+  );
 
   const createRedeemCode = useCallback((dealId: string) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -1679,6 +1727,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotifications([]);
     setAccounts([]);
     setAutoApproveSettings([]);
+    setChats([]);
     setCity("dallas");
   }, []);
 
@@ -1848,6 +1897,136 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { id, status, aiFlagged: mod.flagged };
     },
     [autoApproveSettings],
+  );
+
+  const updatePartnerDeal = useCallback(
+    (id: string, patch: Partial<PartnerDealDraft>) => {
+      setPartnerDeals((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+      );
+    },
+    [],
+  );
+  const updatePartnerMenuItem = useCallback(
+    (id: string, patch: Partial<PartnerMenuItem>) => {
+      setPartnerMenuItems((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+      );
+    },
+    [],
+  );
+  const updatePartnerEvent = useCallback(
+    (id: string, patch: Partial<PartnerEvent>) => {
+      setPartnerEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      );
+    },
+    [],
+  );
+  const updatePartnerJob = useCallback(
+    (id: string, patch: Partial<JobPosting>) => {
+      setPartnerJobs((prev) =>
+        prev.map((j) => (j.id === id ? { ...j, ...patch } : j)),
+      );
+    },
+    [],
+  );
+  const deletePartnerDeal = useCallback((id: string) => {
+    setPartnerDeals((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+  const deletePartnerMenuItem = useCallback((id: string) => {
+    setPartnerMenuItems((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+  const deletePartnerEvent = useCallback((id: string) => {
+    setPartnerEvents((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+  const deletePartnerJob = useCallback((id: string) => {
+    setPartnerJobs((prev) => prev.filter((j) => j.id !== id));
+  }, []);
+
+  const createDmChat = useCallback(
+    (otherUserId: string, otherName: string) => {
+      if (!user) return "";
+      const existing = chats.find(
+        (c) =>
+          c.type === "dm" &&
+          c.memberIds.includes(user.id) &&
+          c.memberIds.includes(otherUserId),
+      );
+      if (existing) return existing.id;
+      const id = `chat-${Date.now()}`;
+      const thread: ChatThread = {
+        id,
+        type: "dm",
+        title: otherName,
+        memberIds: [user.id, otherUserId],
+        memberNames: [user.name, otherName],
+        createdAt: new Date().toISOString(),
+        lastMessageAt: new Date().toISOString(),
+        messages: [],
+      };
+      setChats((prev) => [thread, ...prev]);
+      return id;
+    },
+    [user, chats],
+  );
+
+  const createGroupChat = useCallback(
+    (title: string, memberIds: string[], memberNames: string[]) => {
+      if (!user) return "";
+      const id = `chat-g-${Date.now()}`;
+      const ids = Array.from(new Set([user.id, ...memberIds]));
+      const names = [user.name, ...memberNames.filter(Boolean)];
+      const thread: ChatThread = {
+        id,
+        type: "group",
+        title: title.trim() || "Group chat",
+        memberIds: ids,
+        memberNames: names,
+        createdAt: new Date().toISOString(),
+        lastMessageAt: new Date().toISOString(),
+        messages: [
+          {
+            id: `msg-${Date.now()}`,
+            chatId: id,
+            authorId: "system",
+            authorName: "GorditoPass",
+            body: `${user.name} started the group. Keep it friendly — no politics.`,
+            at: new Date().toISOString(),
+          },
+        ],
+      };
+      setChats((prev) => [thread, ...prev]);
+      return id;
+    },
+    [user],
+  );
+
+  const sendChatMessage = useCallback(
+    (chatId: string, body: string) => {
+      if (!user || !body.trim()) return;
+      const msg = {
+        id: `msg-${Date.now()}`,
+        chatId,
+        authorId: user.id,
+        authorName: user.name,
+        authorAvatar: user.avatarDataUrl,
+        body: body.trim(),
+        at: new Date().toISOString(),
+      };
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatId
+            ? {
+                ...c,
+                lastMessageAt: msg.at,
+                messages: [...c.messages, msg],
+              }
+            : c,
+        ),
+      );
+    },
+    [user],
   );
 
   const submitPlateReview = useCallback(
@@ -2044,6 +2223,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addPartnerJob,
     addPartnerDeal,
     addPartnerMenuItem,
+    updatePartnerDeal,
+    updatePartnerMenuItem,
+    updatePartnerEvent,
+    updatePartnerJob,
+    deletePartnerDeal,
+    deletePartnerMenuItem,
+    deletePartnerEvent,
+    deletePartnerJob,
+    chats,
+    createDmChat,
+    createGroupChat,
+    sendChatMessage,
     submitPlateReview,
     getPlateRate,
     getReviewsForRestaurant,

@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BADGES, POINT_ACTIONS, REWARDS } from "@/lib/pricing";
+import {
+  BADGES,
+  POINT_ACTIONS,
+  REWARD_CATALOG,
+  REWARDS,
+} from "@/lib/pricing";
 import { PASSPORTS } from "@/lib/passports";
 import { useStore } from "@/lib/store";
 
@@ -11,7 +16,6 @@ export default function RewardsPage() {
     rewardPoints,
     rewardProgress,
     rewardsAvailable,
-    claimReward,
     rewardHistory,
     redemptions,
     completedPassports,
@@ -61,24 +65,11 @@ export default function RewardsPage() {
           </div>
 
           <div className="mt-6 gp-card gp-card-static p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold">{REWARDS.rewardLabel}</p>
-                <p className="text-sm text-muted">
-                  {rewardsAvailable > 0
-                    ? `You can claim ${rewardsAvailable} now`
-                    : `Need ${REWARDS.pointsPerReward - rewardProgress} more points`}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={rewardsAvailable < 1}
-                className="gp-btn gp-btn-primary disabled:opacity-40"
-                onClick={() => claimReward()}
-              >
-                Claim reward
-              </button>
-            </div>
+            <p className="gp-section-label">Rewards catalog</p>
+            <p className="mt-1 text-sm text-muted">
+              Placeholder items — claim flow coming soon. Spend progress:{" "}
+              {rewardProgress}/{REWARDS.pointsPerReward} pts toward a free item.
+            </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-elevated ring-1 ring-border">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-brand to-brand-gold"
@@ -89,6 +80,29 @@ export default function RewardsPage() {
                   )}%`,
                 }}
               />
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {REWARD_CATALOG.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-border bg-elevated/40 p-4"
+                >
+                  <p className="text-2xl">{item.emoji}</p>
+                  <p className="mt-1 font-semibold">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-muted">{item.description}</p>
+                  <p className="mt-2 text-sm font-medium text-brand">
+                    {item.pointsCost} pts
+                  </p>
+                  <button
+                    type="button"
+                    disabled
+                    className="gp-btn gp-btn-secondary mt-3 w-full text-xs opacity-60"
+                    title="Claim process coming soon"
+                  >
+                    Claim (coming soon)
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { JOB_POSTINGS } from "@/lib/data";
-import { useStore } from "@/lib/store";
+import { isPartnerContentLive, useStore } from "@/lib/store";
 
 export default function JobsPage() {
   const { city, partnerJobs } = useStore();
@@ -11,7 +11,7 @@ export default function JobsPage() {
   const jobs = useMemo(
     () =>
       [
-        ...partnerJobs.filter((j) => (j.status ?? "pending") === "approved"),
+        ...partnerJobs.filter((j) => isPartnerContentLive(j)),
         ...JOB_POSTINGS,
       ]
         .filter((j) => j.city === city)

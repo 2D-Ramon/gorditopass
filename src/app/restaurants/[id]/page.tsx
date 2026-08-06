@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel, getRestaurant } from "@/lib/data";
 import { MENU_CATEGORIES } from "@/lib/pricing";
-import { useStore } from "@/lib/store";
+import { isPartnerContentLive, useStore } from "@/lib/store";
 
 export default function RestaurantDetailPage() {
   const params = useParams();
@@ -62,10 +62,7 @@ export default function RestaurantDetailPage() {
   const liveDeals = useMemo(() => {
     const seed = restaurant.deals.filter((d) => d.active);
     const partner = partnerDeals.filter(
-      (d) =>
-        d.restaurantId === restaurant.id &&
-        (d.status ?? "pending") === "approved" &&
-        d.active,
+      (d) => d.restaurantId === restaurant.id && isPartnerContentLive(d),
     );
     return { seed, partner };
   }, [restaurant, partnerDeals]);
@@ -91,9 +88,7 @@ export default function RestaurantDetailPage() {
     }));
     const partner: Row[] = partnerMenuItems
       .filter(
-        (m) =>
-          m.restaurantId === restaurant.id &&
-          (m.status ?? "pending") === "approved",
+        (m) => m.restaurantId === restaurant.id && isPartnerContentLive(m),
       )
       .map((m) => ({
         id: m.id,
@@ -155,20 +150,32 @@ export default function RestaurantDetailPage() {
             {restaurant.hours} · {restaurant.address}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="gp-btn gp-btn-secondary text-sm !py-2"
-              onClick={() => toggleFavorite(restaurant.id)}
-            >
-              {isFav ? "★ Saved" : "☆ Want to try"}
-            </button>
-            <button
-              type="button"
-              className="gp-btn gp-btn-secondary text-sm !py-2"
-              onClick={() => toggleFollow(restaurant.id)}
-            >
-              {isFollowing ? "Following" : "Follow"}
-            </button>
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-sm !py-2"
+                  onClick={() => toggleFavorite(restaurant.id)}
+                >
+                  {isFav ? "★ Saved" : "☆ Want to try"}
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-sm !py-2"
+                  onClick={() => toggleFollow(restaurant.id)}
+                >
+                  {isFollowing ? "Following" : "Follow"}
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="gp-btn gp-btn-secondary text-sm !py-2"
+                title="Sign in to save or follow"
+              >
+                Sign in to save / follow
+              </Link>
+            )}
             {canRate ? (
               <button
                 type="button"

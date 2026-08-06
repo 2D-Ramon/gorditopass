@@ -283,6 +283,28 @@ export default function AdminPage() {
                         </dt>
                         <dd>{a.hasAuthority ? "Yes" : "No / —"}</dd>
                       </div>
+                      <div>
+                        <dt className="text-[10px] uppercase text-muted">
+                          Business type
+                        </dt>
+                        <dd>
+                          {a.businessType || "—"}
+                          {a.businessTypeOther
+                            ? ` (${a.businessTypeOther})`
+                            : ""}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] uppercase text-muted">
+                          Ownership
+                        </dt>
+                        <dd>
+                          {a.ownershipType || "—"}
+                          {a.ownershipTypeOther
+                            ? ` (${a.ownershipTypeOther})`
+                            : ""}
+                        </dd>
+                      </div>
                       <div className="sm:col-span-2">
                         <dt className="text-[10px] uppercase text-muted">
                           Promo idea

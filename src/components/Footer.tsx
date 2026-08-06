@@ -45,6 +45,11 @@ export function Footer() {
                 Rewards
               </Link>
             </li>
+            <li>
+              <Link href="/chat" className="text-stone-300 hover:text-brand">
+                Chat
+              </Link>
+            </li>
           </ul>
         </div>
         <div>

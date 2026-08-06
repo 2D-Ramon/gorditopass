@@ -71,8 +71,7 @@ export default function HomePage() {
               {[
                 "Browse local kitchens free — see every active member deal.",
                 "Subscribe ($7 / $36 / $60). Family & friends seats up to 6, priced per person.",
-                "Redeem in-store with a rotating QR code staff scans in seconds.",
-                "Order online, join the city feed, track your savings, and catch partner events.",
+                "Redeem in-store with a rotating QR code staff scans in seconds — or order online for to-go or delivery.",
               ].map((step, i) => (
                 <li key={step} className="flex gap-3 text-sm leading-relaxed">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand/15 text-xs font-bold text-orange-200 ring-1 ring-brand/20">
@@ -82,7 +81,17 @@ export default function HomePage() {
                 </li>
               ))}
             </ol>
-            <div className="mt-7 grid gap-2 sm:grid-cols-3">
+            <div className="mt-5 rounded-lg border border-border/80 bg-background/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Extra member perks
+              </p>
+              <p className="mt-1.5 text-xs leading-relaxed text-stone-400">
+                Join the city feed, track your savings, catch partner events, and
+                level up with the rewards program, badges, and cuisine passports —
+                fun that keeps you exploring.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-2 sm:grid-cols-3">
               {MEMBERSHIP_PLANS.map((p) => (
                 <div
                   key={p.id}

@@ -187,6 +187,8 @@ export default function FeedPage() {
         id: postId,
         city,
         author: user?.name ?? "Member",
+        authorId: user?.id,
+        authorAvatar: user?.avatarDataUrl,
         title: title.trim(),
         body: reviewText,
         createdAt: new Date().toISOString(),
@@ -621,12 +623,47 @@ export default function FeedPage() {
             className="gp-card gp-card-static p-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="text-xs text-muted">
-                {post.author} · {new Date(post.createdAt).toLocaleString()}
-                {post.isReview !== false && (
-                  <span className="ml-2 gp-badge !normal-case">Review</span>
+              <div className="flex items-center gap-2">
+                {post.authorId ? (
+                  <Link
+                    href={`/u/${post.authorId}`}
+                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-elevated text-xs ring-1 ring-border"
+                  >
+                    {post.authorAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={post.authorAvatar}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      post.author.slice(0, 1)
+                    )}
+                  </Link>
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-elevated text-xs ring-1 ring-border">
+                    {post.author.slice(0, 1)}
+                  </span>
                 )}
-              </p>
+                <div>
+                  {post.authorId ? (
+                    <Link
+                      href={`/u/${post.authorId}`}
+                      className="text-sm font-semibold text-orange-100 hover:underline"
+                    >
+                      {post.author}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-semibold">{post.author}</p>
+                  )}
+                  <p className="text-[11px] text-muted">
+                    {new Date(post.createdAt).toLocaleString()}
+                    {post.isReview !== false && (
+                      <span className="ml-2 gp-badge !normal-case">Review</span>
+                    )}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 className="gp-btn-share !py-1 !text-[11px]"
@@ -680,12 +717,44 @@ export default function FeedPage() {
               {post.replies.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-md bg-background/80 px-3 py-2 text-sm ring-1 ring-border"
+                  className="flex gap-2 rounded-md bg-background/80 px-3 py-2 text-sm ring-1 ring-border"
                 >
-                  <span className="font-medium text-orange-200/90">
-                    {r.author}
-                  </span>
-                  <span className="text-muted"> · {r.body}</span>
+                  {r.authorId ? (
+                    <Link
+                      href={`/u/${r.authorId}`}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-elevated text-[10px] ring-1 ring-border"
+                    >
+                      {r.authorAvatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={r.authorAvatar}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        r.author.slice(0, 1)
+                      )}
+                    </Link>
+                  ) : (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-elevated text-[10px] ring-1 ring-border">
+                      {r.author.slice(0, 1)}
+                    </span>
+                  )}
+                  <div>
+                    {r.authorId ? (
+                      <Link
+                        href={`/u/${r.authorId}`}
+                        className="font-medium text-orange-200/90 hover:underline"
+                      >
+                        {r.author}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-orange-200/90">
+                        {r.author}
+                      </span>
+                    )}
+                    <span className="text-muted"> · {r.body}</span>
+                  </div>
                 </div>
               ))}
               {allowed ? (
@@ -701,6 +770,8 @@ export default function FeedPage() {
                                 {
                                   id: `r-${Date.now()}`,
                                   author: user?.name ?? "Member",
+                                  authorId: user?.id,
+                                  authorAvatar: user?.avatarDataUrl,
                                   body: text,
                                   createdAt: new Date().toISOString(),
                                 },
