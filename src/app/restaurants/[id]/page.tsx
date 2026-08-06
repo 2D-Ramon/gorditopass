@@ -57,7 +57,10 @@ export default function RestaurantDetailPage() {
 
   const isFav = favorites.includes(restaurant.id);
   const isFollowing = following.includes(restaurant.id);
-  const canRate = Boolean(user?.isMember || user?.role === "restaurant");
+  // Only diner members rate plates — restaurants never rate
+  const canRate = Boolean(
+    user?.role === "diner" && user.isMember,
+  );
 
   const liveDeals = useMemo(() => {
     const seed = restaurant.deals.filter((d) => d.active);

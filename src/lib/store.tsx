@@ -127,10 +127,14 @@ interface StoreValue {
     action: PointActionId,
     opts?: { note?: string; onceKey?: string },
   ) => number;
-  /** Recompute badges from current stats */
-  evaluateBadges: () => string[];
-  /** Recompute cuisine passports (earn / revoke + notifications) */
-  evaluatePassports: () => void;
+  /** Recompute badges from current stats (optional overrides avoid off-by-one) */
+  evaluateBadges: (overrides?: {
+    redemptions?: Redemption[];
+    favorites?: string[];
+    userReviews?: Review[];
+  }) => string[];
+  /** Recompute cuisine passports; pass fresh redemptions after a redeem */
+  evaluatePassports: (redListOverride?: Redemption[]) => void;
   householdMembers: MemberSeatProfile[];
   earnedBadges: string[];
   completedPassports: string[];
@@ -1074,65 +1078,81 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [restaurantApprovalOverrides],
   );
 
-  const evaluateBadges = useCallback((): string[] => {
-    let unlocked: string[] = [];
-    setUser((u) => {
-      if (!u || u.role !== "diner") return u;
-      const stats = {
-        redemptions: redemptions.length,
-        reviews: userReviews.filter((r) => r.author === u.name || r.fromFeed)
-          .length,
-        feed_posts: u.feedPostCount ?? 0,
-        lifetime_points: u.rewardPointsLifetime ?? 0,
-        savings_ytd: sumField(
-          redemptions,
-          "savingsUsd",
-          Date.now() - ytdStartMs(),
-        ),
-        rewards_claimed: u.rewardsClaimed ?? 0,
-        household: u.familySeats ?? 1,
-        favorites: favorites.length,
-      };
-      const have = new Set(u.badges ?? []);
-      const newly: string[] = [];
-      for (const b of BADGES) {
-        if (have.has(b.id)) continue;
-        const r = b.rule;
-        let ok = false;
-        if (r.type === "redemptions") ok = stats.redemptions >= r.min;
-        else if (r.type === "reviews") ok = stats.reviews >= r.min;
-        else if (r.type === "feed_posts") ok = stats.feed_posts >= r.min;
-        else if (r.type === "lifetime_points")
-          ok = stats.lifetime_points >= r.min;
-        else if (r.type === "savings_ytd") ok = stats.savings_ytd >= r.min;
-        else if (r.type === "rewards_claimed")
-          ok = stats.rewards_claimed >= r.min;
-        else if (r.type === "household") ok = stats.household >= r.min;
-        else if (r.type === "favorites") ok = stats.favorites >= r.min;
-        if (ok) {
-          have.add(b.id);
-          newly.push(b.id);
+  /**
+   * Optional overrides avoid off-by-one badges: callers that just updated
+   * redemptions/favorites/reviews pass the *new* arrays because React state
+   * is still stale inside queueMicrotask / same-tick callbacks.
+   */
+  const evaluateBadges = useCallback(
+    (overrides?: {
+      redemptions?: Redemption[];
+      favorites?: string[];
+      userReviews?: Review[];
+    }): string[] => {
+      const redList = overrides?.redemptions ?? redemptions;
+      const favList = overrides?.favorites ?? favorites;
+      const revList = overrides?.userReviews ?? userReviews;
+      let unlocked: string[] = [];
+      setUser((u) => {
+        if (!u || u.role !== "diner") return u;
+        const stats = {
+          redemptions: redList.length,
+          reviews: revList.filter((r) => r.author === u.name || r.fromFeed)
+            .length,
+          feed_posts: u.feedPostCount ?? 0,
+          lifetime_points: u.rewardPointsLifetime ?? 0,
+          savings_ytd: sumField(
+            redList,
+            "savingsUsd",
+            Date.now() - ytdStartMs(),
+          ),
+          rewards_claimed: u.rewardsClaimed ?? 0,
+          household: u.familySeats ?? 1,
+          favorites: favList.length,
+        };
+        const have = new Set(u.badges ?? []);
+        const newly: string[] = [];
+        for (const b of BADGES) {
+          if (have.has(b.id)) continue;
+          const r = b.rule;
+          let ok = false;
+          if (r.type === "redemptions") ok = stats.redemptions >= r.min;
+          else if (r.type === "reviews") ok = stats.reviews >= r.min;
+          else if (r.type === "feed_posts") ok = stats.feed_posts >= r.min;
+          else if (r.type === "lifetime_points")
+            ok = stats.lifetime_points >= r.min;
+          else if (r.type === "savings_ytd") ok = stats.savings_ytd >= r.min;
+          else if (r.type === "rewards_claimed")
+            ok = stats.rewards_claimed >= r.min;
+          else if (r.type === "household") ok = stats.household >= r.min;
+          else if (r.type === "favorites") ok = stats.favorites >= r.min;
+          if (ok) {
+            have.add(b.id);
+            newly.push(b.id);
+          }
         }
-      }
-      // Passport badges mirror completedPassports
-      for (const pid of u.completedPassports ?? []) {
-        const badgeId = `passport_${pid}`;
-        if (!have.has(badgeId)) {
-          have.add(badgeId);
-          newly.push(badgeId);
+        // Passport badges mirror completedPassports
+        for (const pid of u.completedPassports ?? []) {
+          const badgeId = `passport_${pid}`;
+          if (!have.has(badgeId)) {
+            have.add(badgeId);
+            newly.push(badgeId);
+          }
         }
-      }
-      unlocked = Array.from(have);
-      if (newly.length === 0 && unlocked.length === (u.badges ?? []).length)
-        return u;
-      return { ...u, badges: unlocked };
-    });
-    return unlocked;
-  }, [redemptions, userReviews, favorites]);
+        unlocked = Array.from(have);
+        if (newly.length === 0 && unlocked.length === (u.badges ?? []).length)
+          return u;
+        return { ...u, badges: unlocked };
+      });
+      return unlocked;
+    },
+    [redemptions, userReviews, favorites],
+  );
 
-  const evaluatePassports = useCallback(() => {
+  const evaluatePassports = useCallback((redListOverride?: Redemption[]) => {
+    const redList = redListOverride ?? redemptions;
     const visited = new Set(
-      redemptions
+      redList
         .map((r) => r.restaurantId)
         .filter((id): id is string => Boolean(id)),
     );
@@ -1284,6 +1304,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [redemptions, isRestaurantApproved]);
 
+  // Note: evaluatePassports still closes over isRestaurantApproved; redList is passed in.
+
   const addToCart = useCallback(
     (line: Omit<CartLine, "qty">, qty = 1) => {
       setCart((prev) => {
@@ -1330,11 +1352,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setFavorites((prev) => {
         const removing = prev.includes(restaurantId);
         if (removing) return prev.filter((id) => id !== restaurantId);
+        const next = [...prev, restaurantId];
         queueMicrotask(() => {
           awardPoints("favorite");
-          evaluateBadges();
+          evaluateBadges({ favorites: next });
         });
-        return [...prev, restaurantId];
+        return next;
       });
     },
     [awardPoints, evaluateBadges, user],
@@ -1366,9 +1389,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (dealId: string, code: string) => {
       const meta = estimateSavings(dealId, partnerDeals);
       let isFirst = false;
+      let nextReds: Redemption[] = [];
       setRedemptions((prev) => {
         isFirst = prev.length === 0;
-        return [
+        nextReds = [
           {
             dealId,
             code,
@@ -1377,6 +1401,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           ...prev,
         ];
+        return nextReds;
       });
       const basePts = POINT_ACTIONS.redeem.points;
       const bonusPts = isFirst ? POINT_ACTIONS.first_redeem.points : 0;
@@ -1415,9 +1440,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return [...rows, ...prev];
       });
+      // Pass nextReds so badges/passports see this redemption immediately
       queueMicrotask(() => {
-        evaluateBadges();
-        evaluatePassports();
+        evaluatePassports(nextReds);
+        evaluateBadges({ redemptions: nextReds });
       });
       return { pointsEarned: points, totalPoints };
     },
@@ -2035,6 +2061,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         author?: string;
       },
     ) => {
+      // Restaurants (and admins acting as partners) cannot rate plates
+      if (user?.role === "restaurant") {
+        throw new Error("Restaurants cannot submit plate ratings.");
+      }
       const plates = Math.min(5, Math.max(1, Math.round(review.plates)));
       const full: Review = {
         ...review,
@@ -2043,7 +2073,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         author: review.author ?? user?.name ?? "Member",
         createdAt: new Date().toISOString().slice(0, 10),
       };
-      setUserReviews((prev) => [full, ...prev]);
+      let nextReviews: Review[] = [];
+      setUserReviews((prev) => {
+        nextReviews = [full, ...prev];
+        return nextReviews;
+      });
       if (full.fromFeed) {
         setUser((u) =>
           u
@@ -2054,10 +2088,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } else {
         awardPoints("review");
       }
-      queueMicrotask(() => evaluateBadges());
+      queueMicrotask(() =>
+        evaluateBadges({ userReviews: nextReviews }),
+      );
       return full;
     },
-    [user?.name, awardPoints, evaluateBadges],
+    [user?.name, user?.role, awardPoints, evaluateBadges],
   );
 
   const getReviewsForRestaurant = useCallback(

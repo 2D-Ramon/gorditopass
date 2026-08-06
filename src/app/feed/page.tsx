@@ -166,8 +166,8 @@ export default function FeedPage() {
     const reviewText = buildReviewBody();
     const postId = `local-${Date.now()}`;
 
-    // Every post is a review (with plate rate when business is known)
-    if (restaurantId) {
+    // Plate ratings only for diner members — never restaurants
+    if (restaurantId && user?.role === "diner") {
       submitPlateReview({
         restaurantId,
         plates,
@@ -410,7 +410,8 @@ export default function FeedPage() {
             </label>
           )}
 
-          {(mode === "template" || restaurantId) && (
+          {(mode === "template" || restaurantId) &&
+            user?.role === "diner" && (
             <div>
               <p className="mb-1.5 text-sm font-medium">Your plate rate *</p>
               <div className="flex flex-wrap gap-2">

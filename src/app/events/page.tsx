@@ -28,25 +28,31 @@ export default function EventsPage() {
   const { city, partnerEvents } = useStore();
   const [sharedId, setSharedId] = useState<string | null>(null);
 
+  const livePartner = useMemo(
+    () => partnerEvents.filter((e) => isPartnerContentLive(e)),
+    [partnerEvents],
+  );
+
   const events = useMemo(() => {
     const now = new Date();
     const month = now.getMonth();
     const year = now.getFullYear();
-    const all = [
-      ...partnerEvents.filter((e) => isPartnerContentLive(e)),
-      ...PARTNER_EVENTS,
-    ];
-    return all
-      .filter((e) => {
-        if (e.city !== city) return false;
-        const d = new Date(e.date + "T12:00:00");
-        return (
-          (d.getMonth() === month && d.getFullYear() === year) ||
-          (d.getMonth() === 7 && d.getFullYear() === 2026)
-        );
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [city, partnerEvents]);
+    // Approved partner events always show for the city (any date).
+    // Seed demo events are limited to the current calendar month.
+    const partnerForCity = livePartner.filter((e) => e.city === city);
+    const seedForMonth = PARTNER_EVENTS.filter((e) => {
+      if (e.city !== city) return false;
+      const d = new Date(e.date + "T12:00:00");
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+    const seen = new Set<string>();
+    const all = [...partnerForCity, ...seedForMonth].filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+    return all.sort((a, b) => a.date.localeCompare(b.date));
+  }, [city, livePartner]);
 
   const monthLabel = new Date().toLocaleString("en-US", {
     month: "long",
@@ -61,10 +67,19 @@ export default function EventsPage() {
         directions, and share with friends.
       </p>
       <p className="mt-2 text-sm text-muted">
-        Showing · {monthLabel} (plus demo seed)
+        Live partner events for this city · seed demos for {monthLabel}
+        {livePartner.length > 0
+          ? ` · ${livePartner.filter((e) => e.city === city).length} approved partner event(s)`
+          : ""}
       </p>
 
       <div className="mt-8 space-y-4">
+        {events.length === 0 && (
+          <p className="text-sm text-muted">
+            No events yet for this city. Partner events appear here after admin
+            approval.
+          </p>
+        )}
         {events.map((e) => {
           const address = e.address ?? `${e.restaurantName}, ${e.city}`;
           const ticketHref = e.ticketUrl ?? "#";

@@ -21,6 +21,7 @@ type TabId =
   | "badges"
   | "rewards"
   | "billing"
+  | "chat"
   | "staff";
 
 function AccountInner() {
@@ -85,6 +86,7 @@ function AccountInner() {
       t === "badges" ||
       t === "rewards" ||
       t === "billing" ||
+      t === "chat" ||
       t === "household" ||
       t === "staff" ||
       t === "profile"
@@ -154,6 +156,7 @@ function AccountInner() {
       label: "Billing",
       show: isDiner,
     },
+    { id: "chat", label: "Chat", show: isDiner || isRestaurant },
     { id: "staff", label: "Staff logins", show: canInviteStaff },
   ];
 
@@ -981,6 +984,23 @@ function AccountInner() {
               </form>
             )}
           </div>
+        </div>
+      )}
+
+      {tab === "chat" && (isDiner || isRestaurant) && (
+        <div className="mt-6 gp-card gp-card-static p-5">
+          <p className="gp-section-label">Community chat</p>
+          <p className="mt-2 text-sm text-muted">
+            Private DMs and group chats with other members — keep it friendly
+            and food-first.
+          </p>
+          <Link href="/chat" className="gp-btn gp-btn-primary mt-4">
+            Open chat
+          </Link>
+          <p className="mt-3 text-xs text-muted">
+            Tip: open someone’s public profile from the city feed, then message
+            them from chat.
+          </p>
         </div>
       )}
 
