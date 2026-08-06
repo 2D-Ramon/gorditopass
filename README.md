@@ -1,61 +1,31 @@
-# GorditoPass (working name) — web MVP
+﻿# GorditoPass (web)
 
-Local food membership platform: diners subscribe for exclusive deals; restaurants join free after approval.
+Local restaurant member deals MVP — Next.js demo.
 
-## Quick start
+**Repo:** https://github.com/2D-Ramon/gorditopass
+
+## Local
 
 ```bash
-cd web
-npm.cmd install
-npm.cmd run dev
+npm install
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open http://localhost:3000
 
-> On Windows PowerShell, use `npm.cmd` if script execution policy blocks `npm`.
+## Deploy (free public URL)
 
-## What’s in this demo
+1. Go to https://vercel.com/new
+2. Sign in with GitHub
+3. Import **2D-Ramon/gorditopass**
+4. Deploy (Next.js defaults)
 
-| Area | Status |
-|------|--------|
-| Marketing pages (home, how it works, pricing, about, FAQ, cities, legal) | ✅ |
-| Explore + filters + map pins (demo) | ✅ |
-| Restaurant profiles, plate reviews, deals | ✅ |
-| Membership ($7 / $36 / $60, family up to 6) | ✅ demo local |
-| Full cart + checkout | ✅ demo |
-| Dynamic redeem code + staff confirm | ✅ demo |
-| City feed (posts + replies) | ✅ demo |
-| Restaurant apply + partner dashboard | ✅ demo |
-| Admin shell | ✅ demo |
-| Supabase auth / DB | 🔜 env ready |
-| Stripe test mode | 🔜 env ready |
-| Google Maps tiles | 🔜 env ready |
-| Real delivery | later |
+## What's included
 
-Demo state persists in **browser localStorage** (`gorditopass-mvp-v1`).
+- **Rewards:** +10 pts per redeem, 100 pts = free-item claim (Account)
+- **Admin queue:** approve applications & deals, toggle restaurants, hide feed posts
+- **Partner dashboard:** deals, menu, events, jobs, redeem scan (role-gated)
+- **City feed:** templates, reviews, GIFs, share
+- Demo auth: diner / restaurant (owner|employee) / admin
 
-### Demo roles
-
-- Header **Demo sign in** → diner  
-- `/account` → diner / restaurant / admin  
-- Restaurant dashboard: `/restaurant/dashboard`  
-- Admin: `/admin`
-
-## Stack
-
-- **Next.js 16** (App Router) + TypeScript + Tailwind CSS 4  
-- Client store for MVP demo; Supabase + Stripe next  
-- Free-first hosting target: **Vercel**
-
-## Product brief
-
-See `../PRODUCT-BRIEF.md` for full business rules.
-
-## Scripts
-
-| Command | Purpose |
-|---------|---------|
-| `npm.cmd run dev` | Local dev server |
-| `npm.cmd run build` | Production build |
-| `npm.cmd run start` | Serve production build |
-| `npm.cmd run lint` | ESLint |
+No real payments or backend yet — state is in the browser.
