@@ -8,11 +8,68 @@ import {
   cuisineLabel,
 } from "@/lib/data";
 import { PRESET_GIFS } from "@/lib/presetGifs";
+import { REACTION_EMOJIS } from "@/lib/pricing";
 import { canPostInFeed, useStore } from "@/lib/store";
-import type { FeedMedia, FeedPost } from "@/lib/types";
+import type { FeedMedia, FeedPoll, FeedPost, ReactionMap } from "@/lib/types";
 import { PlateRating } from "@/components/PlateRating";
 
 const EMOJI_PICKS = ["🔥", "😍", "🌮", "🍕", "👏", "🙌", "😋", "💯", "❤️", "🎉"];
+
+function toggleReaction(
+  map: ReactionMap | undefined,
+  emoji: string,
+  userId: string,
+): ReactionMap {
+  const next: ReactionMap = { ...(map ?? {}) };
+  const list = [...(next[emoji] ?? [])];
+  const i = list.indexOf(userId);
+  if (i >= 0) list.splice(i, 1);
+  else list.push(userId);
+  if (list.length === 0) delete next[emoji];
+  else next[emoji] = list;
+  return next;
+}
+
+function ReactionBar({
+  reactions,
+  userId,
+  onToggle,
+  disabled,
+}: {
+  reactions?: ReactionMap;
+  userId?: string;
+  onToggle: (emoji: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1">
+      {REACTION_EMOJIS.map((emoji) => {
+        const voters = reactions?.[emoji] ?? [];
+        const mine = userId ? voters.includes(userId) : false;
+        const count = voters.length;
+        return (
+          <button
+            key={emoji}
+            type="button"
+            disabled={disabled || !userId}
+            title={disabled ? "Sign in to react" : `React ${emoji}`}
+            onClick={() => onToggle(emoji)}
+            className={`rounded-full px-1.5 py-0.5 text-[11px] ring-1 transition ${
+              count > 0
+                ? mine
+                  ? "bg-brand/20 ring-brand/40"
+                  : "bg-elevated ring-border"
+                : "opacity-50 ring-transparent hover:opacity-100"
+            } disabled:cursor-not-allowed disabled:opacity-30`}
+          >
+            {emoji}
+            {count > 0 ? ` ${count}` : ""}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const POST_TEMPLATES: {
   id: string;
@@ -21,10 +78,10 @@ const POST_TEMPLATES: {
   body: string;
 }[] = [
   {
-    id: "rec",
-    label: "Recommendation",
-    title: "Must-try spot this week",
-    body: "Would go again — food, service, and member value all hit.",
+    id: "blank",
+    label: "Blank (custom)",
+    title: "",
+    body: "",
   },
   {
     id: "deal",
@@ -39,10 +96,10 @@ const POST_TEMPLATES: {
     body: "Service, food, and member value — solid plates from me.",
   },
   {
-    id: "blank",
-    label: "Blank (custom)",
-    title: "",
-    body: "",
+    id: "rec",
+    label: "Recommendation",
+    title: "Must-try spot this week",
+    body: "Would go again — food, service, and member value all hit.",
   },
 ];
 
@@ -85,6 +142,12 @@ export default function FeedPage() {
   const [menuItemId, setMenuItemId] = useState("");
   const [dealId, setDealId] = useState("");
   const [plates, setPlates] = useState(5);
+  const [includePoll, setIncludePoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptA, setPollOptA] = useState("");
+  const [pollOptB, setPollOptB] = useState("");
+  const [pollOptC, setPollOptC] = useState("");
+  const [pollOptD, setPollOptD] = useState("");
 
   const photoRef = useRef<HTMLInputElement>(null);
   const gifUploadRef = useRef<HTMLInputElement>(null);
@@ -161,6 +224,25 @@ export default function FeedPage() {
       return;
     }
 
+    let poll: FeedPoll | undefined;
+    if (includePoll) {
+      const opts = [pollOptA, pollOptB, pollOptC, pollOptD]
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (!pollQuestion.trim() || opts.length < 2) {
+        setFormError("Polls need a question and at least 2 options.");
+        return;
+      }
+      poll = {
+        question: pollQuestion.trim(),
+        options: opts.map((label, i) => ({
+          id: `opt-${i}`,
+          label,
+          voterIds: [],
+        })),
+      };
+    }
+
     const menuItem = selectedRestaurant?.menu.find((m) => m.id === menuItemId);
     const deal = selectedRestaurant?.deals.find((d) => d.id === dealId);
     const reviewText = buildReviewBody();
@@ -201,7 +283,9 @@ export default function FeedPage() {
         menuItemName: menuItem?.name,
         dealId: deal?.id,
         dealTitle: deal?.title,
-        plates: restaurantId ? plates : undefined,
+        plates: restaurantId && user?.role === "diner" ? plates : undefined,
+        poll,
+        reactions: {},
         replies: [],
       },
       ...prev,
@@ -212,6 +296,12 @@ export default function FeedPage() {
     setMedia([]);
     setShowEmoji(false);
     setShowGifs(false);
+    setIncludePoll(false);
+    setPollQuestion("");
+    setPollOptA("");
+    setPollOptB("");
+    setPollOptC("");
+    setPollOptD("");
     if (mode === "template") {
       // keep restaurant selected for next review
     } else {
@@ -448,6 +538,49 @@ export default function FeedPage() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includePoll}
+              onChange={(e) => setIncludePoll(e.target.checked)}
+            />
+            Add a poll
+          </label>
+          {includePoll && (
+            <div className="space-y-2 rounded-lg border border-border bg-elevated/40 p-3">
+              <input
+                className="gp-input text-sm"
+                placeholder="Poll question *"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+              />
+              <input
+                className="gp-input text-sm"
+                placeholder="Option A *"
+                value={pollOptA}
+                onChange={(e) => setPollOptA(e.target.value)}
+              />
+              <input
+                className="gp-input text-sm"
+                placeholder="Option B *"
+                value={pollOptB}
+                onChange={(e) => setPollOptB(e.target.value)}
+              />
+              <input
+                className="gp-input text-sm"
+                placeholder="Option C (optional)"
+                value={pollOptC}
+                onChange={(e) => setPollOptC(e.target.value)}
+              />
+              <input
+                className="gp-input text-sm"
+                placeholder="Option D (optional)"
+                value={pollOptD}
+                onChange={(e) => setPollOptD(e.target.value)}
+              />
+            </div>
+          )}
 
           {media.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -708,6 +841,97 @@ export default function FeedPage() {
             {post.media && post.media.length > 0 && (
               <MediaGrid media={post.media} />
             )}
+            {post.poll && (
+              <div className="mt-3 space-y-2 rounded-lg border border-border bg-elevated/40 p-3">
+                <p className="text-sm font-semibold">{post.poll.question}</p>
+                {post.poll.options.map((opt) => {
+                  const totalVotes = post.poll!.options.reduce(
+                    (s, o) => s + o.voterIds.length,
+                    0,
+                  );
+                  const votes = opt.voterIds.length;
+                  const pct =
+                    totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                  const mine = user?.id
+                    ? opt.voterIds.includes(user.id)
+                    : false;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={!user}
+                      className={`relative w-full overflow-hidden rounded-md border px-3 py-2 text-left text-sm ${
+                        mine
+                          ? "border-brand/50 bg-brand/10"
+                          : "border-border bg-background/60"
+                      }`}
+                      onClick={() => {
+                        if (!user) return;
+                        setLocalPosts((prev) =>
+                          prev.map((p) => {
+                            if (p.id !== post.id || !p.poll) return p;
+                            return {
+                              ...p,
+                              poll: {
+                                ...p.poll,
+                                options: p.poll.options.map((o) => {
+                                  let voterIds = o.voterIds.filter(
+                                    (id) => id !== user.id,
+                                  );
+                                  if (o.id === opt.id) {
+                                    const had = o.voterIds.includes(user.id);
+                                    if (!had) voterIds = [...voterIds, user.id];
+                                  }
+                                  return { ...o, voterIds };
+                                }),
+                              },
+                            };
+                          }),
+                        );
+                      }}
+                    >
+                      <span
+                        className="absolute inset-y-0 left-0 bg-brand/15"
+                        style={{ width: `${pct}%` }}
+                      />
+                      <span className="relative flex justify-between gap-2">
+                        <span>{opt.label}</span>
+                        <span className="text-xs text-muted">
+                          {votes} · {pct}%
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+                {!user && (
+                  <p className="text-[11px] text-muted">
+                    Sign in to vote on polls.
+                  </p>
+                )}
+              </div>
+            )}
+            <ReactionBar
+              reactions={post.reactions}
+              userId={user?.id}
+              disabled={!user}
+              onToggle={(emoji) => {
+                if (!user) return;
+                setLocalPosts((prev) =>
+                  prev.map((p) =>
+                    p.id === post.id
+                      ? {
+                          ...p,
+                          reactions: toggleReaction(
+                            p.reactions,
+                            emoji,
+                            user.id,
+                          ),
+                        }
+                      : p,
+                  ),
+                );
+              }}
+            />
             <div className="mt-4 space-y-2 border-t border-border pt-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">
                 Replies

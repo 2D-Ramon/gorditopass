@@ -205,17 +205,24 @@ export default function MembershipPage() {
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {MEMBERSHIP_PLANS.map((p) => {
                 const perMo = monthlyRate(p);
+                const selected = planId === p.id;
                 return (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => setPlanId(p.id)}
-                    className={`gp-card p-5 text-left transition ${
-                      planId === p.id
-                        ? "border-brand ring-2 ring-brand/30 shadow-[var(--shadow-glow)]"
-                        : ""
+                    aria-pressed={selected}
+                    className={`gp-card relative p-5 text-left transition ${
+                      selected
+                        ? "border-2 border-brand bg-brand/10 ring-2 ring-brand/50 shadow-[var(--shadow-glow)]"
+                        : "border border-border opacity-90 hover:border-brand/40 hover:opacity-100"
                     }`}
                   >
+                    {selected && (
+                      <span className="absolute right-3 top-3 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                        Selected
+                      </span>
+                    )}
                     <p className="text-sm font-medium text-muted">{p.name}</p>
                     <p className="mt-1 text-3xl font-bold tracking-tight">
                       ${p.priceUsd}
@@ -234,6 +241,14 @@ export default function MembershipPage() {
                 );
               })}
             </div>
+            <p className="mt-3 text-center text-sm text-muted">
+              Selected plan:{" "}
+              <strong className="text-brand">{plan.name}</strong> · $
+              {plan.priceUsd}
+              {plan.months > 1
+                ? ` ($${monthlyRate(plan)}/mo)`
+                : ""}
+            </p>
 
             <div className="mt-8 gp-card gp-card-static p-6">
               <h3 className="text-lg font-semibold tracking-tight">

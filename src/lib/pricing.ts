@@ -82,19 +82,28 @@ export const REWARDS = {
   actions: POINT_ACTIONS,
 } as const;
 
-/** Menu item categories for partner dashboard */
+/** Sort labels A–Z; keep "Other" last when present */
+function alphaOptions<T extends { id: string; label: string }>(items: T[]): T[] {
+  const other = items.filter((i) => i.id === "other" || i.label === "Other");
+  const rest = items
+    .filter((i) => i.id !== "other" && i.label !== "Other")
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  return [...rest, ...other];
+}
+
+/** Menu item categories for partner dashboard (alpha, Other last) */
 export const MENU_CATEGORIES = [
   "Apps",
-  "Mains",
-  "Sides",
-  "Pizza",
-  "Wings",
   "Bowls",
-  "Pasta",
-  "Drinks",
   "Dessert",
+  "Drinks",
   "Kids",
+  "Mains",
+  "Pasta",
+  "Pizza",
+  "Sides",
   "Specials",
+  "Wings",
   "Other",
 ] as const;
 
@@ -118,34 +127,39 @@ export interface BadgeDef {
     | { type: "favorites"; min: number };
 }
 
-/** Business type options on partner apply */
-export const BUSINESS_TYPES: { id: string; label: string }[] = [
-  { id: "restaurant", label: "Restaurant" },
+/** Business type options on partner apply (alphabetical, Other last) */
+export const BUSINESS_TYPES: { id: string; label: string }[] = alphaOptions([
+  { id: "bakery", label: "Bakery" },
+  { id: "bar", label: "Bar" },
+  { id: "brewery", label: "Brewery" },
+  { id: "candy_store", label: "Candy store" },
+  { id: "catering", label: "Catering" },
+  { id: "coffee_shop", label: "Coffee shop" },
+  { id: "event_center", label: "Event center" },
+  { id: "fast_food", label: "Fast food" },
   { id: "food_truck", label: "Food truck" },
   { id: "grocery", label: "Grocery store" },
-  { id: "bakery", label: "Bakery" },
-  { id: "coffee_shop", label: "Coffee shop" },
-  { id: "fast_food", label: "Fast food" },
-  { id: "event_center", label: "Event center" },
-  { id: "candy_store", label: "Candy store" },
-  { id: "ice_cream", label: "Ice cream shop" },
-  { id: "bar", label: "Bar" },
-  { id: "snow_cone", label: "Snow cone stand" },
-  { id: "zoo", label: "Zoo" },
-  { id: "movie_theater", label: "Movie theater" },
-  { id: "tea_shop", label: "Tea shop" },
   { id: "home_plates", label: "Home plates / home kitchen" },
+  { id: "ice_cream", label: "Ice cream shop" },
+  { id: "movie_theater", label: "Movie theater" },
+  { id: "restaurant", label: "Restaurant" },
+  { id: "snow_cone", label: "Snow cone stand" },
+  { id: "tea_shop", label: "Tea shop" },
+  { id: "zoo", label: "Zoo" },
   { id: "other", label: "Other" },
-];
+]);
 
-export const OWNERSHIP_TYPES: { id: string; label: string }[] = [
-  { id: "independently_owned", label: "Independently owned" },
-  { id: "franchise", label: "Franchise" },
+export const OWNERSHIP_TYPES: { id: string; label: string }[] = alphaOptions([
   { id: "chain", label: "Chain" },
-  { id: "family_owned", label: "Family owned" },
   { id: "co_op", label: "Co-op / collective" },
+  { id: "family_owned", label: "Family owned" },
+  { id: "franchise", label: "Franchise" },
+  { id: "independently_owned", label: "Independently owned" },
   { id: "other", label: "Other" },
-];
+]);
+
+/** Shared reaction emoji set (feed + chat) */
+export const REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "😮", "👏"] as const;
 
 /** Placeholder claimable rewards (claim flow later) */
 export const REWARD_CATALOG = [

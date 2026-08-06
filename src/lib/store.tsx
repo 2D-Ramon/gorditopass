@@ -244,6 +244,11 @@ interface StoreValue {
   createDmChat: (otherUserId: string, otherName: string) => string;
   createGroupChat: (title: string, memberIds: string[], memberNames: string[]) => string;
   sendChatMessage: (chatId: string, body: string) => void;
+  reactToChatMessage: (
+    chatId: string,
+    messageId: string,
+    emoji: string,
+  ) => void;
   submitPlateReview: (
     review: Omit<Review, "id" | "createdAt" | "author"> & { author?: string },
   ) => Review;
@@ -2039,6 +2044,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         authorAvatar: user.avatarDataUrl,
         body: body.trim(),
         at: new Date().toISOString(),
+        reactions: {},
       };
       setChats((prev) =>
         prev.map((c) =>
@@ -2050,6 +2056,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               }
             : c,
         ),
+      );
+    },
+    [user],
+  );
+
+  const reactToChatMessage = useCallback(
+    (chatId: string, messageId: string, emoji: string) => {
+      if (!user) return;
+      const uid = user.id;
+      setChats((prev) =>
+        prev.map((c) => {
+          if (c.id !== chatId) return c;
+          return {
+            ...c,
+            messages: c.messages.map((m) => {
+              if (m.id !== messageId) return m;
+              const reactions = { ...(m.reactions ?? {}) };
+              const list = [...(reactions[emoji] ?? [])];
+              const idx = list.indexOf(uid);
+              if (idx >= 0) list.splice(idx, 1);
+              else list.push(uid);
+              if (list.length === 0) delete reactions[emoji];
+              else reactions[emoji] = list;
+              return { ...m, reactions };
+            }),
+          };
+        }),
       );
     },
     [user],
@@ -2271,6 +2304,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     createDmChat,
     createGroupChat,
     sendChatMessage,
+    reactToChatMessage,
     submitPlateReview,
     getPlateRate,
     getReviewsForRestaurant,

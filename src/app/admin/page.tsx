@@ -305,6 +305,12 @@ export default function AdminPage() {
                             : ""}
                         </dd>
                       </div>
+                      <div>
+                        <dt className="text-[10px] uppercase text-muted">
+                          Locations
+                        </dt>
+                        <dd>{a.totalLocations ?? "—"}</dd>
+                      </div>
                       <div className="sm:col-span-2">
                         <dt className="text-[10px] uppercase text-muted">
                           Promo idea
@@ -312,6 +318,29 @@ export default function AdminPage() {
                         <dd className="text-muted">{a.promo || "—"}</dd>
                       </div>
                     </dl>
+                    {a.concepts && a.concepts.length > 0 && (
+                      <div className="mt-3 rounded-md border border-border bg-elevated/40 p-3">
+                        <p className="text-[10px] font-semibold uppercase text-muted">
+                          Concepts ({a.concepts.length})
+                        </p>
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {a.concepts.map((c) => (
+                            <li key={c.id}>
+                              <strong>{c.conceptName}</strong> ·{" "}
+                              {c.businessType}
+                              {c.businessTypeOther
+                                ? ` (${c.businessTypeOther})`
+                                : ""}{" "}
+                              · {c.locationCount} loc
+                              {c.cuisineOrTheme
+                                ? ` · ${c.cuisineOrTheme}`
+                                : ""}
+                              {c.cities ? ` · ${c.cities}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     <p className="mt-3 text-[10px] font-semibold uppercase text-muted">
                       Uploads ({uploads.length})
                     </p>

@@ -404,10 +404,10 @@ function AccountInner() {
                     updateProfile({ staffRole: e.target.value as StaffRole })
                   }
                 >
-                  <option value="owner">Owner</option>
+                  <option value="employee">Employee</option>
                   <option value="manager">Manager</option>
                   <option value="marketing">Marketing</option>
-                  <option value="employee">Employee</option>
+                  <option value="owner">Owner</option>
                 </select>
               </label>
             )}
@@ -1057,9 +1057,9 @@ function AccountInner() {
                 value={staffRole}
                 onChange={(e) => setStaffRole(e.target.value as StaffRole)}
               >
+                <option value="employee">Employee (redeem only)</option>
                 <option value="manager">Manager</option>
                 <option value="marketing">Marketing</option>
-                <option value="employee">Employee (redeem only)</option>
                 <option value="owner">Owner</option>
               </select>
             </label>

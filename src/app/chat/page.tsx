@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { REACTION_EMOJIS } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
 /**
@@ -16,6 +17,7 @@ export default function ChatPage() {
     createDmChat,
     createGroupChat,
     sendChatMessage,
+    reactToChatMessage,
   } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -227,6 +229,50 @@ export default function ChatPage() {
                         <p className="mt-0.5 text-[10px] text-muted">
                           {new Date(m.at).toLocaleString()}
                         </p>
+                        {m.authorId !== "system" && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            {REACTION_EMOJIS.map((emoji) => {
+                              const voters = m.reactions?.[emoji] ?? [];
+                              const mine = voters.includes(user.id);
+                              if (voters.length === 0 && !mine) {
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    title={`React ${emoji}`}
+                                    className="rounded px-1 text-[11px] opacity-40 hover:opacity-100"
+                                    onClick={() =>
+                                      reactToChatMessage(
+                                        active.id,
+                                        m.id,
+                                        emoji,
+                                      )
+                                    }
+                                  >
+                                    {emoji}
+                                  </button>
+                                );
+                              }
+                              if (voters.length === 0) return null;
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className={`rounded-full px-1.5 py-0.5 text-[11px] ring-1 ${
+                                    mine
+                                      ? "bg-brand/20 ring-brand/40"
+                                      : "bg-background/60 ring-border"
+                                  }`}
+                                  onClick={() =>
+                                    reactToChatMessage(active.id, m.id, emoji)
+                                  }
+                                >
+                                  {emoji} {voters.length}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -262,8 +308,8 @@ export default function ChatPage() {
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
         {[
           {
-            t: "Reactions later",
-            d: "Demo chat today; stickers & reactions can land next.",
+            t: "Reactions",
+            d: "Tap emoji under a message — 👍 ❤️ 🔥 and more.",
           },
           {
             t: "Foodie groups",

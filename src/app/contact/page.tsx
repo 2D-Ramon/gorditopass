@@ -68,8 +68,8 @@ export default function ContactPage() {
               onChange={(e) => setRole(e.target.value)}
             >
               <option value="diner">Diner / member</option>
-              <option value="restaurant">Restaurant / business</option>
               <option value="other">Other</option>
+              <option value="restaurant">Restaurant / business</option>
             </select>
           </label>
           <label className="block text-sm font-medium">

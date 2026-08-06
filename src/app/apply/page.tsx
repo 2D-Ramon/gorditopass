@@ -3,16 +3,39 @@
 import { useMemo, useState } from "react";
 import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
-import type { BusinessTypeId, OwnershipTypeId } from "@/lib/types";
+import type {
+  ApplicationConcept,
+  BusinessTypeId,
+  OwnershipTypeId,
+} from "@/lib/types";
 
 const UPLOAD_LABELS = [
-  "Logo",
   "Food photos",
+  "Logo",
   "Menu",
-  "Tax ID",
-  "State licensed paperwork",
   "Other",
+  "State licensed paperwork",
+  "Tax ID",
 ] as const;
+
+const POSITIONS = [
+  { value: "manager", label: "Manager" },
+  { value: "marketing", label: "Marketing" },
+  { value: "owner", label: "Owner" },
+  { value: "other", label: "Other" },
+];
+
+function emptyConcept(): ApplicationConcept {
+  return {
+    id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    conceptName: "",
+    businessType: "restaurant",
+    cuisineOrTheme: "",
+    locationCount: 1,
+    cities: "",
+    notes: "",
+  };
+}
 
 function minStartDate(): string {
   const d = new Date();
@@ -36,6 +59,11 @@ export default function ApplyPage() {
   const [ownershipType, setOwnershipType] =
     useState<OwnershipTypeId>("independently_owned");
   const [ownershipTypeOther, setOwnershipTypeOther] = useState("");
+  const [totalLocations, setTotalLocations] = useState(1);
+  const [multiConcept, setMultiConcept] = useState(false);
+  const [concepts, setConcepts] = useState<ApplicationConcept[]>([
+    emptyConcept(),
+  ]);
   const [uploads, setUploads] = useState<
     {
       label: string;
@@ -49,6 +77,20 @@ export default function ApplyPage() {
   const [error, setError] = useState("");
 
   const minDate = useMemo(() => minStartDate(), []);
+
+  const conceptLocationSum = useMemo(
+    () => concepts.reduce((s, c) => s + (Number(c.locationCount) || 0), 0),
+    [concepts],
+  );
+
+  function updateConcept(
+    id: string,
+    patch: Partial<ApplicationConcept>,
+  ) {
+    setConcepts((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
+  }
 
   function addUpload(label: string, file: File | undefined) {
     if (!file) return;
@@ -113,6 +155,36 @@ export default function ApplyPage() {
               setError("Please describe ownership type (Other).");
               return;
             }
+            if (totalLocations < 1) {
+              setError("Enter at least 1 location.");
+              return;
+            }
+            if (multiConcept) {
+              if (concepts.length < 1) {
+                setError("Add at least one concept.");
+                return;
+              }
+              for (const c of concepts) {
+                if (!c.conceptName.trim() || c.locationCount < 1) {
+                  setError(
+                    "Each concept needs a name and at least 1 location.",
+                  );
+                  return;
+                }
+                if (c.businessType === "other" && !c.businessTypeOther?.trim()) {
+                  setError(
+                    `Describe business type for concept “${c.conceptName || "unnamed"}”.`,
+                  );
+                  return;
+                }
+              }
+              if (conceptLocationSum !== totalLocations) {
+                setError(
+                  `Concept locations (${conceptLocationSum}) must equal total locations (${totalLocations}).`,
+                );
+                return;
+              }
+            }
             submitRestaurantApplication({
               name,
               email,
@@ -123,14 +195,37 @@ export default function ApplyPage() {
               hasAuthority,
               address,
               plannedStartDate,
-              businessType,
+              businessType: multiConcept ? undefined : businessType,
               businessTypeOther:
-                businessType === "other" ? businessTypeOther.trim() : undefined,
+                !multiConcept && businessType === "other"
+                  ? businessTypeOther.trim()
+                  : undefined,
               ownershipType,
               ownershipTypeOther:
                 ownershipType === "other"
                   ? ownershipTypeOther.trim()
                   : undefined,
+              totalLocations,
+              concepts: multiConcept
+                ? concepts.map((c) => ({
+                    ...c,
+                    conceptName: c.conceptName.trim(),
+                    cuisineOrTheme: c.cuisineOrTheme?.trim(),
+                    cities: c.cities?.trim(),
+                  }))
+                : [
+                    {
+                      id: "primary",
+                      conceptName: name.trim(),
+                      businessType,
+                      businessTypeOther:
+                        businessType === "other"
+                          ? businessTypeOther.trim()
+                          : undefined,
+                      locationCount: totalLocations,
+                      cities: city,
+                    },
+                  ],
               uploads,
             });
             setDone(true);
@@ -145,34 +240,6 @@ export default function ApplyPage() {
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <label className="block text-sm font-medium">
-            Business type
-            <select
-              className="gp-input mt-1.5"
-              value={businessType}
-              onChange={(e) =>
-                setBusinessType(e.target.value as BusinessTypeId)
-              }
-            >
-              {BUSINESS_TYPES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {businessType === "other" && (
-            <label className="block text-sm font-medium">
-              Describe business type *
-              <input
-                required
-                className="gp-input mt-1.5"
-                value={businessTypeOther}
-                onChange={(e) => setBusinessTypeOther(e.target.value)}
-                placeholder="e.g. catering kitchen, brewery taproom…"
-              />
-            </label>
-          )}
           <label className="block text-sm font-medium">
             Ownership structure
             <select
@@ -201,6 +268,213 @@ export default function ApplyPage() {
             </label>
           )}
           <label className="block text-sm font-medium">
+            Total number of locations *
+            <input
+              required
+              type="number"
+              min={1}
+              max={500}
+              className="gp-input mt-1.5 max-w-[8rem]"
+              value={totalLocations}
+              onChange={(e) =>
+                setTotalLocations(Math.max(1, Number(e.target.value) || 1))
+              }
+            />
+            <span className="mt-1 block text-xs text-muted">
+              All locations under your ownership / management group.
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 text-sm leading-relaxed">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={multiConcept}
+              onChange={(e) => {
+                setMultiConcept(e.target.checked);
+                if (e.target.checked && concepts.length === 0) {
+                  setConcepts([emptyConcept()]);
+                }
+              }}
+            />
+            <span>
+              We operate <strong className="text-stone-300">more than one concept</strong>{" "}
+              (e.g. Mexican + Italian + BBQ under one group). Uncheck if every
+              location is the same brand / type.
+            </span>
+          </label>
+
+          {!multiConcept ? (
+            <>
+              <label className="block text-sm font-medium">
+                Business type
+                <select
+                  className="gp-input mt-1.5"
+                  value={businessType}
+                  onChange={(e) =>
+                    setBusinessType(e.target.value as BusinessTypeId)
+                  }
+                >
+                  {BUSINESS_TYPES.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {businessType === "other" && (
+                <label className="block text-sm font-medium">
+                  Describe business type *
+                  <input
+                    required
+                    className="gp-input mt-1.5"
+                    value={businessTypeOther}
+                    onChange={(e) => setBusinessTypeOther(e.target.value)}
+                    placeholder="e.g. ghost kitchen, food hall stall…"
+                  />
+                </label>
+              )}
+            </>
+          ) : (
+            <div className="space-y-3 rounded-lg border border-border bg-elevated/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Concept breakdown</p>
+                  <p className="text-xs text-muted">
+                    One card per brand / concept. Locations must total{" "}
+                    <strong className="text-stone-300">{totalLocations}</strong>
+                    {conceptLocationSum !== totalLocations && (
+                      <span className="text-amber-200">
+                        {" "}
+                        (currently {conceptLocationSum})
+                      </span>
+                    )}
+                    .
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                  onClick={() => setConcepts((prev) => [...prev, emptyConcept()])}
+                >
+                  + Add concept
+                </button>
+              </div>
+              {concepts.map((c, idx) => (
+                <div
+                  key={c.id}
+                  className="space-y-2 rounded-md border border-border bg-background/60 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                      Concept {idx + 1}
+                    </p>
+                    {concepts.length > 1 && (
+                      <button
+                        type="button"
+                        className="text-xs text-red-300"
+                        onClick={() =>
+                          setConcepts((prev) =>
+                            prev.filter((x) => x.id !== c.id),
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <label className="block text-sm">
+                    Concept / brand name *
+                    <input
+                      required
+                      className="gp-input mt-1"
+                      value={c.conceptName}
+                      onChange={(e) =>
+                        updateConcept(c.id, { conceptName: e.target.value })
+                      }
+                      placeholder="e.g. Casa Arepa"
+                    />
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="block text-sm">
+                      Business type *
+                      <select
+                        className="gp-input mt-1"
+                        value={c.businessType}
+                        onChange={(e) =>
+                          updateConcept(c.id, {
+                            businessType: e.target.value as BusinessTypeId,
+                          })
+                        }
+                      >
+                        {BUSINESS_TYPES.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      # of locations *
+                      <input
+                        required
+                        type="number"
+                        min={1}
+                        className="gp-input mt-1"
+                        value={c.locationCount}
+                        onChange={(e) =>
+                          updateConcept(c.id, {
+                            locationCount: Math.max(
+                              1,
+                              Number(e.target.value) || 1,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  {c.businessType === "other" && (
+                    <label className="block text-sm">
+                      Describe type *
+                      <input
+                        required
+                        className="gp-input mt-1"
+                        value={c.businessTypeOther ?? ""}
+                        onChange={(e) =>
+                          updateConcept(c.id, {
+                            businessTypeOther: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  )}
+                  <label className="block text-sm">
+                    Cuisine / theme
+                    <input
+                      className="gp-input mt-1"
+                      value={c.cuisineOrTheme ?? ""}
+                      onChange={(e) =>
+                        updateConcept(c.id, { cuisineOrTheme: e.target.value })
+                      }
+                      placeholder="e.g. Mexican, BBQ, Italian"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    Cities / markets (optional)
+                    <input
+                      className="gp-input mt-1"
+                      value={c.cities ?? ""}
+                      onChange={(e) =>
+                        updateConcept(c.id, { cities: e.target.value })
+                      }
+                      placeholder="Dallas, Fort Worth"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <label className="block text-sm font-medium">
             Business email
             <input
               required
@@ -227,10 +501,11 @@ export default function ApplyPage() {
               value={position}
               onChange={(e) => setPosition(e.target.value)}
             >
-              <option value="owner">Owner</option>
-              <option value="manager">Manager</option>
-              <option value="marketing">Marketing</option>
-              <option value="other">Other</option>
+              {POSITIONS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex items-start gap-2.5 text-sm leading-relaxed">

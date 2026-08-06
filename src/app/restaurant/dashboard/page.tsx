@@ -441,10 +441,10 @@ export default function RestaurantDashboardPage() {
                 value={dealType}
                 onChange={(e) => setDealType(e.target.value as DealType)}
               >
-                <option value="free_item">Free item</option>
-                <option value="percent_off">Percent off</option>
                 <option value="bogo">BOGO</option>
                 <option value="fixed_price">Fixed price</option>
+                <option value="free_item">Free item</option>
+                <option value="percent_off">Percent off</option>
               </select>
             </label>
             <label className="block text-sm">
@@ -1079,9 +1079,9 @@ export default function RestaurantDashboardPage() {
                   }
                 >
                   <option value="full-time">Full-time</option>
+                  <option value="gig">Gig</option>
                   <option value="part-time">Part-time</option>
                   <option value="seasonal">Seasonal</option>
-                  <option value="gig">Gig</option>
                 </select>
               </label>
               <label className="block text-sm">

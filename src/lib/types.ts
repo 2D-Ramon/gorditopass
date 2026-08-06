@@ -116,6 +116,21 @@ export interface FeedMedia {
   name?: string;
 }
 
+export interface FeedPollOption {
+  id: string;
+  label: string;
+  /** User ids who voted */
+  voterIds: string[];
+}
+
+export interface FeedPoll {
+  question: string;
+  options: FeedPollOption[];
+}
+
+/** emoji -> list of user ids */
+export type ReactionMap = Record<string, string[]>;
+
 export interface FeedPost {
   id: string;
   city: CityId;
@@ -137,6 +152,8 @@ export interface FeedPost {
   dealId?: string;
   dealTitle?: string;
   plates?: number;
+  poll?: FeedPoll;
+  reactions?: ReactionMap;
   replies: {
     id: string;
     author: string;
@@ -145,6 +162,7 @@ export interface FeedPost {
     body: string;
     createdAt: string;
     media?: FeedMedia[];
+    reactions?: ReactionMap;
   }[];
 }
 
@@ -282,6 +300,8 @@ export type BusinessTypeId =
   | "movie_theater"
   | "tea_shop"
   | "home_plates"
+  | "brewery"
+  | "catering"
   | "other";
 
 /** Ownership / brand structure */
@@ -292,6 +312,18 @@ export type OwnershipTypeId =
   | "family_owned"
   | "co_op"
   | "other";
+
+/** One concept / brand under a multi-location application */
+export interface ApplicationConcept {
+  id: string;
+  conceptName: string;
+  businessType: BusinessTypeId;
+  businessTypeOther?: string;
+  cuisineOrTheme?: string;
+  locationCount: number;
+  cities?: string;
+  notes?: string;
+}
 
 export interface RestaurantApplication {
   id?: string;
@@ -309,6 +341,10 @@ export interface RestaurantApplication {
   businessTypeOther?: string;
   ownershipType?: OwnershipTypeId;
   ownershipTypeOther?: string;
+  /** Total locations across the group */
+  totalLocations?: number;
+  /** Breakdown when multiple concepts (Mexican + Italian + BBQ, etc.) */
+  concepts?: ApplicationConcept[];
   uploads?: ApplicationUpload[];
   status?: ApplicationStatus;
 }
@@ -470,6 +506,7 @@ export interface ChatMessage {
   authorAvatar?: string;
   body: string;
   at: string;
+  reactions?: ReactionMap;
 }
 
 export interface ChatThread {
