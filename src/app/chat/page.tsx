@@ -1,21 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { REACTION_EMOJIS } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
 /**
- * Sticky community chat: DMs + groups.
- * Demo stores threads in localStorage; live would use realtime backend.
+ * Sticky community chat: DMs + public groups (never private).
+ * Groups can invite members and share a join link.
  */
 export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-lg px-4 py-16 text-muted">Loading chat…</div>
+      }
+    >
+      <ChatInner />
+    </Suspense>
+  );
+}
+
+function ChatInner() {
+  const search = useSearchParams();
   const {
     user,
     accounts,
     chats,
     createDmChat,
     createGroupChat,
+    inviteToGroupChat,
+    joinGroupChat,
     sendChatMessage,
     reactToChatMessage,
   } = useStore();
@@ -23,12 +39,38 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [groupTitle, setGroupTitle] = useState("");
   const [groupPick, setGroupPick] = useState<string[]>([]);
+  const [invitePick, setInvitePick] = useState<string[]>([]);
+  const [flash, setFlash] = useState("");
+
+  // Open shared group link: /chat?group=chat-g-…
+  useEffect(() => {
+    const gid = search.get("group");
+    if (!gid || !user) return;
+    const res = joinGroupChat(gid);
+    if (res.ok) {
+      setActiveId(gid);
+      setFlash("Joined public group from share link.");
+    } else if (res.error) {
+      setFlash(res.error);
+    }
+  }, [search, user, joinGroupChat]);
 
   const myChats = useMemo(() => {
     if (!user) return [];
     return chats
       .filter((c) => c.memberIds.includes(user.id))
       .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+  }, [chats, user]);
+
+  // Public groups you’re not in yet (discover / join)
+  const publicGroups = useMemo(() => {
+    if (!user) return [];
+    return chats.filter(
+      (c) =>
+        c.type === "group" &&
+        c.isPublic !== false &&
+        !c.memberIds.includes(user.id),
+    );
   }, [chats, user]);
 
   const active = myChats.find((c) => c.id === activeId) ?? myChats[0] ?? null;
@@ -40,12 +82,17 @@ export default function ChatPage() {
     );
   }, [accounts, user]);
 
+  const inviteCandidates = useMemo(() => {
+    if (!active || active.type !== "group") return [];
+    return otherDiners.filter((a) => !active.memberIds.includes(a.id));
+  }, [active, otherDiners]);
+
   if (!user) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="gp-page-title">Chat</h1>
         <p className="mt-2 text-muted">
-          Sign in to message members and join group chats.
+          Sign in to message members and join public group chats.
         </p>
         <Link href="/login" className="gp-btn gp-btn-primary mt-6">
           Sign in
@@ -54,13 +101,40 @@ export default function ChatPage() {
     );
   }
 
+  async function shareGroup(chatId: string, title: string) {
+    const url = `${window.location.origin}/chat?group=${encodeURIComponent(chatId)}`;
+    const text = `Join “${title}” on GorditoPass (public group chat).`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+        setFlash("Share sheet opened.");
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setFlash("Group link copied.");
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setFlash("Group link copied.");
+      } catch {
+        setFlash(url);
+      }
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="gp-page-title">Community chat</h1>
       <p className="gp-page-sub">
-        Private DMs and group hangs — keep it friendly, local, and food-first.
-        No politics.
+        Private DMs stay 1:1. Group chats are always public — invite members or
+        share the link. Keep it friendly, local, and food-first. No politics.
       </p>
+
+      {flash && (
+        <p className="mt-3 rounded-md border border-brand/30 bg-brand/10 px-3 py-2 text-sm text-orange-100">
+          {flash}
+        </p>
+      )}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[240px_1fr]">
         <aside className="space-y-3">
@@ -86,6 +160,11 @@ export default function ChatPage() {
                     <span className="font-medium">
                       {c.type === "group" ? "👥 " : "💬 "}
                       {c.title}
+                      {c.type === "group" && (
+                        <span className="ml-1 text-[9px] font-normal uppercase text-brand">
+                          public
+                        </span>
+                      )}
                     </span>
                     <span className="block truncate text-[10px] text-muted">
                       {c.messages[c.messages.length - 1]?.body ?? "New chat"}
@@ -95,6 +174,38 @@ export default function ChatPage() {
               ))}
             </ul>
           </div>
+
+          {publicGroups.length > 0 && (
+            <div className="gp-card gp-card-static p-3">
+              <p className="text-xs font-semibold uppercase text-muted">
+                Public groups to join
+              </p>
+              <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">
+                {publicGroups.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className="text-left text-brand underline"
+                      onClick={() => {
+                        const res = joinGroupChat(c.id);
+                        if (res.ok) {
+                          setActiveId(c.id);
+                          setFlash(`Joined “${c.title}”.`);
+                        } else {
+                          setFlash(res.error ?? "Could not join.");
+                        }
+                      }}
+                    >
+                      {c.title}
+                    </button>
+                    <span className="ml-1 text-[10px] text-muted">
+                      · {c.memberIds.length} members
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="gp-card gp-card-static p-3">
             <p className="text-xs font-semibold uppercase text-muted">
@@ -125,7 +236,10 @@ export default function ChatPage() {
 
           <div className="gp-card gp-card-static p-3">
             <p className="text-xs font-semibold uppercase text-muted">
-              New group
+              New public group
+            </p>
+            <p className="mt-1 text-[10px] text-muted">
+              Groups can’t be private. Invite members or share the link.
             </p>
             <input
               className="gp-input mt-2 text-sm"
@@ -163,10 +277,11 @@ export default function ChatPage() {
                   setActiveId(id);
                   setGroupTitle("");
                   setGroupPick([]);
+                  setFlash("Public group created.");
                 }
               }}
             >
-              Create group
+              Create public group
             </button>
           </div>
         </aside>
@@ -175,13 +290,90 @@ export default function ChatPage() {
           {active ? (
             <>
               <div className="border-b border-border px-4 py-3">
-                <p className="font-semibold">
-                  {active.type === "group" ? "👥 " : "💬 "}
-                  {active.title}
-                </p>
-                <p className="text-[11px] text-muted">
-                  {active.memberNames.join(" · ")}
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">
+                      {active.type === "group" ? "👥 " : "💬 "}
+                      {active.title}
+                      {active.type === "group" && (
+                        <span className="ml-2 rounded-full bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                          Public
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-muted">
+                      {active.memberNames.join(" · ")}
+                    </p>
+                  </div>
+                  {active.type === "group" && (
+                    <button
+                      type="button"
+                      className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                      onClick={() => shareGroup(active.id, active.title)}
+                    >
+                      Share group
+                    </button>
+                  )}
+                </div>
+
+                {active.type === "group" && (
+                  <div className="mt-3 rounded-md border border-border bg-elevated/40 p-2">
+                    <p className="text-[10px] font-semibold uppercase text-muted">
+                      Invite members
+                    </p>
+                    {inviteCandidates.length === 0 ? (
+                      <p className="mt-1 text-[11px] text-muted">
+                        No more members to invite (or none signed up yet).
+                      </p>
+                    ) : (
+                      <>
+                        <div className="mt-1 max-h-20 space-y-1 overflow-y-auto text-xs">
+                          {inviteCandidates.map((a) => (
+                            <label
+                              key={a.id}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={invitePick.includes(a.id)}
+                                onChange={(e) => {
+                                  setInvitePick((prev) =>
+                                    e.target.checked
+                                      ? [...prev, a.id]
+                                      : prev.filter((x) => x !== a.id),
+                                  );
+                                }}
+                              />
+                              {a.name}
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary mt-2 text-[11px] !py-1"
+                          onClick={() => {
+                            const names = inviteCandidates
+                              .filter((a) => invitePick.includes(a.id))
+                              .map((a) => a.name);
+                            const res = inviteToGroupChat(
+                              active.id,
+                              invitePick,
+                              names,
+                            );
+                            setFlash(
+                              res.ok
+                                ? "Invites sent."
+                                : res.error ?? "Could not invite.",
+                            );
+                            if (res.ok) setInvitePick([]);
+                          }}
+                        >
+                          Invite selected
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
                 {active.messages.map((m) => {
@@ -233,8 +425,8 @@ export default function ChatPage() {
                           <div className="mt-1.5 flex flex-wrap items-center gap-1">
                             {REACTION_EMOJIS.map((emoji) => {
                               const voters = m.reactions?.[emoji] ?? [];
-                              const mine = voters.includes(user.id);
-                              if (voters.length === 0 && !mine) {
+                              const mineR = voters.includes(user.id);
+                              if (voters.length === 0 && !mineR) {
                                 return (
                                   <button
                                     key={emoji}
@@ -259,7 +451,7 @@ export default function ChatPage() {
                                   key={emoji}
                                   type="button"
                                   className={`rounded-full px-1.5 py-0.5 text-[11px] ring-1 ${
-                                    mine
+                                    mineR
                                       ? "bg-brand/20 ring-brand/40"
                                       : "bg-background/60 ring-border"
                                   }`}
@@ -282,49 +474,28 @@ export default function ChatPage() {
                 className="flex gap-2 border-t border-border p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (!draft.trim()) return;
                   sendChatMessage(active.id, draft);
                   setDraft("");
                 }}
               >
                 <input
-                  className="gp-input flex-1"
-                  placeholder="Say something nice about food…"
+                  className="gp-input flex-1 text-sm"
+                  placeholder="Message…"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                 />
-                <button type="submit" className="gp-btn gp-btn-primary">
+                <button type="submit" className="gp-btn gp-btn-primary text-sm">
                   Send
                 </button>
               </form>
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted">
-              Pick a chat or start a DM / group to hang out with food friends.
+              Start a DM or create a public group to chat.
             </div>
           )}
         </section>
-      </div>
-
-      <div className="mt-8 grid gap-3 sm:grid-cols-3">
-        {[
-          {
-            t: "Reactions",
-            d: "Tap emoji under a message — 👍 ❤️ 🔥 and more.",
-          },
-          {
-            t: "Foodie groups",
-            d: "Create taco Tuesdays, date-night spots, or city food walks.",
-          },
-          {
-            t: "Profiles",
-            d: "Tap a name to open their public foodie profile.",
-          },
-        ].map((x) => (
-          <div key={x.t} className="gp-card gp-card-static p-4 text-sm">
-            <p className="font-semibold">{x.t}</p>
-            <p className="mt-1 text-xs text-muted">{x.d}</p>
-          </div>
-        ))}
       </div>
     </div>
   );

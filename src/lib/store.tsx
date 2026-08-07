@@ -17,6 +17,8 @@ import type {
   ChatThread,
   CityId,
   ContentStatus,
+  EventRsvp,
+  EventRsvpStatus,
   JobPosting,
   MemberSeatProfile,
   MembershipPlanId,
@@ -51,7 +53,7 @@ import {
 } from "./contentModeration";
 import { MEMBERSHIP_PLANS } from "./pricing";
 
-const STORAGE_KEY = "gorditopass-mvp-v12";
+const STORAGE_KEY = "gorditopass-mvp-v13";
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
@@ -79,6 +81,7 @@ interface Persisted {
   /** Admin: auto-approve settings per restaurant + content type */
   autoApproveSettings: RestaurantAutoApprove[];
   chats: ChatThread[];
+  eventRsvps: EventRsvp[];
 }
 
 interface StoreValue {
@@ -287,12 +290,28 @@ interface StoreValue {
   chats: ChatThread[];
   createDmChat: (otherUserId: string, otherName: string) => string;
   createGroupChat: (title: string, memberIds: string[], memberNames: string[]) => string;
+  inviteToGroupChat: (
+    chatId: string,
+    memberIds: string[],
+    memberNames: string[],
+  ) => { ok: boolean; error?: string };
+  joinGroupChat: (chatId: string) => { ok: boolean; error?: string };
   sendChatMessage: (chatId: string, body: string) => void;
   reactToChatMessage: (
     chatId: string,
     messageId: string,
     emoji: string,
   ) => void;
+  eventRsvps: EventRsvp[];
+  setEventRsvp: (
+    eventId: string,
+    status: EventRsvpStatus,
+  ) => { ok: boolean; error?: string };
+  getEventRsvp: (eventId: string) => EventRsvpStatus | null;
+  getEventRsvpCounts: (eventId: string) => {
+    interested: number;
+    going: number;
+  };
   submitPlateReview: (
     review: Omit<Review, "id" | "createdAt" | "author"> & { author?: string },
   ) => Review;
@@ -393,6 +412,7 @@ function emptyPersisted(): Persisted {
     accounts: [],
     autoApproveSettings: [],
     chats: [],
+    eventRsvps: [],
   };
 }
 
@@ -531,6 +551,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v12") ??
       localStorage.getItem("gorditopass-mvp-v11") ??
       localStorage.getItem("gorditopass-mvp-v10") ??
       localStorage.getItem("gorditopass-mvp-v9") ??
@@ -550,7 +571,12 @@ function load(): Persisted {
       notifications: parsed.notifications ?? [],
       accounts: parsed.accounts ?? [],
       autoApproveSettings: parsed.autoApproveSettings ?? [],
-      chats: parsed.chats ?? [],
+      chats: (parsed.chats ?? []).map((c) =>
+        c.type === "group"
+          ? { ...c, isPublic: true }
+          : c,
+      ),
+      eventRsvps: parsed.eventRsvps ?? [],
       memberFollowing: parsed.memberFollowing ?? [],
       tasteBudRequests: parsed.tasteBudRequests ?? [],
       staffMembershipReferrals: parsed.staffMembershipReferrals ?? [],
@@ -761,6 +787,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     RestaurantAutoApprove[]
   >([]);
   const [chats, setChats] = useState<ChatThread[]>([]);
+  const [eventRsvps, setEventRsvps] = useState<EventRsvp[]>([]);
   const [city, setCity] = useState<CityId>("dallas");
 
   useEffect(() => {
@@ -786,6 +813,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAccounts(data.accounts ?? []);
     setAutoApproveSettings(data.autoApproveSettings ?? []);
     setChats(data.chats ?? []);
+    setEventRsvps(data.eventRsvps ?? []);
     if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
@@ -814,6 +842,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       accounts,
       autoApproveSettings,
       chats,
+      eventRsvps,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -839,6 +868,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     accounts,
     autoApproveSettings,
     chats,
+    eventRsvps,
   ]);
 
   // Keep logged-in user mirrored into accounts list
@@ -2243,6 +2273,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAccounts([]);
     setAutoApproveSettings([]);
     setChats([]);
+    setEventRsvps([]);
     setCity("dallas");
   }, []);
 
@@ -2500,13 +2531,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         memberNames: names,
         createdAt: new Date().toISOString(),
         lastMessageAt: new Date().toISOString(),
+        // Groups are never private — always public & shareable
+        isPublic: true,
+        createdById: user.id,
         messages: [
           {
             id: `msg-${Date.now()}`,
             chatId: id,
             authorId: "system",
             authorName: "GorditoPass",
-            body: `${user.name} started the group. Keep it friendly — no politics.`,
+            body: `${user.name} started a public group. Invite friends or share the link — groups can’t be private.`,
             at: new Date().toISOString(),
           },
         ],
@@ -2515,6 +2549,157 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return id;
     },
     [user],
+  );
+
+  const inviteToGroupChat = useCallback(
+    (
+      chatId: string,
+      memberIds: string[],
+      memberNames: string[],
+    ): { ok: boolean; error?: string } => {
+      if (!user) return { ok: false, error: "Sign in first." };
+      if (!memberIds.length) {
+        return { ok: false, error: "Pick at least one member to invite." };
+      }
+      const chat = chats.find((c) => c.id === chatId);
+      if (!chat || chat.type !== "group") {
+        return { ok: false, error: "Group not found." };
+      }
+      if (!chat.memberIds.includes(user.id)) {
+        return { ok: false, error: "Join the group before inviting others." };
+      }
+      const at = new Date().toISOString();
+      const newIds = memberIds.filter((id) => !chat.memberIds.includes(id));
+      if (newIds.length === 0) {
+        return { ok: false, error: "Those members are already in the group." };
+      }
+      const nameById = new Map(
+        memberIds.map((id, i) => [id, memberNames[i] ?? "Member"]),
+      );
+      const addedNames = newIds.map((id) => nameById.get(id) ?? "Member");
+      setChats((prev) =>
+        prev.map((c) => {
+          if (c.id !== chatId) return c;
+          return {
+            ...c,
+            isPublic: true,
+            memberIds: [...c.memberIds, ...newIds],
+            memberNames: [...c.memberNames, ...addedNames],
+            lastMessageAt: at,
+            messages: [
+              ...c.messages,
+              {
+                id: `msg-invite-${Date.now()}`,
+                chatId,
+                authorId: "system",
+                authorName: "GorditoPass",
+                body: `${user.name} invited ${addedNames.join(", ")}.`,
+                at,
+              },
+            ],
+          };
+        }),
+      );
+      return { ok: true };
+    },
+    [user, chats],
+  );
+
+  const joinGroupChat = useCallback(
+    (chatId: string): { ok: boolean; error?: string } => {
+      if (!user) return { ok: false, error: "Sign in to join groups." };
+      const chat = chats.find((c) => c.id === chatId);
+      if (!chat || chat.type !== "group") {
+        return { ok: false, error: "Group not found or link expired." };
+      }
+      // Groups are always public
+      if (chat.memberIds.includes(user.id)) {
+        return { ok: true };
+      }
+      const at = new Date().toISOString();
+      setChats((prev) =>
+        prev.map((c) => {
+          if (c.id !== chatId) return c;
+          return {
+            ...c,
+            isPublic: true,
+            memberIds: [...c.memberIds, user.id],
+            memberNames: [...c.memberNames, user.name],
+            lastMessageAt: at,
+            messages: [
+              ...c.messages,
+              {
+                id: `msg-join-${Date.now()}`,
+                chatId,
+                authorId: "system",
+                authorName: "GorditoPass",
+                body: `${user.name} joined the group.`,
+                at,
+              },
+            ],
+          };
+        }),
+      );
+      return { ok: true };
+    },
+    [user, chats],
+  );
+
+  const setEventRsvp = useCallback(
+    (
+      eventId: string,
+      status: EventRsvpStatus,
+    ): { ok: boolean; error?: string } => {
+      if (!user) return { ok: false, error: "Sign in to RSVP." };
+      setEventRsvps((prev) => {
+        const existing = prev.find(
+          (r) => r.eventId === eventId && r.userId === user.id,
+        );
+        // Toggle off if same status clicked again
+        if (existing?.status === status) {
+          return prev.filter(
+            (r) => !(r.eventId === eventId && r.userId === user.id),
+          );
+        }
+        const row: EventRsvp = {
+          eventId,
+          userId: user.id,
+          userName: user.name,
+          status,
+          at: new Date().toISOString(),
+        };
+        return [
+          ...prev.filter(
+            (r) => !(r.eventId === eventId && r.userId === user.id),
+          ),
+          row,
+        ];
+      });
+      return { ok: true };
+    },
+    [user],
+  );
+
+  const getEventRsvp = useCallback(
+    (eventId: string): EventRsvpStatus | null => {
+      if (!user) return null;
+      return (
+        eventRsvps.find((r) => r.eventId === eventId && r.userId === user.id)
+          ?.status ?? null
+      );
+    },
+    [user, eventRsvps],
+  );
+
+  const getEventRsvpCounts = useCallback(
+    (eventId: string) => {
+      const rows = eventRsvps.filter((r) => r.eventId === eventId);
+      return {
+        interested: rows.filter((r) => r.status === "interested").length,
+        going: rows.filter((r) => r.status === "going").length,
+      };
+    },
+    [eventRsvps],
   );
 
   const sendChatMessage = useCallback(
@@ -2801,8 +2986,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     chats,
     createDmChat,
     createGroupChat,
+    inviteToGroupChat,
+    joinGroupChat,
     sendChatMessage,
     reactToChatMessage,
+    eventRsvps,
+    setEventRsvp,
+    getEventRsvp,
+    getEventRsvpCounts,
     submitPlateReview,
     getPlateRate,
     getReviewsForRestaurant,

@@ -20,23 +20,27 @@ export default function ForRestaurantsPage() {
           franchises OK).
         </li>
         <li className="leading-relaxed">
-          Upload logo, food photos, menu, tax ID, state license paperwork, and
-          your promotion. Schedule future deals anytime.
+          Fill out application and Upload required documents.
         </li>
         <li className="leading-relaxed">
-          Use the partner dashboard forms to publish deals, menu items, events,
-          and job openings.
+          We will upload everything for you to start, future changes will be
+          done through your partner dashboard, publish and edit your
+          Promotions, Menu, Events, and Job Openings. – its simple!
         </li>
         <li className="leading-relaxed">
-          Suggested offers: free item(s) or at least 20% off. Keep an offer ~2
-          weeks to measure results.
+          Create an EXCLUSIVE Promotion. Cannot have the same offer(s)
+          available to the public at the same time. Suggested offers: Free
+          item(s) or at least 20% off. Franchises will be a max of 12% off. Can
+          run multiple offers at once. Suggest a minimum of two weeks to
+          measure effectiveness.
         </li>
         <li className="leading-relaxed">
           Staff opens dashboard → scan member code → honor deal on your POS.
         </li>
         <li className="leading-relaxed">
-          No listing fee. Optional paid marketing packages later. We don’t take
-          a cut of in-store sales.
+          Its simple – We want you to keep your doors open! No listing fee,
+          Free to sign up, No fees for in-store sales. We charge 1% of online
+          orders and have optional paid marketing services.
         </li>
       </ol>
 

@@ -562,6 +562,24 @@ export interface ChatThread {
   createdAt: string;
   lastMessageAt: string;
   messages: ChatMessage[];
+  /**
+   * Group chats are always public / shareable (never private).
+   * DMs remain 1:1.
+   */
+  isPublic?: boolean;
+  /** Who created the group (for invite permissions) */
+  createdById?: string;
+}
+
+/** Member interest on partner events */
+export type EventRsvpStatus = "interested" | "going";
+
+export interface EventRsvp {
+  eventId: string;
+  userId: string;
+  userName: string;
+  status: EventRsvpStatus;
+  at: string;
 }
 
 export interface ModeratedFeedPost {

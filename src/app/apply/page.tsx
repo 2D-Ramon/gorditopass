@@ -15,9 +15,10 @@ const UPLOAD_LABELS = [
   "Food photos",
   "Logo",
   "Menu",
-  "Other",
-  "State licensed paperwork",
-  "Tax ID",
+  "Local health department food service license",
+  "EIN",
+  "State sales tax permit",
+  "Owner/manager food handler certification",
 ] as const;
 
 const POSITIONS = [

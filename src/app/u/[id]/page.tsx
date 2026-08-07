@@ -188,7 +188,7 @@ export default function PublicProfilePage() {
             </button>
           ) : pendingOut ? (
             <span className="gp-btn gp-btn-ghost pointer-events-none text-sm opacity-70">
-              Taste Buds request sent
+              Request to be Taste Buds sent
             </span>
           ) : pendingIn ? (
             <>
@@ -224,12 +224,12 @@ export default function PublicProfilePage() {
                   res.ok
                     ? profile.id.startsWith("mem-")
                       ? "You’re Taste Buds!"
-                      : "Taste Buds request sent."
+                      : "Request to be Taste Buds sent."
                     : res.error ?? "Could not send request",
                 );
               }}
             >
-              Request Taste Buds
+              Request to be Taste Buds
             </button>
           )}
 
