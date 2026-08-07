@@ -68,6 +68,21 @@ export const POINT_ACTIONS = {
   profile_complete: { points: 20, label: "Complete your profile" },
   join_member: { points: 50, label: "Activate membership" },
   passport_complete: { points: 40, label: "Complete a cuisine passport" },
+  /** Partner dashboard login who also buys a diner membership */
+  partner_member_bonus: {
+    points: 100,
+    label: "Partner membership bonus",
+  },
+  referral_referrer: { points: 40, label: "Referral reward (you referred)" },
+  referral_friend: { points: 40, label: "Referral welcome bonus" },
+} as const;
+
+/** Referral program defaults */
+export const REFERRAL = {
+  /** Points to referrer when friend activates membership */
+  referrerPoints: 40,
+  /** Points to referred friend on first membership */
+  friendPoints: 40,
 } as const;
 
 export type PointActionId = keyof typeof POINT_ACTIONS;

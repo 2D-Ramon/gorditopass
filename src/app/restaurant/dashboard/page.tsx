@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { RESTAURANTS } from "@/lib/data";
-import { MENU_CATEGORIES } from "@/lib/pricing";
+import { MENU_CATEGORIES, POINT_ACTIONS } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import {
   canManagePartnerContent,
@@ -174,7 +174,10 @@ export default function RestaurantDashboardPage() {
     if (dealType === "free_item" || dealType === "bogo") {
       return `~$${reg.toFixed(2)} saved`;
     }
-    if (dealType === "percent_off" && dealValue) {
+    if (
+      (dealType === "percent_off" || dealType === "percent_off_total") &&
+      dealValue
+    ) {
       return `~$${((reg * Number(dealValue)) / 100).toFixed(2)} saved`;
     }
     if (dealType === "fixed_price" && dealValue) {
@@ -271,6 +274,39 @@ export default function RestaurantDashboardPage() {
           </p>
         </div>
       </div>
+
+      {!user.isMember && (
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-orange-200">
+                Partner membership bonus
+              </p>
+              <p className="mt-1 text-sm text-stone-300">
+                Add a personal membership and earn a one-time{" "}
+                <strong className="text-brand">
+                  +{POINT_ACTIONS.partner_member_bonus.points} points
+                </strong>{" "}
+                (+{POINT_ACTIONS.join_member.points} welcome points). Keep your
+                partner login and redeem member deals yourself.
+              </p>
+            </div>
+            <Link
+              href="/membership"
+              className="gp-btn gp-btn-primary shrink-0 text-sm"
+            >
+              Add membership
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {user.isMember && (
+        <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
+          You have an active diner membership — redeem deals & earn rewards
+          while running the partner dashboard.
+        </div>
+      )}
 
       {flash && (
         <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
@@ -376,7 +412,9 @@ export default function RestaurantDashboardPage() {
                   description: dealDesc.trim() || "Member deal",
                   type: dealType,
                   value:
-                    dealType === "percent_off" || dealType === "fixed_price"
+                    dealType === "percent_off" ||
+                    dealType === "percent_off_total" ||
+                    dealType === "fixed_price"
                       ? Number(dealValue) || null
                       : null,
                   regularPriceUsd: Number(regularPrice) || 0,
@@ -392,7 +430,9 @@ export default function RestaurantDashboardPage() {
                   description: dealDesc.trim() || "Member deal",
                   type: dealType,
                   value:
-                    dealType === "percent_off" || dealType === "fixed_price"
+                    dealType === "percent_off" ||
+                    dealType === "percent_off_total" ||
+                    dealType === "fixed_price"
                       ? Number(dealValue) || null
                       : null,
                   regularPriceUsd: Number(regularPrice) || 0,
@@ -444,11 +484,14 @@ export default function RestaurantDashboardPage() {
                 <option value="bogo">BOGO</option>
                 <option value="fixed_price">Fixed price</option>
                 <option value="free_item">Free item</option>
-                <option value="percent_off">Percent off</option>
+                <option value="percent_off">% off item</option>
+                <option value="percent_off_total">% off total order</option>
               </select>
             </label>
             <label className="block text-sm">
-              Regularly priced ($) *
+              {dealType === "percent_off_total"
+                ? "Typical order total ($) *"
+                : "Regularly priced ($) *"}
               <input
                 required
                 type="number"
@@ -457,16 +500,25 @@ export default function RestaurantDashboardPage() {
                 className="gp-input mt-1 max-w-[10rem]"
                 value={regularPrice}
                 onChange={(e) => setRegularPrice(e.target.value)}
-                placeholder="e.g. 12.00"
+                placeholder={
+                  dealType === "percent_off_total" ? "e.g. 45.00" : "e.g. 12.00"
+                }
               />
               <span className="mt-1 block text-xs text-muted">
-                Full price of one item before the deal. Free item & BOGO save
-                this full amount; percent/fixed use it for est. savings.
+                {dealType === "percent_off_total"
+                  ? "Estimate of full check before discount — used for savings totals."
+                  : "Full price of one item before the deal. Free item & BOGO save this full amount."}
               </span>
             </label>
-            {(dealType === "percent_off" || dealType === "fixed_price") && (
+            {(dealType === "percent_off" ||
+              dealType === "percent_off_total" ||
+              dealType === "fixed_price") && (
               <label className="block text-sm">
-                Deal value ({dealType === "percent_off" ? "%" : "$ member price"})
+                Deal value (
+                {dealType === "fixed_price"
+                  ? "$ member price"
+                  : "% off"}
+                )
                 <input
                   className="gp-input mt-1 max-w-[8rem]"
                   type="number"

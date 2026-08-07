@@ -9,6 +9,7 @@ import {
   pricePerPerson,
   PLATFORM,
   POINT_ACTIONS,
+  REFERRAL,
 } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { MemberSeatProfile, MembershipPlanId } from "@/lib/types";
@@ -35,9 +36,14 @@ export default function MembershipPage() {
   const [step, setStep] = useState<Step>("plan");
   const [members, setMembers] = useState<MemberSeatProfile[]>([]);
   const [intakeError, setIntakeError] = useState("");
+  const [referralCode, setReferralCode] = useState(
+    () => user?.referredByCode ?? "",
+  );
 
   const total = pricePerPerson(planId, seats);
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === planId)!;
+  const isPartnerLogin =
+    user?.role === "restaurant" || user?.role === "admin";
 
   const seatForms = useMemo(() => members, [members]);
 
@@ -103,7 +109,12 @@ export default function MembershipPage() {
       id: m.id || `seat-${i}-${Date.now()}`,
     }));
 
-    activateMembership(planId, seats, finalized);
+    activateMembership(
+      planId,
+      seats,
+      finalized,
+      referralCode.trim() || undefined,
+    );
     setStep("done");
   }
 
@@ -113,30 +124,59 @@ export default function MembershipPage() {
       <h1 className="gp-page-title">Membership</h1>
       <p className="gp-page-sub">{PLATFORM.mission}</p>
 
+      {isPartnerLogin && !user?.isMember && (
+        <div className="mt-6 rounded-lg border border-brand/40 bg-brand/10 p-4">
+          <p className="text-sm font-semibold text-orange-200">
+            Partner membership bonus
+          </p>
+          <p className="mt-1 text-sm text-stone-300">
+            You&apos;re signed into the partner dashboard. Add a diner
+            membership and earn a one-time{" "}
+            <strong className="text-brand">
+              +{POINT_ACTIONS.partner_member_bonus.points} points
+            </strong>{" "}
+            bonus on top of the usual welcome points — keep your partner role
+            and redeem deals as a member.
+          </p>
+        </div>
+      )}
+
       <section className="mt-10">
-        <h2 className="text-xl font-semibold tracking-tight">How it works</h2>
-        <ol className="mt-4 list-decimal space-y-3 pl-5 text-stone-300">
-          <li className="leading-relaxed">
-            Browse restaurants, maps, and every active deal free.
-          </li>
-          <li className="leading-relaxed">
-            Subscribe: <strong className="text-white">$7/mo</strong>,{" "}
-            <strong className="text-white">$36 / 6 mo ($6/mo)</strong>, or{" "}
-            <strong className="text-white">$60/year ($5/mo)</strong>. Family /
-            friends seats up to 6, priced per person.
-          </li>
-          <li className="leading-relaxed">
-            After you pick a plan, fill an intake form for{" "}
-            <strong className="text-white">each person</strong> — each seat
-            gets its own account.
-          </li>
-          <li className="leading-relaxed">
-            Earn points & badges for redemptions, reviews, favorites, and more.
-          </li>
-          <li className="leading-relaxed">
-            Redeem in-store with a rotating QR / code staff confirms in seconds.
-          </li>
+        <h2 className="text-xl font-semibold tracking-tight">
+          How it works for you
+        </h2>
+        <ol className="mt-5 space-y-5">
+          {[
+            {
+              title: "SURF",
+              body: "Browse local eats — see every deal.",
+            },
+            {
+              title: "SUBSCRIBE",
+              body: "Individual (seat) or family & friends (table — up to 6 seats) plans available.",
+            },
+            {
+              title: "SAVOR",
+              body: "Redeem in store or online, automatically.",
+            },
+          ].map((step, i) => (
+            <li key={step.title} className="flex gap-3 text-sm leading-relaxed">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand/15 text-xs font-bold text-orange-200 ring-1 ring-brand/20">
+                {i + 1}
+              </span>
+              <span>
+                <span className="font-bold uppercase tracking-wide text-brand">
+                  {step.title}
+                </span>
+                <span className="text-stone-300"> — {step.body}</span>
+              </span>
+            </li>
+          ))}
         </ol>
+        <p className="mt-4 text-sm text-muted">
+          Then fill intake for each seat, earn rewards & badges, and explore
+          passports and the city feed.
+        </p>
       </section>
 
       <section className="mt-12 border-t border-border pt-10">
@@ -189,6 +229,18 @@ export default function MembershipPage() {
               +{POINT_ACTIONS.join_member.points} welcome points on the primary
               account. Favorites & food prefs can be set later in profile.
             </p>
+            {isPartnerLogin && (
+              <p className="mt-2 text-xs font-medium text-brand">
+                +{POINT_ACTIONS.partner_member_bonus.points} partner membership
+                bonus applied (one-time).
+              </p>
+            )}
+            {referralCode.trim() && (
+              <p className="mt-2 text-xs font-medium text-brand">
+                +{POINT_ACTIONS.referral_friend.points} referral welcome bonus ·
+                your friend earns +{POINT_ACTIONS.referral_referrer.points} too.
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/explore" className="gp-btn gp-btn-primary text-sm">
                 Browse deals
@@ -410,6 +462,30 @@ export default function MembershipPage() {
                 </label>
               </div>
             ))}
+
+            <div className="gp-card gp-card-static space-y-2 p-5">
+              <h3 className="font-semibold tracking-tight">
+                Referral code{" "}
+                <span className="text-xs font-normal text-muted">
+                  (optional)
+                </span>
+              </h3>
+              <p className="text-sm text-muted">
+                Have a friend&apos;s code? Enter it for +{REFERRAL.friendPoints}{" "}
+                welcome points. They earn +{REFERRAL.referrerPoints} when you
+                activate.
+              </p>
+              <label className="block text-sm">
+                Code
+                <input
+                  className="gp-input mt-1 max-w-xs font-mono uppercase tracking-wide"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  placeholder="GP-FRIEND123"
+                  autoComplete="off"
+                />
+              </label>
+            </div>
 
             {intakeError && (
               <p className="text-sm text-red-300">{intakeError}</p>

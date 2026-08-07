@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { HomeFeatured } from "@/components/HomeFeatured";
+import { HomeFeaturedSection } from "@/components/HomeFeatured";
 import { MEMBERSHIP_PLANS, monthlyRate, PLATFORM } from "@/lib/pricing";
 
 export default function HomePage() {
-
   return (
     <div>
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:pt-16">
@@ -67,17 +66,31 @@ export default function HomePage() {
           <div className="gp-card gp-card-static relative overflow-hidden p-6 sm:p-8">
             <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-brand/10 blur-3xl" />
             <p className="gp-section-label">How it works for you</p>
-            <ol className="mt-5 space-y-4">
+            <ol className="mt-5 space-y-5">
               {[
-                "Browse local kitchens free — see every active member deal.",
-                "Subscribe ($7 / $36 / $60). Family & friends seats up to 6, priced per person.",
-                "Redeem in-store with a rotating QR code staff scans in seconds — or order online for to-go or delivery.",
+                {
+                  title: "SURF",
+                  body: "Browse local eats — see every deal.",
+                },
+                {
+                  title: "SUBSCRIBE",
+                  body: "Individual (seat) or family & friends (table — up to 6 seats) plans available.",
+                },
+                {
+                  title: "SAVOR",
+                  body: "Redeem in store or online, automatically.",
+                },
               ].map((step, i) => (
-                <li key={step} className="flex gap-3 text-sm leading-relaxed">
+                <li key={step.title} className="flex gap-3 text-sm leading-relaxed">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand/15 text-xs font-bold text-orange-200 ring-1 ring-brand/20">
                     {i + 1}
                   </span>
-                  <span className="text-stone-300">{step}</span>
+                  <span>
+                    <span className="font-bold uppercase tracking-wide text-brand">
+                      {step.title}
+                    </span>
+                    <span className="text-stone-300"> — {step.body}</span>
+                  </span>
                 </li>
               ))}
             </ol>
@@ -113,27 +126,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-y border-border bg-elevated/40 py-14">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">
-                Featured in Dallas
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                Local spots with member deals you can redeem after you join.
-              </p>
-            </div>
-            <Link
-              href="/explore"
-              className="text-sm font-medium text-brand hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          <HomeFeatured />
-        </div>
-      </section>
+      <HomeFeaturedSection />
 
       <section className="mx-auto max-w-6xl px-4 py-16">
         <div className="grid gap-4 sm:grid-cols-2">

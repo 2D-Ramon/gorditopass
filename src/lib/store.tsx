@@ -120,7 +120,11 @@ interface StoreValue {
     planId: MembershipPlanId,
     seats: number,
     members?: MemberSeatProfile[],
+    referralCodeInput?: string,
   ) => void;
+  /** Store a referral code to apply at membership activation */
+  setReferredByCode: (code: string) => { ok: boolean; error?: string };
+  ensureReferralCode: () => string;
   updateProfile: (patch: Partial<MockUser>) => void;
   /** Award points for a completed task (custom values in POINT_ACTIONS) */
   awardPoints: (
@@ -320,6 +324,9 @@ const defaultUser = (
   passportSnapshots: {},
   passportPointsClaimed: [],
   demoPassword: "demo1234",
+  referralCode: undefined,
+  referredByCode: undefined,
+  referralCount: 0,
 });
 
 function emptyPersisted(): Persisted {
@@ -415,6 +422,9 @@ function mockUserFromAccount(a: AuthAccount): MockUser {
     demoPassword: a.password,
     householdPlanId: a.householdPlanId,
     isPlanPrimary: a.isPlanPrimary,
+    referralCode: a.referralCode,
+    referralCount: a.referralCount ?? 0,
+    referredByCode: a.referredByCode,
   };
 }
 
@@ -458,6 +468,9 @@ function upsertAccountFromUser(
     favoriteFoodType: user.favoriteFoodType,
     avatarDataUrl: user.avatarDataUrl,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
+    referralCode: user.referralCode ?? existing?.referralCode,
+    referralCount: user.referralCount ?? existing?.referralCount ?? 0,
+    referredByCode: user.referredByCode ?? existing?.referredByCode,
   };
   if (existing) {
     return accounts.map((a) => (a.email.toLowerCase() === email ? base : a));
@@ -558,7 +571,10 @@ function calcDealSavings(
       // Buy one get one free → save full price of the free item
       return { savingsUsd: reg, revenueUsd: reg * 2 };
     }
-    if (type === "percent_off" && value) {
+    if (
+      (type === "percent_off" || type === "percent_off_total") &&
+      value
+    ) {
       return {
         savingsUsd: Math.round(reg * (value / 100) * 100) / 100,
         revenueUsd: reg,
@@ -575,14 +591,26 @@ function calcDealSavings(
   // Fallback estimates when no regular price on file
   if (type === "free_item") return { savingsUsd: 6, revenueUsd: 12 };
   if (type === "bogo") return { savingsUsd: 12, revenueUsd: 24 };
-  if (type === "percent_off" && value) {
-    const base = 12;
+  if (
+    (type === "percent_off" || type === "percent_off_total") &&
+    value
+  ) {
+    const base = type === "percent_off_total" ? 40 : 12;
     return {
       savingsUsd: Math.round(((base * value) / 100) * 100) / 100,
       revenueUsd: base,
     };
   }
   return { savingsUsd: 5, revenueUsd: 10 };
+}
+
+function makeReferralCode(name: string): string {
+  const slug = name
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 5)
+    .toUpperCase();
+  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `GP-${slug || "FOOD"}${tail}`;
 }
 
 function estimateSavings(
@@ -897,11 +925,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const ensureReferralCode = useCallback(() => {
+    let code = "";
+    setUser((u) => {
+      if (!u) return u;
+      if (u.referralCode) {
+        code = u.referralCode;
+        return u;
+      }
+      code = makeReferralCode(u.name || u.email || "FOOD");
+      return { ...u, referralCode: code };
+    });
+    return code;
+  }, []);
+
+  const setReferredByCode = useCallback(
+    (code: string) => {
+      const cleaned = code.trim().toUpperCase();
+      if (!cleaned) return { ok: false, error: "Enter a referral code." };
+      const mine = (user?.referralCode ?? "").toUpperCase();
+      if (mine && cleaned === mine) {
+        return { ok: false, error: "You can’t use your own code." };
+      }
+      setUser((u) =>
+        u
+          ? {
+              ...u,
+              referredByCode: cleaned,
+              referralCode:
+                u.referralCode ?? makeReferralCode(u.name || "FOOD"),
+            }
+          : u,
+      );
+      return { ok: true };
+    },
+    [user?.referralCode],
+  );
+
   const activateMembership = useCallback(
     (
       planId: MembershipPlanId,
       seats: number,
       members?: MemberSeatProfile[],
+      referralCodeInput?: string,
     ) => {
       const seatCount = Math.min(Math.max(seats, 1), MAX_FAMILY_SEATS);
       const list =
@@ -910,7 +976,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : undefined;
       const primary = list?.find((m) => m.isPrimary) ?? list?.[0];
       const joinPts = POINT_ACTIONS.join_member.points;
+      const partnerBonus = POINT_ACTIONS.partner_member_bonus.points;
       const planGroupId = `plan-${Date.now()}`;
+      const refCode = (
+        referralCodeInput ||
+        user?.referredByCode ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
 
       // Create a separate login account for every seat (recommended model)
       if (list && list.length > 0) {
@@ -921,11 +995,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const name = `${m.firstName} ${m.lastName}`.trim();
             const isPrimary = Boolean(m.isPrimary);
             const existing = next.find((a) => a.email.toLowerCase() === email);
+            // Partners who add membership keep restaurant/admin role + staffRole
+            const keepPartnerRole =
+              existing?.role === "restaurant" || existing?.role === "admin"
+                ? existing.role
+                : "diner";
             const acct: AuthAccount = {
               id: existing?.id ?? m.id ?? `acct-${email}`,
               email,
               password: existing?.password ?? DEFAULT_DEMO_PASSWORD,
-              role: "diner",
+              role: keepPartnerRole,
               name: name || email,
               firstName: m.firstName,
               lastName: m.lastName,
@@ -940,6 +1019,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               householdPlanId: planGroupId,
               isPlanPrimary: isPrimary,
               householdMembers: list,
+              staffRole: existing?.staffRole,
               rewardPoints: isPrimary
                 ? (existing?.rewardPoints ?? 0) +
                   (existing?.isMember ? 0 : joinPts)
@@ -949,6 +1029,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   (existing?.isMember ? 0 : joinPts)
                 : (existing?.rewardPointsLifetime ?? 0),
               createdAt: existing?.createdAt ?? new Date().toISOString(),
+              referralCode: existing?.referralCode,
+              referralCount: existing?.referralCount ?? 0,
+              referredByCode: existing?.referredByCode,
+              awardedBonuses: existing?.awardedBonuses,
             };
             next = next.filter((a) => a.email.toLowerCase() !== email);
             next.push(acct);
@@ -957,20 +1041,86 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      const historyRows: RewardEvent[] = [];
+      let wasRestaurant = false;
+      let alreadyMember = false;
+
       setUser((u) => {
         const base = u ?? defaultUser("diner");
-        const alreadyMember = base.isMember;
+        alreadyMember = base.isMember;
+        wasRestaurant = base.role === "restaurant";
         const fullName = primary
           ? `${primary.firstName} ${primary.lastName}`.trim()
           : base.name;
         const activatedAt =
           base.membershipActivatedAt ?? new Date().toISOString();
-        const next: MockUser = {
+        const keepRole =
+          base.role === "restaurant" || base.role === "admin"
+            ? base.role
+            : "diner";
+        const myCode =
+          base.referralCode ?? makeReferralCode(fullName || base.email);
+        let pts = base.rewardPoints ?? 0;
+        let ptsLife = base.rewardPointsLifetime ?? 0;
+        const bonuses = [...(base.awardedBonuses ?? [])];
+
+        if (!alreadyMember && joinPts > 0) {
+          pts += joinPts;
+          ptsLife += joinPts;
+          historyRows.push({
+            id: `rw-join-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: joinPts,
+            note: POINT_ACTIONS.join_member.label,
+          });
+        }
+
+        // Partner dashboard users who add membership get a one-time bonus
+        if (
+          wasRestaurant &&
+          !alreadyMember &&
+          !bonuses.includes("partner_member_bonus")
+        ) {
+          pts += partnerBonus;
+          ptsLife += partnerBonus;
+          bonuses.push("partner_member_bonus");
+          historyRows.push({
+            id: `rw-partner-bonus-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: partnerBonus,
+            note: POINT_ACTIONS.partner_member_bonus.label,
+          });
+        }
+
+        // Referral welcome bonus for friend
+        if (
+          !alreadyMember &&
+          refCode &&
+          refCode !== myCode.toUpperCase() &&
+          !bonuses.includes("referral_friend")
+        ) {
+          const friendPts = POINT_ACTIONS.referral_friend.points;
+          pts += friendPts;
+          ptsLife += friendPts;
+          bonuses.push("referral_friend");
+          historyRows.push({
+            id: `rw-ref-friend-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "earn",
+            points: friendPts,
+            note: POINT_ACTIONS.referral_friend.label,
+          });
+        }
+
+        return {
           ...base,
           isMember: true,
           planId,
           familySeats: seatCount,
-          role: "diner",
+          role: keepRole,
+          staffRole: base.staffRole,
           name: fullName || base.name,
           firstName: primary?.firstName ?? base.firstName,
           lastName: primary?.lastName ?? base.lastName,
@@ -984,35 +1134,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           demoPassword: base.demoPassword ?? DEFAULT_DEMO_PASSWORD,
           membershipActivatedAt: activatedAt,
           membershipRenewsAt: planRenewalDate(planId, activatedAt),
-          rewardPoints: base.rewardPoints ?? 0,
-          rewardPointsLifetime: base.rewardPointsLifetime ?? 0,
+          rewardPoints: pts,
+          rewardPointsLifetime: ptsLife,
           rewardsClaimed: base.rewardsClaimed ?? 0,
           badges: base.badges ?? [],
-          awardedBonuses: base.awardedBonuses ?? [],
+          awardedBonuses: bonuses,
           passportPointsClaimed: base.passportPointsClaimed ?? [],
+          referralCode: myCode,
+          referredByCode: refCode || base.referredByCode,
         };
-        if (!alreadyMember && joinPts > 0) {
-          next.rewardPoints = (next.rewardPoints ?? 0) + joinPts;
-          next.rewardPointsLifetime =
-            (next.rewardPointsLifetime ?? 0) + joinPts;
-        }
-        return next;
       });
 
-      if (!user?.isMember && joinPts > 0) {
-        setRewardHistory((prev) => [
-          {
-            id: `rw-join-${Date.now()}`,
-            at: new Date().toISOString(),
-            type: "earn",
-            points: joinPts,
-            note: POINT_ACTIONS.join_member.label,
-          },
-          ...prev,
-        ]);
+      if (historyRows.length) {
+        setRewardHistory((prev) => [...historyRows, ...prev]);
+      }
+
+      // Credit referrer account (+ optional live user if they're the same session later)
+      if (!alreadyMember && refCode) {
+        const refPts = POINT_ACTIONS.referral_referrer.points;
+        setAccounts((prev) =>
+          prev.map((a) => {
+            if ((a.referralCode ?? "").toUpperCase() === refCode) {
+              return {
+                ...a,
+                rewardPoints: (a.rewardPoints ?? 0) + refPts,
+                rewardPointsLifetime: (a.rewardPointsLifetime ?? 0) + refPts,
+                referralCount: (a.referralCount ?? 0) + 1,
+              };
+            }
+            if (
+              list?.some(
+                (m) => m.email.trim().toLowerCase() === a.email.toLowerCase(),
+              )
+            ) {
+              return { ...a, isMember: true, planId };
+            }
+            return a;
+          }),
+        );
+        // If the referrer is currently signed in (same browser, switched), credit live user
+        setUser((u) => {
+          if (!u || (u.referralCode ?? "").toUpperCase() !== refCode) return u;
+          return {
+            ...u,
+            rewardPoints: (u.rewardPoints ?? 0) + refPts,
+            rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + refPts,
+            referralCount: (u.referralCount ?? 0) + 1,
+          };
+        });
       }
     },
-    [user?.isMember],
+    [user?.referredByCode],
   );
 
   const updateProfile = useCallback((patch: Partial<MockUser>) => {
@@ -2251,6 +2423,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     inviteStaffAccount,
     accounts,
     activateMembership,
+    setReferredByCode,
+    ensureReferralCode,
     updateProfile,
     awardPoints,
     evaluateBadges,

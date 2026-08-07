@@ -29,6 +29,7 @@ export type Cuisine =
 export type DealType =
   | "free_item"
   | "percent_off"
+  | "percent_off_total"
   | "bogo"
   | "fixed_price"
   | "happy_hour";
@@ -244,6 +245,12 @@ export interface MockUser {
   /** Membership billing window (ISO dates) */
   membershipActivatedAt?: string;
   membershipRenewsAt?: string;
+  /** Unique code others can enter when they join */
+  referralCode?: string;
+  /** Code this user entered (friend who referred them) */
+  referredByCode?: string;
+  /** Successful referral count */
+  referralCount?: number;
 }
 
 export type NotificationType =
@@ -384,6 +391,9 @@ export interface AuthAccount {
   favoriteFoodType?: string;
   avatarDataUrl?: string;
   createdAt: string;
+  referralCode?: string;
+  referralCount?: number;
+  referredByCode?: string;
 }
 
 export type ContentStatus = "pending" | "approved" | "rejected";

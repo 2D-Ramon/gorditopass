@@ -9,6 +9,7 @@ import {
   MAX_FAMILY_SEATS,
   MEMBERSHIP_PLANS,
   POINT_ACTIONS,
+  REFERRAL,
   REWARDS,
 } from "@/lib/pricing";
 import { PASSPORTS, passportProgress } from "@/lib/passports";
@@ -21,6 +22,7 @@ type TabId =
   | "badges"
   | "rewards"
   | "billing"
+  | "referral"
   | "chat"
   | "staff";
 
@@ -60,6 +62,8 @@ function AccountInner() {
     loginWithPassword,
     addHouseholdSeat,
     removeHouseholdSeat,
+    ensureReferralCode,
+    setReferredByCode,
   } = useStore();
 
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -78,6 +82,9 @@ function AccountInner() {
     homeAddress: "",
   });
   const [seatMsg, setSeatMsg] = useState("");
+  const [friendCodeInput, setFriendCodeInput] = useState("");
+  const [referralMsg, setReferralMsg] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     const t = search.get("tab");
@@ -86,6 +93,7 @@ function AccountInner() {
       t === "badges" ||
       t === "rewards" ||
       t === "billing" ||
+      t === "referral" ||
       t === "chat" ||
       t === "household" ||
       t === "staff" ||
@@ -94,6 +102,13 @@ function AccountInner() {
       setTab(t === "household" ? "billing" : t);
     }
   }, [search]);
+
+  // Ensure logged-in users have a shareable referral code
+  useEffect(() => {
+    if (user && !user.referralCode) {
+      ensureReferralCode();
+    }
+  }, [user, ensureReferralCode]);
 
   const visited = useMemo(() => {
     const s = new Set<string>();
@@ -150,12 +165,13 @@ function AccountInner() {
     { id: "profile", label: "Profile", show: true },
     { id: "passports", label: "Passports", show: isDiner },
     { id: "badges", label: "Badges", show: isDiner },
-    { id: "rewards", label: "Rewards", show: isDiner },
+    { id: "rewards", label: "Rewards", show: isDiner || isRestaurant },
     {
       id: "billing",
       label: "Billing",
-      show: isDiner,
+      show: isDiner || (isRestaurant && Boolean(user.isMember)),
     },
+    { id: "referral", label: "Referrals", show: true },
     { id: "chat", label: "Chat", show: isDiner || isRestaurant },
     { id: "staff", label: "Staff logins", show: canInviteStaff },
   ];
@@ -714,7 +730,7 @@ function AccountInner() {
         </div>
       )}
 
-      {tab === "rewards" && isDiner && (
+      {tab === "rewards" && (isDiner || isRestaurant) && (
         <div className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
             <p className="gp-section-label">Rewards balance</p>
@@ -790,7 +806,111 @@ function AccountInner() {
         </div>
       )}
 
-      {tab === "billing" && isDiner && (
+      {tab === "referral" && (
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Your referral code</p>
+            <p className="mt-2 text-sm text-muted">
+              Share this code with friends. When they activate a membership
+              with it, you earn{" "}
+              <strong className="text-brand">
+                +{REFERRAL.referrerPoints} points
+              </strong>{" "}
+              and they get{" "}
+              <strong className="text-brand">
+                +{REFERRAL.friendPoints} welcome points
+              </strong>
+              .
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <code className="rounded-md border border-brand/30 bg-brand/10 px-4 py-2 font-mono text-lg font-bold tracking-wider text-orange-200">
+                {user.referralCode ?? "—"}
+              </code>
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary text-sm"
+                onClick={async () => {
+                  const code = user.referralCode || ensureReferralCode();
+                  if (!code) return;
+                  try {
+                    await navigator.clipboard.writeText(code);
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  } catch {
+                    setReferralMsg("Copy failed — select the code manually.");
+                  }
+                }}
+              >
+                {copiedCode ? "Copied!" : "Copy code"}
+              </button>
+            </div>
+            <p className="mt-3 text-sm text-muted">
+              Successful referrals:{" "}
+              <strong className="text-stone-200">
+                {user.referralCount ?? 0}
+              </strong>
+            </p>
+          </div>
+
+          {!user.isMember && (
+            <div className="gp-card gp-card-static p-5">
+              <p className="gp-section-label">Enter a friend&apos;s code</p>
+              <p className="mt-2 text-sm text-muted">
+                Save their code now — it applies when you activate membership
+                (+{REFERRAL.friendPoints} pts for you).
+              </p>
+              {user.referredByCode ? (
+                <p className="mt-3 text-sm text-success">
+                  Saved code:{" "}
+                  <code className="font-mono font-semibold">
+                    {user.referredByCode}
+                  </code>
+                </p>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <input
+                    className="gp-input max-w-xs font-mono uppercase tracking-wide"
+                    value={friendCodeInput}
+                    onChange={(e) =>
+                      setFriendCodeInput(e.target.value.toUpperCase())
+                    }
+                    placeholder="GP-FRIEND123"
+                  />
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-primary text-sm"
+                    onClick={() => {
+                      const res = setReferredByCode(friendCodeInput);
+                      setReferralMsg(
+                        res.ok
+                          ? "Referral code saved."
+                          : res.error ?? "Could not save code.",
+                      );
+                    }}
+                  >
+                    Save code
+                  </button>
+                </div>
+              )}
+              {referralMsg && (
+                <p className="mt-2 text-sm text-muted">{referralMsg}</p>
+              )}
+            </div>
+          )}
+
+          {user.isMember && user.referredByCode && (
+            <div className="gp-card gp-card-static p-5 text-sm text-muted">
+              You joined with code{" "}
+              <code className="font-mono text-stone-300">
+                {user.referredByCode}
+              </code>
+              .
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "billing" && (isDiner || (isRestaurant && user.isMember)) && (
         <div className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
             <p className="gp-section-label">Plan & billing</p>
@@ -1101,9 +1221,11 @@ function AccountInner() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-2">
-        {!user.isMember && isDiner && (
+        {!user.isMember && (isDiner || isRestaurant) && (
           <Link href="/membership" className="gp-btn gp-btn-primary text-sm">
-            Get membership
+            {isRestaurant
+              ? `Add membership · +${POINT_ACTIONS.partner_member_bonus.points} pts`
+              : "Get membership"}
           </Link>
         )}
         {isRestaurant && (
