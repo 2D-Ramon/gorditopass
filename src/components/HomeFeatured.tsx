@@ -135,7 +135,7 @@ export function HomeFeatured() {
               key={`${r.id}-${i}`}
               className="w-[min(280px,78vw)] shrink-0 select-none"
             >
-              <RestaurantCard restaurant={r} />
+              <RestaurantCard restaurant={r} highlightPromo />
             </div>
           ))}
         </div>
