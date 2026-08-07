@@ -10,6 +10,22 @@ function mapsUrl(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+/** Inclusive window: today through 4 weeks from today (28 days). */
+function getFourWeekWindow() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 28);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function isWithinFourWeeks(dateStr: string, start: Date, end: Date): boolean {
+  const d = new Date(dateStr + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return false;
+  return d >= start && d <= end;
+}
+
 function shareEvent(e: PartnerEvent) {
   const url =
     typeof window !== "undefined"
@@ -41,41 +57,55 @@ export default function EventsPage() {
     [partnerEvents],
   );
 
+  const { start, end, rangeLabel } = useMemo(() => {
+    const w = getFourWeekWindow();
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    return {
+      start: w.start,
+      end: w.end,
+      rangeLabel: `${fmt(w.start)} – ${fmt(w.end)}`,
+    };
+  }, []);
+
   const events = useMemo(() => {
-    const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
-    const partnerForCity = livePartner.filter((e) => e.city === city);
-    const seedForMonth = PARTNER_EVENTS.filter((e) => {
-      if (e.city !== city) return false;
-      const d = new Date(e.date + "T12:00:00");
-      return d.getMonth() === month && d.getFullYear() === year;
-    });
+    const partnerInWindow = livePartner.filter(
+      (e) => e.city === city && isWithinFourWeeks(e.date, start, end),
+    );
+    const seedInWindow = PARTNER_EVENTS.filter(
+      (e) => e.city === city && isWithinFourWeeks(e.date, start, end),
+    );
     const seen = new Set<string>();
-    const all = [...partnerForCity, ...seedForMonth].filter((e) => {
+    const all = [...partnerInWindow, ...seedInWindow].filter((e) => {
       if (seen.has(e.id)) return false;
       seen.add(e.id);
       return true;
     });
     return all.sort((a, b) => a.date.localeCompare(b.date));
-  }, [city, livePartner]);
-
-  const monthLabel = new Date().toLocaleString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  }, [city, livePartner, start, end]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="gp-page-title">Events</h1>
       <p className="gp-page-sub">
-        Partner restaurant events for the month. Reserve tickets, get
+        Partner restaurant events for the next 4 weeks. Reserve tickets, get
         directions, and share with friends.
       </p>
       <p className="mt-2 text-sm text-muted">
-        Live partner events for this city · seed demos for {monthLabel}
-        {livePartner.length > 0
-          ? ` · ${livePartner.filter((e) => e.city === city).length} approved partner event(s)`
+        Showing events from today through 4 weeks ahead · {rangeLabel}
+        {livePartner.filter(
+          (e) => e.city === city && isWithinFourWeeks(e.date, start, end),
+        ).length > 0
+          ? ` · ${
+              livePartner.filter(
+                (e) =>
+                  e.city === city && isWithinFourWeeks(e.date, start, end),
+              ).length
+            } approved partner event(s)`
           : ""}
       </p>
 
@@ -86,8 +116,8 @@ export default function EventsPage() {
       <div className="mt-8 space-y-4">
         {events.length === 0 && (
           <p className="text-sm text-muted">
-            No events yet for this city. Partner events appear here after admin
-            approval.
+            No events in the next 4 weeks for this city. Partner events appear
+            here after admin approval.
           </p>
         )}
         {events.map((e) => {
