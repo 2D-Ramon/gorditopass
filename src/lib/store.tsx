@@ -571,11 +571,15 @@ function load(): Persisted {
       notifications: parsed.notifications ?? [],
       accounts: parsed.accounts ?? [],
       autoApproveSettings: parsed.autoApproveSettings ?? [],
-      chats: (parsed.chats ?? []).map((c) =>
-        c.type === "group"
-          ? { ...c, isPublic: true }
-          : c,
-      ),
+      chats: (parsed.chats ?? []).map((c) => {
+        // Drop system/notification lines — rooms only keep real messages
+        const messages = (c.messages ?? []).filter(
+          (m) => m.authorId !== "system",
+        );
+        return c.type === "group"
+          ? { ...c, isPublic: true, messages }
+          : { ...c, messages };
+      }),
       eventRsvps: parsed.eventRsvps ?? [],
       memberFollowing: parsed.memberFollowing ?? [],
       tasteBudRequests: parsed.tasteBudRequests ?? [],
@@ -2534,16 +2538,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Groups are never private — always public & shareable
         isPublic: true,
         createdById: user.id,
-        messages: [
-          {
-            id: `msg-${Date.now()}`,
-            chatId: id,
-            authorId: "system",
-            authorName: "GorditoPass",
-            body: `${user.name} started a public group. Invite friends or share the link — groups can’t be private.`,
-            at: new Date().toISOString(),
-          },
-        ],
+        // No system/notification messages — only member messages
+        messages: [],
       };
       setChats((prev) => [thread, ...prev]);
       return id;
@@ -2586,17 +2582,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             memberIds: [...c.memberIds, ...newIds],
             memberNames: [...c.memberNames, ...addedNames],
             lastMessageAt: at,
-            messages: [
-              ...c.messages,
-              {
-                id: `msg-invite-${Date.now()}`,
-                chatId,
-                authorId: "system",
-                authorName: "GorditoPass",
-                body: `${user.name} invited ${addedNames.join(", ")}.`,
-                at,
-              },
-            ],
+            // Membership updates only — no system notification in the room
+            messages: c.messages,
           };
         }),
       );
@@ -2626,17 +2613,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             memberIds: [...c.memberIds, user.id],
             memberNames: [...c.memberNames, user.name],
             lastMessageAt: at,
-            messages: [
-              ...c.messages,
-              {
-                id: `msg-join-${Date.now()}`,
-                chatId,
-                authorId: "system",
-                authorName: "GorditoPass",
-                body: `${user.name} joined the group.`,
-                at,
-              },
-            ],
+            // Join silently — no system notification in the room
+            messages: c.messages,
           };
         }),
       );

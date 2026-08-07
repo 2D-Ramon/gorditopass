@@ -167,7 +167,10 @@ function ChatInner() {
                       )}
                     </span>
                     <span className="block truncate text-[10px] text-muted">
-                      {c.messages[c.messages.length - 1]?.body ?? "New chat"}
+                      {[...c.messages]
+                        .reverse()
+                        .find((m) => m.authorId !== "system")?.body ??
+                        "No messages yet"}
                     </span>
                   </button>
                 </li>
@@ -376,14 +379,16 @@ function ChatInner() {
                 )}
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-                {active.messages.map((m) => {
+                {active.messages
+                  .filter((m) => m.authorId !== "system")
+                  .map((m) => {
                   const mine = m.authorId === user.id;
                   return (
                     <div
                       key={m.id}
                       className={`flex gap-2 ${mine ? "justify-end" : ""}`}
                     >
-                      {!mine && m.authorId !== "system" && (
+                      {!mine && (
                         <Link
                           href={`/u/${m.authorId}`}
                           className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-elevated text-xs ring-1 ring-border"
@@ -402,14 +407,12 @@ function ChatInner() {
                       )}
                       <div
                         className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                          m.authorId === "system"
-                            ? "bg-elevated text-xs text-muted"
-                            : mine
-                              ? "bg-brand/25 text-orange-50"
-                              : "bg-elevated"
+                          mine
+                            ? "bg-brand/25 text-orange-50"
+                            : "bg-elevated"
                         }`}
                       >
-                        {!mine && m.authorId !== "system" && (
+                        {!mine && (
                           <Link
                             href={`/u/${m.authorId}`}
                             className="text-[10px] font-semibold text-brand"
@@ -421,50 +424,48 @@ function ChatInner() {
                         <p className="mt-0.5 text-[10px] text-muted">
                           {new Date(m.at).toLocaleString()}
                         </p>
-                        {m.authorId !== "system" && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                            {REACTION_EMOJIS.map((emoji) => {
-                              const voters = m.reactions?.[emoji] ?? [];
-                              const mineR = voters.includes(user.id);
-                              if (voters.length === 0 && !mineR) {
-                                return (
-                                  <button
-                                    key={emoji}
-                                    type="button"
-                                    title={`React ${emoji}`}
-                                    className="rounded px-1 text-[11px] opacity-40 hover:opacity-100"
-                                    onClick={() =>
-                                      reactToChatMessage(
-                                        active.id,
-                                        m.id,
-                                        emoji,
-                                      )
-                                    }
-                                  >
-                                    {emoji}
-                                  </button>
-                                );
-                              }
-                              if (voters.length === 0) return null;
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          {REACTION_EMOJIS.map((emoji) => {
+                            const voters = m.reactions?.[emoji] ?? [];
+                            const mineR = voters.includes(user.id);
+                            if (voters.length === 0 && !mineR) {
                               return (
                                 <button
                                   key={emoji}
                                   type="button"
-                                  className={`rounded-full px-1.5 py-0.5 text-[11px] ring-1 ${
-                                    mineR
-                                      ? "bg-brand/20 ring-brand/40"
-                                      : "bg-background/60 ring-border"
-                                  }`}
+                                  title={`React ${emoji}`}
+                                  className="rounded px-1 text-[11px] opacity-40 hover:opacity-100"
                                   onClick={() =>
-                                    reactToChatMessage(active.id, m.id, emoji)
+                                    reactToChatMessage(
+                                      active.id,
+                                      m.id,
+                                      emoji,
+                                    )
                                   }
                                 >
-                                  {emoji} {voters.length}
+                                  {emoji}
                                 </button>
                               );
-                            })}
-                          </div>
-                        )}
+                            }
+                            if (voters.length === 0) return null;
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className={`rounded-full px-1.5 py-0.5 text-[11px] ring-1 ${
+                                  mineR
+                                    ? "bg-brand/20 ring-brand/40"
+                                    : "bg-background/60 ring-border"
+                                }`}
+                                onClick={() =>
+                                  reactToChatMessage(active.id, m.id, emoji)
+                                }
+                              >
+                                {emoji} {voters.length}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   );
