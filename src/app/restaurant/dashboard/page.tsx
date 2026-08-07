@@ -3,16 +3,21 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { RESTAURANTS } from "@/lib/data";
-import { MENU_CATEGORIES, POINT_ACTIONS } from "@/lib/pricing";
+import {
+  MEMBERSHIP_PLANS,
+  MENU_CATEGORIES,
+  STAFF_MEMBERSHIP_REFERRAL,
+} from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import {
   canManagePartnerContent,
   type CityId,
   type DealType,
+  type MembershipPlanId,
   type StaffRole,
 } from "@/lib/types";
 
-type Tab = "scan" | "deal" | "menu" | "event" | "job";
+type Tab = "scan" | "enroll" | "deal" | "menu" | "event" | "job";
 
 function ExpireFields({
   enabled,
@@ -74,6 +79,9 @@ export default function RestaurantDashboardPage() {
     partnerMenuItems,
     partnerEvents,
     partnerJobs,
+    staffMembershipReferrals,
+    staffEnrollCustomerMembership,
+    markStaffReferralChecksPaid,
     addPartnerDeal,
     addPartnerMenuItem,
     addPartnerEvent,
@@ -139,6 +147,15 @@ export default function RestaurantDashboardPage() {
   const [jobApplyUrl, setJobApplyUrl] = useState("");
   const [jobExpireOn, setJobExpireOn] = useState(false);
   const [jobExpiresAt, setJobExpiresAt] = useState("");
+
+  // Customer enrollment (staff $5 referral)
+  const [enrollFirst, setEnrollFirst] = useState("");
+  const [enrollLast, setEnrollLast] = useState("");
+  const [enrollEmail, setEnrollEmail] = useState("");
+  const [enrollPhone, setEnrollPhone] = useState("");
+  const [enrollPlan, setEnrollPlan] =
+    useState<MembershipPlanId>("monthly");
+  const [enrollMsg, setEnrollMsg] = useState("");
 
   const canManage = canManagePartnerContent(user?.staffRole);
 
@@ -219,6 +236,7 @@ export default function RestaurantDashboardPage() {
 
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [
     { id: "scan", label: "Redeem scan", managersOnly: false },
+    { id: "enroll", label: "Enroll customer", managersOnly: false },
     { id: "deal", label: "Promotions", managersOnly: true },
     { id: "menu", label: "Menu items", managersOnly: true },
     { id: "event", label: "Events", managersOnly: true },
@@ -226,9 +244,32 @@ export default function RestaurantDashboardPage() {
   ];
   const tabs = allTabs.filter((t) => !t.managersOnly || canManage);
 
-  // If employee somehow on a locked tab, force scan
+  // If employee somehow on a locked tab, force scan/enroll
   const activeTab =
-    !canManage && tab !== "scan" ? "scan" : tabs.some((t) => t.id === tab) ? tab : "scan";
+    !canManage && tab !== "scan" && tab !== "enroll"
+      ? "scan"
+      : tabs.some((t) => t.id === tab)
+        ? tab
+        : "scan";
+
+  const myStaffReferrals = useMemo(
+    () =>
+      staffMembershipReferrals.filter(
+        (r) =>
+          r.staffUserId === user?.id ||
+          r.staffEmail.toLowerCase() === (user?.email ?? "").toLowerCase(),
+      ),
+    [staffMembershipReferrals, user?.id, user?.email],
+  );
+  const thisMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const monthPending = myStaffReferrals.filter(
+    (r) => r.monthKey === thisMonthKey && r.checkStatus === "pending",
+  );
+  const monthPendingTotal = monthPending.reduce((s, r) => s + r.amountUsd, 0);
+  const monthPaid = myStaffReferrals.filter(
+    (r) => r.monthKey === thisMonthKey && r.checkStatus === "paid",
+  );
+  const lifetimeTotal = myStaffReferrals.reduce((s, r) => s + r.amountUsd, 0);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -275,38 +316,26 @@ export default function RestaurantDashboardPage() {
         </div>
       </div>
 
-      {!user.isMember && (
-        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-orange-200">
-                Partner membership bonus
-              </p>
-              <p className="mt-1 text-sm text-stone-300">
-                Add a personal membership and earn a one-time{" "}
-                <strong className="text-brand">
-                  +{POINT_ACTIONS.partner_member_bonus.points} points
-                </strong>{" "}
-                (+{POINT_ACTIONS.join_member.points} welcome points). Keep your
-                partner login and redeem member deals yourself.
-              </p>
-            </div>
-            <Link
-              href="/membership"
-              className="gp-btn gp-btn-primary shrink-0 text-sm"
-            >
-              Add membership
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {user.isMember && (
-        <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
-          You have an active diner membership — redeem deals & earn rewards
-          while running the partner dashboard.
-        </div>
-      )}
+      <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 p-4 text-sm">
+        <p className="font-semibold text-orange-200">
+          Staff membership referrals · ${STAFF_MEMBERSHIP_REFERRAL.amountUsd}{" "}
+          each
+        </p>
+        <p className="mt-1 text-stone-300">
+          Enroll a customer who doesn&apos;t have a membership yet — you earn $
+          {STAFF_MEMBERSHIP_REFERRAL.amountUsd} per signup. Checks go out
+          monthly for your total.
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          This month pending:{" "}
+          <strong className="text-brand-gold">
+            ${monthPendingTotal.toFixed(2)}
+          </strong>{" "}
+          ({monthPending.length} signup
+          {monthPending.length === 1 ? "" : "s"}) · Lifetime: $
+          {lifetimeTotal.toFixed(2)}
+        </p>
+      </div>
 
       {flash && (
         <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
@@ -336,6 +365,166 @@ export default function RestaurantDashboardPage() {
           Content tabs (deals, menu, events, jobs) are limited to owner, manager,
           and marketing. Employees can redeem only.
         </p>
+      )}
+
+      {activeTab === "enroll" && (
+        <section className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <h2 className="font-semibold">Enroll customer membership</h2>
+            <p className="mt-1 text-sm text-muted">
+              Available to owner, manager, marketing, and employees. Customer
+              must not already be a member. You earn $
+              {STAFF_MEMBERSHIP_REFERRAL.amountUsd} per successful signup.
+            </p>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const res = staffEnrollCustomerMembership({
+                  customerEmail: enrollEmail,
+                  customerFirstName: enrollFirst,
+                  customerLastName: enrollLast,
+                  customerPhone: enrollPhone,
+                  planId: enrollPlan,
+                  seats: 1,
+                });
+                if (res.ok) {
+                  setEnrollMsg(
+                    `Membership created · you earned $${res.bonusUsd?.toFixed(2)} referral (pending monthly check).`,
+                  );
+                  setEnrollFirst("");
+                  setEnrollLast("");
+                  setEnrollEmail("");
+                  setEnrollPhone("");
+                } else {
+                  setEnrollMsg(res.error ?? "Could not enroll.");
+                }
+              }}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm">
+                  First name *
+                  <input
+                    required
+                    className="gp-input mt-1"
+                    value={enrollFirst}
+                    onChange={(e) => setEnrollFirst(e.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  Last name *
+                  <input
+                    required
+                    className="gp-input mt-1"
+                    value={enrollLast}
+                    onChange={(e) => setEnrollLast(e.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="block text-sm">
+                Email *
+                <input
+                  required
+                  type="email"
+                  className="gp-input mt-1"
+                  value={enrollEmail}
+                  onChange={(e) => setEnrollEmail(e.target.value)}
+                  placeholder="customer@email.com"
+                />
+              </label>
+              <label className="block text-sm">
+                Phone
+                <input
+                  className="gp-input mt-1"
+                  value={enrollPhone}
+                  onChange={(e) => setEnrollPhone(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm">
+                Plan
+                <select
+                  className="gp-input mt-1"
+                  value={enrollPlan}
+                  onChange={(e) =>
+                    setEnrollPlan(e.target.value as MembershipPlanId)
+                  }
+                >
+                  {MEMBERSHIP_PLANS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · ${p.priceUsd}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="gp-btn gp-btn-primary text-sm">
+                Create membership · +$
+                {STAFF_MEMBERSHIP_REFERRAL.amountUsd} for you
+              </button>
+              {enrollMsg && (
+                <p className="text-sm text-brand-mint">{enrollMsg}</p>
+              )}
+            </form>
+          </div>
+
+          <div className="gp-card gp-card-static p-5">
+            <h2 className="font-semibold">Your referral earnings</h2>
+            <p className="mt-1 text-sm text-muted">
+              Monthly check for pending totals (demo: mark paid to simulate
+              sending the check).
+            </p>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-muted">This month pending</dt>
+                <dd className="text-xl font-bold text-brand-gold">
+                  ${monthPendingTotal.toFixed(2)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">This month paid</dt>
+                <dd className="text-xl font-bold text-success">
+                  $
+                  {monthPaid
+                    .reduce((s, r) => s + r.amountUsd, 0)
+                    .toFixed(2)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">Lifetime</dt>
+                <dd className="text-xl font-bold">${lifetimeTotal.toFixed(2)}</dd>
+              </div>
+            </dl>
+            {monthPending.length > 0 && (
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary mt-4 text-sm"
+                onClick={() => {
+                  markStaffReferralChecksPaid(thisMonthKey, user.id);
+                  toast(`Check marked paid for ${thisMonthKey} (demo).`);
+                }}
+              >
+                Mark ${monthPendingTotal.toFixed(2)} check as paid
+              </button>
+            )}
+            <ul className="mt-4 max-h-48 space-y-1 overflow-y-auto text-xs text-muted">
+              {myStaffReferrals.length === 0 && (
+                <li>No customer enrollments yet.</li>
+              )}
+              {myStaffReferrals.map((r) => (
+                <li key={r.id}>
+                  {new Date(r.at).toLocaleDateString()} · {r.customerName} (
+                  {r.customerEmail}) · ${r.amountUsd.toFixed(2)} ·{" "}
+                  <span
+                    className={
+                      r.checkStatus === "paid" ? "text-success" : "text-brand-gold"
+                    }
+                  >
+                    {r.checkStatus}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
       )}
 
       {activeTab === "scan" && (

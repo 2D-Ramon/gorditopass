@@ -29,13 +29,16 @@ import type {
   RestaurantApplication,
   Review,
   RewardEvent,
+  StaffMembershipReferral,
   StaffRole,
+  TasteBudRequest,
 } from "./types";
 import {
   BADGES,
   MAX_FAMILY_SEATS,
   POINT_ACTIONS,
   REWARDS,
+  STAFF_MEMBERSHIP_REFERRAL,
   type PointActionId,
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
@@ -48,7 +51,7 @@ import {
 } from "./contentModeration";
 import { MEMBERSHIP_PLANS } from "./pricing";
 
-const STORAGE_KEY = "gorditopass-mvp-v11";
+const STORAGE_KEY = "gorditopass-mvp-v12";
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
@@ -56,6 +59,10 @@ interface Persisted {
   cart: CartLine[];
   favorites: string[];
   following: string[];
+  /** Member user ids this account follows (movements) */
+  memberFollowing: string[];
+  tasteBudRequests: TasteBudRequest[];
+  staffMembershipReferrals: StaffMembershipReferral[];
   redemptions: Redemption[];
   restaurantApplications: RestaurantApplication[];
   partnerEvents: PartnerEvent[];
@@ -79,6 +86,9 @@ interface StoreValue {
   cart: CartLine[];
   favorites: string[];
   following: string[];
+  memberFollowing: string[];
+  tasteBudRequests: TasteBudRequest[];
+  staffMembershipReferrals: StaffMembershipReferral[];
   redemptions: Redemption[];
   restaurantApplications: RestaurantApplication[];
   partnerEvents: PartnerEvent[];
@@ -122,9 +132,34 @@ interface StoreValue {
     members?: MemberSeatProfile[],
     referralCodeInput?: string,
   ) => void;
+  /**
+   * Partner staff enrolls a customer who does not yet have membership.
+   * Staff earns $5 cash referral (tracked for monthly check).
+   */
+  staffEnrollCustomerMembership: (input: {
+    customerEmail: string;
+    customerFirstName: string;
+    customerLastName: string;
+    customerPhone?: string;
+    planId: MembershipPlanId;
+    seats?: number;
+  }) => { ok: boolean; error?: string; bonusUsd?: number };
+  markStaffReferralChecksPaid: (monthKey: string, staffUserId?: string) => void;
   /** Store a referral code to apply at membership activation */
   setReferredByCode: (code: string) => { ok: boolean; error?: string };
   ensureReferralCode: () => string;
+  /** Follow another member’s movements */
+  followMember: (userId: string) => void;
+  unfollowMember: (userId: string) => void;
+  isFollowingMember: (userId: string) => boolean;
+  requestTasteBud: (userId: string) => { ok: boolean; error?: string };
+  respondTasteBud: (
+    requestId: string,
+    accept: boolean,
+  ) => { ok: boolean; error?: string };
+  removeTasteBud: (userId: string) => void;
+  /** Mutual Taste Buds (accepted) for current user */
+  tasteBudIds: string[];
   updateProfile: (patch: Partial<MockUser>) => void;
   /** Award points for a completed task (custom values in POINT_ACTIONS) */
   awardPoints: (
@@ -158,7 +193,12 @@ interface StoreValue {
   recordRedemption: (
     dealId: string,
     code: string,
-  ) => { pointsEarned: number; totalPoints: number };
+  ) => {
+    pointsEarned: number;
+    totalPoints: number;
+    savingsUsd?: number;
+    revenueUsd?: number;
+  };
   submitRestaurantApplication: (
     app: Omit<RestaurantApplication, "at" | "status" | "id">,
   ) => void;
@@ -300,7 +340,8 @@ const defaultUser = (
         : "diner@gorditopass.local",
   role,
   city: "dallas",
-  isMember: role === "restaurant" || role === "admin",
+  // Partners are not diner members; staff can enroll customers instead
+  isMember: role === "admin",
   planId: null,
   familySeats: 1,
   maxFamilySeats: MAX_FAMILY_SEATS,
@@ -335,6 +376,9 @@ function emptyPersisted(): Persisted {
     cart: [],
     favorites: [],
     following: [],
+    memberFollowing: [],
+    tasteBudRequests: [],
+    staffMembershipReferrals: [],
     redemptions: [],
     restaurantApplications: [],
     partnerEvents: [],
@@ -350,6 +394,10 @@ function emptyPersisted(): Persisted {
     autoApproveSettings: [],
     chats: [],
   };
+}
+
+function monthKeyFrom(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /** Content is public when approved and not past expire date */
@@ -483,6 +531,7 @@ function load(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("gorditopass-mvp-v11") ??
       localStorage.getItem("gorditopass-mvp-v10") ??
       localStorage.getItem("gorditopass-mvp-v9") ??
       localStorage.getItem("gorditopass-mvp-v8") ??
@@ -502,6 +551,9 @@ function load(): Persisted {
       accounts: parsed.accounts ?? [],
       autoApproveSettings: parsed.autoApproveSettings ?? [],
       chats: parsed.chats ?? [],
+      memberFollowing: parsed.memberFollowing ?? [],
+      tasteBudRequests: parsed.tasteBudRequests ?? [],
+      staffMembershipReferrals: parsed.staffMembershipReferrals ?? [],
       redemptions: (parsed.redemptions ?? []).map((r) => ({
         ...r,
         savingsUsd: r.savingsUsd ?? 0,
@@ -679,6 +731,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
+  const [memberFollowing, setMemberFollowing] = useState<string[]>([]);
+  const [tasteBudRequests, setTasteBudRequests] = useState<TasteBudRequest[]>(
+    [],
+  );
+  const [staffMembershipReferrals, setStaffMembershipReferrals] = useState<
+    StaffMembershipReferral[]
+  >([]);
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [restaurantApplications, setRestaurantApplications] = useState<
     RestaurantApplication[]
@@ -710,6 +769,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCart(data.cart);
     setFavorites(data.favorites);
     setFollowing(data.following);
+    setMemberFollowing(data.memberFollowing ?? []);
+    setTasteBudRequests(data.tasteBudRequests ?? []);
+    setStaffMembershipReferrals(data.staffMembershipReferrals ?? []);
     setRedemptions(data.redemptions);
     setRestaurantApplications(data.restaurantApplications);
     setPartnerEvents(data.partnerEvents);
@@ -735,6 +797,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cart,
       favorites,
       following,
+      memberFollowing,
+      tasteBudRequests,
+      staffMembershipReferrals,
       redemptions,
       restaurantApplications,
       partnerEvents,
@@ -757,6 +822,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cart,
     favorites,
     following,
+    memberFollowing,
+    tasteBudRequests,
+    staffMembershipReferrals,
     redemptions,
     restaurantApplications,
     partnerEvents,
@@ -976,7 +1044,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : undefined;
       const primary = list?.find((m) => m.isPrimary) ?? list?.[0];
       const joinPts = POINT_ACTIONS.join_member.points;
-      const partnerBonus = POINT_ACTIONS.partner_member_bonus.points;
       const planGroupId = `plan-${Date.now()}`;
       const refCode = (
         referralCodeInput ||
@@ -1042,22 +1109,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       const historyRows: RewardEvent[] = [];
-      let wasRestaurant = false;
       let alreadyMember = false;
 
       setUser((u) => {
-        const base = u ?? defaultUser("diner");
+        // Partner staff should not convert their own login into a diner membership
+        // via this path when role is restaurant — diner signup only.
+        const base = u?.role === "restaurant" ? defaultUser("diner") : (u ?? defaultUser("diner"));
+        // If currently a partner, keep partner session unchanged for membership of customer only
+        // (activateMembership is for diner flow; staff use staffEnrollCustomerMembership)
+        if (u?.role === "restaurant") {
+          // Don't overwrite partner session when somehow called from partner account
+          alreadyMember = true;
+          return u;
+        }
         alreadyMember = base.isMember;
-        wasRestaurant = base.role === "restaurant";
         const fullName = primary
           ? `${primary.firstName} ${primary.lastName}`.trim()
           : base.name;
         const activatedAt =
           base.membershipActivatedAt ?? new Date().toISOString();
         const keepRole =
-          base.role === "restaurant" || base.role === "admin"
-            ? base.role
-            : "diner";
+          base.role === "admin" ? base.role : "diner";
         const myCode =
           base.referralCode ?? makeReferralCode(fullName || base.email);
         let pts = base.rewardPoints ?? 0;
@@ -1073,24 +1145,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             type: "earn",
             points: joinPts,
             note: POINT_ACTIONS.join_member.label,
-          });
-        }
-
-        // Partner dashboard users who add membership get a one-time bonus
-        if (
-          wasRestaurant &&
-          !alreadyMember &&
-          !bonuses.includes("partner_member_bonus")
-        ) {
-          pts += partnerBonus;
-          ptsLife += partnerBonus;
-          bonuses.push("partner_member_bonus");
-          historyRows.push({
-            id: `rw-partner-bonus-${Date.now()}`,
-            at: new Date().toISOString(),
-            type: "earn",
-            points: partnerBonus,
-            note: POINT_ACTIONS.partner_member_bonus.label,
           });
         }
 
@@ -1186,6 +1240,254 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [user?.referredByCode],
   );
+
+  /** Partner staff enrolls a non-member customer → staff earns $5 referral */
+  const staffEnrollCustomerMembership = useCallback(
+    (input: {
+      customerEmail: string;
+      customerFirstName: string;
+      customerLastName: string;
+      customerPhone?: string;
+      planId: MembershipPlanId;
+      seats?: number;
+    }): { ok: boolean; error?: string; bonusUsd?: number } => {
+      if (!user || user.role !== "restaurant") {
+        return { ok: false, error: "Sign in as partner staff to enroll customers." };
+      }
+      const email = input.customerEmail.trim().toLowerCase();
+      if (!email.includes("@")) {
+        return { ok: false, error: "Enter a valid customer email." };
+      }
+      if (!input.customerFirstName.trim() || !input.customerLastName.trim()) {
+        return { ok: false, error: "Customer first and last name required." };
+      }
+      const existing = accounts.find((a) => a.email.toLowerCase() === email);
+      if (existing?.isMember) {
+        return {
+          ok: false,
+          error: "This customer already has an active membership.",
+        };
+      }
+      const name =
+        `${input.customerFirstName.trim()} ${input.customerLastName.trim()}`.trim();
+      const seats = Math.min(
+        Math.max(input.seats ?? 1, 1),
+        MAX_FAMILY_SEATS,
+      );
+      const planGroupId = `plan-staff-${Date.now()}`;
+      const joinPts = POINT_ACTIONS.join_member.points;
+      const customerId = existing?.id ?? `acct-${email}`;
+      const activatedAt = new Date().toISOString();
+      const bonus = STAFF_MEMBERSHIP_REFERRAL.amountUsd;
+
+      setAccounts((prev) => {
+        const without = prev.filter((a) => a.email.toLowerCase() !== email);
+        const acct: AuthAccount = {
+          id: customerId,
+          email,
+          password: existing?.password ?? DEFAULT_DEMO_PASSWORD,
+          role: "diner",
+          name,
+          firstName: input.customerFirstName.trim(),
+          lastName: input.customerLastName.trim(),
+          phone: input.customerPhone?.trim() || existing?.phone,
+          city: "dallas",
+          isMember: true,
+          planId: input.planId,
+          familySeats: seats,
+          maxFamilySeats: MAX_FAMILY_SEATS,
+          householdPlanId: planGroupId,
+          isPlanPrimary: true,
+          rewardPoints: (existing?.rewardPoints ?? 0) + joinPts,
+          rewardPointsLifetime: (existing?.rewardPointsLifetime ?? 0) + joinPts,
+          referralCode: existing?.referralCode ?? makeReferralCode(name),
+          createdAt: existing?.createdAt ?? activatedAt,
+        };
+        return [...without, acct];
+      });
+
+      setStaffMembershipReferrals((prev) => [
+        {
+          id: `sref-${Date.now()}`,
+          staffUserId: user.id,
+          staffName: user.name,
+          staffEmail: user.email,
+          staffRole: user.staffRole,
+          customerUserId: customerId,
+          customerEmail: email,
+          customerName: name,
+          planId: input.planId,
+          amountUsd: bonus,
+          at: activatedAt,
+          monthKey: monthKeyFrom(),
+          checkStatus: "pending",
+        },
+        ...prev,
+      ]);
+
+      return { ok: true, bonusUsd: bonus };
+    },
+    [user, accounts],
+  );
+
+  const markStaffReferralChecksPaid = useCallback(
+    (monthKey: string, staffUserId?: string) => {
+      setStaffMembershipReferrals((prev) =>
+        prev.map((r) => {
+          if (r.monthKey !== monthKey || r.checkStatus !== "pending") return r;
+          if (staffUserId && r.staffUserId !== staffUserId) return r;
+          return { ...r, checkStatus: "paid" as const };
+        }),
+      );
+    },
+    [],
+  );
+
+  const followMember = useCallback(
+    (userId: string) => {
+      if (!user || user.id === userId) return;
+      setMemberFollowing((prev) =>
+        prev.includes(userId) ? prev : [...prev, userId],
+      );
+    },
+    [user],
+  );
+
+  const unfollowMember = useCallback((userId: string) => {
+    setMemberFollowing((prev) => prev.filter((id) => id !== userId));
+  }, []);
+
+  const isFollowingMember = useCallback(
+    (userId: string) => memberFollowing.includes(userId),
+    [memberFollowing],
+  );
+
+  const requestTasteBud = useCallback(
+    (userId: string): { ok: boolean; error?: string } => {
+      if (!user) return { ok: false, error: "Sign in first." };
+      if (user.id === userId) {
+        return { ok: false, error: "You can’t request yourself." };
+      }
+      if (!user.isMember && user.role === "diner") {
+        return { ok: false, error: "Active membership required for Taste Buds." };
+      }
+      const target =
+        accounts.find((a) => a.id === userId) ??
+        (userId.startsWith("mem-")
+          ? {
+              id: userId,
+              name: userId.replace("mem-", "").replace(/^\w/, (c) => c.toUpperCase()),
+            }
+          : null);
+      if (!target) return { ok: false, error: "Member not found." };
+
+      const alreadyAccepted = tasteBudRequests.some(
+        (r) =>
+          r.status === "accepted" &&
+          ((r.fromUserId === user.id && r.toUserId === userId) ||
+            (r.toUserId === user.id && r.fromUserId === userId)),
+      );
+      if (alreadyAccepted) {
+        return { ok: false, error: "Already Taste Buds." };
+      }
+      const pending = tasteBudRequests.some(
+        (r) =>
+          r.status === "pending" &&
+          ((r.fromUserId === user.id && r.toUserId === userId) ||
+            (r.toUserId === user.id && r.fromUserId === userId)),
+      );
+      if (pending) {
+        return { ok: false, error: "Request already pending." };
+      }
+
+      // Demo seed members auto-accept
+      const autoAccept = userId.startsWith("mem-");
+      setTasteBudRequests((prev) => [
+        {
+          id: `tb-${Date.now()}`,
+          fromUserId: user.id,
+          fromName: user.name,
+          fromAvatar: user.avatarDataUrl,
+          toUserId: userId,
+          toName: "name" in target ? target.name : "Member",
+          toAvatar:
+            "avatarDataUrl" in target
+              ? (target as AuthAccount).avatarDataUrl
+              : undefined,
+          status: autoAccept ? "accepted" : "pending",
+          createdAt: new Date().toISOString(),
+          respondedAt: autoAccept ? new Date().toISOString() : undefined,
+        },
+        ...prev,
+      ]);
+      // Also follow when becoming Taste Buds
+      setMemberFollowing((prev) =>
+        prev.includes(userId) ? prev : [...prev, userId],
+      );
+      return { ok: true };
+    },
+    [user, accounts, tasteBudRequests],
+  );
+
+  const respondTasteBud = useCallback(
+    (requestId: string, accept: boolean): { ok: boolean; error?: string } => {
+      if (!user) return { ok: false, error: "Sign in first." };
+      const req = tasteBudRequests.find((r) => r.id === requestId);
+      if (!req || req.toUserId !== user.id) {
+        return { ok: false, error: "Request not found." };
+      }
+      if (req.status !== "pending") {
+        return { ok: false, error: "Already responded." };
+      }
+      setTasteBudRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? {
+                ...r,
+                status: accept ? "accepted" : "declined",
+                respondedAt: new Date().toISOString(),
+              }
+            : r,
+        ),
+      );
+      if (accept) {
+        setMemberFollowing((prev) =>
+          prev.includes(req.fromUserId) ? prev : [...prev, req.fromUserId],
+        );
+      }
+      return { ok: true };
+    },
+    [user, tasteBudRequests],
+  );
+
+  const removeTasteBud = useCallback(
+    (userId: string) => {
+      if (!user) return;
+      setTasteBudRequests((prev) =>
+        prev.map((r) => {
+          if (r.status !== "accepted") return r;
+          const pair =
+            (r.fromUserId === user.id && r.toUserId === userId) ||
+            (r.toUserId === user.id && r.fromUserId === userId);
+          return pair
+            ? { ...r, status: "declined" as const, respondedAt: new Date().toISOString() }
+            : r;
+        }),
+      );
+    },
+    [user],
+  );
+
+  const tasteBudIds = useMemo(() => {
+    if (!user) return [] as string[];
+    const ids = new Set<string>();
+    for (const r of tasteBudRequests) {
+      if (r.status !== "accepted") continue;
+      if (r.fromUserId === user.id) ids.add(r.toUserId);
+      if (r.toUserId === user.id) ids.add(r.fromUserId);
+    }
+    return [...ids];
+  }, [user, tasteBudRequests]);
 
   const updateProfile = useCallback((patch: Partial<MockUser>) => {
     setUser((u) => {
@@ -1585,7 +1887,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const points = basePts + bonusPts;
       let totalPoints = points;
       setUser((u) => {
-        if (!u || u.role !== "diner") return u;
+        // Members earn points (diner membership, or any member account)
+        if (!u || !u.isMember) return u;
         totalPoints = (u.rewardPoints ?? 0) + points;
         return {
           ...u,
@@ -1622,7 +1925,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         evaluatePassports(nextReds);
         evaluateBadges({ redemptions: nextReds });
       });
-      return { pointsEarned: points, totalPoints };
+      return {
+        pointsEarned: points,
+        totalPoints,
+        savingsUsd: meta.savingsUsd,
+        revenueUsd: meta.revenueUsd,
+      };
     },
     [partnerDeals, evaluateBadges, evaluatePassports],
   );
@@ -1913,10 +2221,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const resetDemoData = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem("gorditopass-mvp-v11");
     setUser(null);
     setCart([]);
     setFavorites([]);
     setFollowing([]);
+    setMemberFollowing([]);
+    setTasteBudRequests([]);
+    setStaffMembershipReferrals([]);
     setRedemptions([]);
     setRestaurantApplications([]);
     setPartnerEvents([]);
@@ -2403,6 +2715,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cart,
     favorites,
     following,
+    memberFollowing,
+    tasteBudRequests,
+    staffMembershipReferrals,
     redemptions,
     restaurantApplications,
     partnerEvents,
@@ -2423,8 +2738,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     inviteStaffAccount,
     accounts,
     activateMembership,
+    staffEnrollCustomerMembership,
+    markStaffReferralChecksPaid,
     setReferredByCode,
     ensureReferralCode,
+    followMember,
+    unfollowMember,
+    isFollowingMember,
+    requestTasteBud,
+    respondTasteBud,
+    removeTasteBud,
+    tasteBudIds,
     updateProfile,
     awardPoints,
     evaluateBadges,

@@ -6,15 +6,15 @@ export const metadata = { title: "How it works" };
 const DINER_STEPS = [
   {
     title: "SURF",
-    body: "Browse local eats — see every deal.",
+    body: "Browse Local Eats. See Every Deal. Listen to your taste buds.",
   },
   {
     title: "SUBSCRIBE",
-    body: "Individual (seat) or family & friends (table — up to 6 seats) plans available.",
+    body: "Individual or Family & Friends plans available.",
   },
   {
     title: "SAVOR",
-    body: "Redeem in store or online, automatically.",
+    body: "Redeem in store or online.",
   },
 ] as const;
 
@@ -36,7 +36,7 @@ export default function HowItWorksPage() {
                 <span className="font-bold uppercase tracking-wide text-brand">
                   {step.title}
                 </span>
-                <span className="text-stone-300"> — {step.body}</span>
+                <span className="mt-0.5 block text-stone-300">{step.body}</span>
               </span>
             </li>
           ))}

@@ -2,20 +2,59 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getDeal } from "@/lib/data";
+import { useEffect, useMemo, useState } from "react";
+import { getDeal, getRestaurant } from "@/lib/data";
 import { useStore } from "@/lib/store";
+import type { Deal, DealType } from "@/lib/types";
+
+function dealTypeLabel(type: DealType | string): string {
+  return String(type).replace(/_/g, " ");
+}
 
 export default function RedeemPage() {
   const params = useParams();
   const dealId = String(params.dealId);
-  const found = getDeal(dealId);
-  const { user, createRedeemCode, recordRedemption, rewardPoints } = useStore();
+  const { user, createRedeemCode, recordRedemption, rewardPoints, partnerDeals } =
+    useStore();
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [staffOk, setStaffOk] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
+  const [lastSavings, setLastSavings] = useState<number | null>(null);
+
+  const resolved = useMemo(() => {
+    const partner = partnerDeals.find((d) => d.id === dealId);
+    if (partner) {
+      const restaurant = getRestaurant(partner.restaurantId);
+      if (!restaurant) return null;
+      const deal: Deal = {
+        id: partner.id,
+        restaurantId: partner.restaurantId,
+        title: partner.title,
+        description: partner.description,
+        type: partner.type,
+        value: partner.value,
+        memberOnly: true,
+        excludesAlcohol: true,
+        active: partner.active,
+      };
+      return {
+        deal,
+        restaurant,
+        regularPriceUsd: partner.regularPriceUsd,
+        isPartner: true as const,
+      };
+    }
+    const seed = getDeal(dealId);
+    if (!seed) return null;
+    return {
+      deal: seed.deal,
+      restaurant: seed.restaurant,
+      regularPriceUsd: seed.restaurant.menu[0]?.priceUsd,
+      isPartner: false as const,
+    };
+  }, [dealId, partnerDeals]);
 
   useEffect(() => {
     if (!code || !expiresAt) return;
@@ -29,10 +68,13 @@ export default function RedeemPage() {
     return () => clearInterval(t);
   }, [code, expiresAt]);
 
-  if (!found) {
+  if (!resolved) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="text-2xl font-bold">Deal not found</h1>
+        <p className="mt-2 text-sm text-muted">
+          This promo may still be pending approval, expired, or removed.
+        </p>
         <Link href="/explore" className="mt-4 text-brand">
           Explore
         </Link>
@@ -40,7 +82,23 @@ export default function RedeemPage() {
     );
   }
 
-  const { deal, restaurant } = found;
+  const { deal, restaurant, regularPriceUsd } = resolved;
+
+  // Live savings preview for display (especially % off total)
+  const savingsPreview = useMemo(() => {
+    const reg = regularPriceUsd && regularPriceUsd > 0 ? regularPriceUsd : 0;
+    if (deal.type === "percent_off_total" || deal.type === "percent_off") {
+      if (!deal.value || !reg) return null;
+      return Math.round(reg * (deal.value / 100) * 100) / 100;
+    }
+    if (deal.type === "free_item" || deal.type === "bogo") {
+      return reg || null;
+    }
+    if (deal.type === "fixed_price" && deal.value != null && reg) {
+      return Math.max(0, Math.round((reg - deal.value) * 100) / 100);
+    }
+    return null;
+  }, [deal, regularPriceUsd]);
 
   if (!user?.isMember) {
     return (
@@ -68,6 +126,7 @@ export default function RedeemPage() {
     if (!code) return;
     const result = recordRedemption(dealId, code);
     setPointsEarned(result.pointsEarned);
+    setLastSavings(result.savingsUsd ?? savingsPreview);
     setStaffOk(true);
     setCode(null);
   }
@@ -76,7 +135,27 @@ export default function RedeemPage() {
     <div className="mx-auto max-w-lg px-4 py-10">
       <p className="text-sm text-muted">{restaurant.name}</p>
       <h1 className="text-3xl font-bold">{deal.title}</h1>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-brand">
+        {dealTypeLabel(deal.type)}
+        {deal.value != null &&
+          (deal.type === "percent_off" || deal.type === "percent_off_total") &&
+          ` · ${deal.value}%`}
+      </p>
       <p className="mt-2 text-muted">{deal.description}</p>
+      {deal.type === "percent_off_total" && (
+        <p className="mt-2 rounded-md border border-brand/25 bg-brand/10 px-3 py-2 text-sm text-stone-300">
+          <strong className="text-orange-200">% off total order</strong>
+          {deal.value != null ? ` — ${deal.value}% off the full check.` : "."}
+          {regularPriceUsd
+            ? ` Typical order used for savings tracking: $${regularPriceUsd.toFixed(2)}.`
+            : ""}
+          {savingsPreview != null && (
+            <span className="mt-1 block text-success">
+              Est. member savings: ${savingsPreview.toFixed(2)}
+            </span>
+          )}
+        </p>
+      )}
 
       {staffOk ? (
         <div className="mt-8 gp-card border-success/40 p-6 text-center">
@@ -85,6 +164,12 @@ export default function RedeemPage() {
           <p className="text-sm text-muted">
             Staff confirmed · logged for restaurant dashboard
           </p>
+          {lastSavings != null && lastSavings > 0 && (
+            <p className="mt-2 text-sm font-medium text-success">
+              Saved ${lastSavings.toFixed(2)}
+              {deal.type === "percent_off_total" ? " on total order" : ""}
+            </p>
+          )}
           {pointsEarned > 0 && (
             <p className="mt-3 text-sm font-semibold text-brand-gold">
               +{pointsEarned} reward points · balance {rewardPoints}
@@ -135,6 +220,9 @@ export default function RedeemPage() {
               <p className="mt-4 text-xs text-muted">
                 Show this to staff. They scan or type the code in their
                 dashboard.
+                {deal.type === "percent_off_total" && deal.value != null
+                  ? ` Apply ${deal.value}% off the entire order on the POS.`
+                  : ""}
               </p>
               <button
                 type="button"

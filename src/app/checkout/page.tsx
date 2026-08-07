@@ -46,7 +46,11 @@ export default function CheckoutPage() {
       const reg = partner.regularPriceUsd ?? 0;
       let savings = 0;
       if (partner.type === "free_item" || partner.type === "bogo") savings = reg;
-      else if (partner.type === "percent_off" && partner.value)
+      else if (
+        (partner.type === "percent_off" ||
+          partner.type === "percent_off_total") &&
+        partner.value
+      )
         savings = (reg * partner.value) / 100;
       else if (partner.type === "fixed_price" && partner.value != null)
         savings = Math.max(0, reg - partner.value);
@@ -62,7 +66,10 @@ export default function CheckoutPage() {
     const menuPrice = restaurant?.menu[0]?.priceUsd ?? 10;
     let savings = menuPrice * 0.2;
     if (seed.type === "free_item" || seed.type === "bogo") savings = menuPrice;
-    else if (seed.type === "percent_off" && seed.value)
+    else if (
+      (seed.type === "percent_off" || seed.type === "percent_off_total") &&
+      seed.value
+    )
       savings = (menuPrice * seed.value) / 100;
     return {
       title: seed.title,

@@ -270,7 +270,7 @@ export default function RestaurantDetailPage() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {liveDeals.seed.map((deal) => (
             <div key={deal.id} className="gp-card p-5">
-              <p className="gp-badge">{deal.type.replace("_", " ")}</p>
+              <p className="gp-badge">{deal.type.replace(/_/g, " ")}</p>
               <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
               <p className="text-sm text-muted">{deal.description}</p>
               <div className="mt-4">
@@ -302,7 +302,7 @@ export default function RestaurantDetailPage() {
                   className="mb-3 h-32 w-full rounded-lg object-cover ring-1 ring-border"
                 />
               )}
-              <p className="gp-badge">{deal.type.replace("_", " ")}</p>
+              <p className="gp-badge">{deal.type.replace(/_/g, " ")}</p>
               <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
               <p className="text-sm text-muted">{deal.description}</p>
               <div className="mt-4">

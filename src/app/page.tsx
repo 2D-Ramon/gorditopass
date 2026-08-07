@@ -70,15 +70,15 @@ export default function HomePage() {
               {[
                 {
                   title: "SURF",
-                  body: "Browse local eats — see every deal.",
+                  body: "Browse Local Eats. See Every Deal. Listen to your taste buds.",
                 },
                 {
                   title: "SUBSCRIBE",
-                  body: "Individual (seat) or family & friends (table — up to 6 seats) plans available.",
+                  body: "Individual or Family & Friends plans available.",
                 },
                 {
                   title: "SAVOR",
-                  body: "Redeem in store or online, automatically.",
+                  body: "Redeem in store or online.",
                 },
               ].map((step, i) => (
                 <li key={step.title} className="flex gap-3 text-sm leading-relaxed">
@@ -89,7 +89,7 @@ export default function HomePage() {
                     <span className="font-bold uppercase tracking-wide text-brand">
                       {step.title}
                     </span>
-                    <span className="text-stone-300"> — {step.body}</span>
+                    <span className="mt-0.5 block text-stone-300">{step.body}</span>
                   </span>
                 </li>
               ))}

@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 
 /**
  * Auto-scrolling horizontal gallery (right → left), swipeable either way.
- * Home page only — explore page is unchanged.
+ * Uses translate3d for smooth sub-pixel motion (home only — explore unchanged).
  */
 export function HomeFeatured() {
   const { isRestaurantApproved, city } = useStore();
@@ -17,30 +17,50 @@ export function HomeFeatured() {
   const featured = RESTAURANTS.filter(
     (r) => isRestaurantApproved(r.id) && r.city === city,
   );
+  const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
   const pausedRef = useRef(false);
+  const dragRef = useRef<{
+    active: boolean;
+    startX: number;
+    startOffset: number;
+  }>({ active: false, startX: 0, startOffset: 0 });
 
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el || featured.length === 0) return;
+    const track = trackRef.current;
+    if (!track || featured.length === 0) return;
 
     let raf = 0;
     let last = performance.now();
-    const speed = 0.45; // px per ms ≈ slow marquee
+    // Slow, smooth marquee (~28 px/sec)
+    const speed = 0.028;
+
+    const halfWidth = () => track.scrollWidth / 2;
+
+    const apply = () => {
+      const half = halfWidth();
+      if (half <= 0) return;
+      // Keep offset in [0, half)
+      while (offsetRef.current >= half) offsetRef.current -= half;
+      while (offsetRef.current < 0) offsetRef.current += half;
+      track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
+    };
 
     const tick = (now: number) => {
-      const dt = now - last;
+      const dt = Math.min(48, now - last);
       last = now;
-      if (!pausedRef.current && el.scrollWidth > el.clientWidth) {
-        el.scrollLeft += speed * dt;
-        // loop seamlessly when near end of first half (duplicated track)
-        const half = el.scrollWidth / 2;
-        if (el.scrollLeft >= half) {
-          el.scrollLeft -= half;
-        }
+      if (
+        !pausedRef.current &&
+        !dragRef.current.active &&
+        track.scrollWidth > (viewportRef.current?.clientWidth ?? 0)
+      ) {
+        offsetRef.current += speed * dt;
+        apply();
       }
       raf = requestAnimationFrame(tick);
     };
+    apply();
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [featured.length]);
@@ -54,39 +74,71 @@ export function HomeFeatured() {
     );
   }
 
-  // Duplicate cards for seamless loop
   const loop = [...featured, ...featured];
+
+  function onPointerDown(e: React.PointerEvent) {
+    pausedRef.current = true;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startOffset: offsetRef.current,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragRef.current.active || !trackRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    // Dragging right reveals content on the left → decrease offset
+    offsetRef.current = dragRef.current.startOffset - dx;
+    const half = trackRef.current.scrollWidth / 2;
+    while (offsetRef.current >= half) offsetRef.current -= half;
+    while (offsetRef.current < 0) offsetRef.current += half;
+    trackRef.current.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
+  }
+
+  function onPointerUp(e: React.PointerEvent) {
+    dragRef.current.active = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    setTimeout(() => {
+      pausedRef.current = false;
+    }, 900);
+  }
 
   return (
     <div className="relative">
       <div
-        ref={trackRef}
-        className="flex touch-pan-x gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        ref={viewportRef}
+        className="cursor-grab overflow-hidden active:cursor-grabbing"
         onMouseEnter={() => {
-          pausedRef.current = true;
+          if (!dragRef.current.active) pausedRef.current = true;
         }}
         onMouseLeave={() => {
-          pausedRef.current = false;
+          if (!dragRef.current.active) pausedRef.current = false;
         }}
-        onTouchStart={() => {
-          pausedRef.current = true;
-        }}
-        onTouchEnd={() => {
-          // resume after a short delay so swipe feels natural
-          setTimeout(() => {
-            pausedRef.current = false;
-          }, 1200);
-        }}
-        style={{ WebkitOverflowScrolling: "touch" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
-        {loop.map((r, i) => (
-          <div
-            key={`${r.id}-${i}`}
-            className="w-[min(280px,78vw)] shrink-0"
-          >
-            <RestaurantCard restaurant={r} />
-          </div>
-        ))}
+        <div
+          ref={trackRef}
+          className="flex gap-4 will-change-transform"
+          style={{ transform: "translate3d(0,0,0)" }}
+        >
+          {loop.map((r, i) => (
+            <div
+              key={`${r.id}-${i}`}
+              className="w-[min(280px,78vw)] shrink-0 select-none"
+            >
+              <RestaurantCard restaurant={r} />
+            </div>
+          ))}
+        </div>
       </div>
       <p className="mt-2 text-center text-[11px] text-muted">
         Swipe left or right · auto-scrolls when idle

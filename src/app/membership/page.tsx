@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   MAX_FAMILY_SEATS,
   MEMBERSHIP_PLANS,
@@ -30,7 +31,23 @@ function emptySeat(i: number, isPrimary: boolean): MemberSeatProfile {
 }
 
 export default function MembershipPage() {
-  const { user, signInDemo, activateMembership } = useStore();
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-4xl px-4 py-10 text-muted">
+          Loading membership…
+        </div>
+      }
+    >
+      <MembershipInner />
+    </Suspense>
+  );
+}
+
+function MembershipInner() {
+  const search = useSearchParams();
+  const { user, signInDemo, activateMembership, setReferredByCode } =
+    useStore();
   const [planId, setPlanId] = useState<MembershipPlanId>("monthly");
   const [seats, setSeats] = useState(1);
   const [step, setStep] = useState<Step>("plan");
@@ -40,10 +57,19 @@ export default function MembershipPage() {
     () => user?.referredByCode ?? "",
   );
 
+  // Auto-populate from share link: /membership?ref=CODE
+  useEffect(() => {
+    const ref = (search.get("ref") || search.get("referral") || "").trim();
+    if (ref) {
+      const upper = ref.toUpperCase();
+      setReferralCode(upper);
+      setReferredByCode(upper);
+    }
+  }, [search, setReferredByCode]);
+
   const total = pricePerPerson(planId, seats);
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === planId)!;
-  const isPartnerLogin =
-    user?.role === "restaurant" || user?.role === "admin";
+  const isPartnerLogin = user?.role === "restaurant";
 
   const seatForms = useMemo(() => members, [members]);
 
@@ -124,20 +150,22 @@ export default function MembershipPage() {
       <h1 className="gp-page-title">Membership</h1>
       <p className="gp-page-sub">{PLATFORM.mission}</p>
 
-      {isPartnerLogin && !user?.isMember && (
-        <div className="mt-6 rounded-lg border border-brand/40 bg-brand/10 p-4">
-          <p className="text-sm font-semibold text-orange-200">
-            Partner membership bonus
-          </p>
-          <p className="mt-1 text-sm text-stone-300">
-            You&apos;re signed into the partner dashboard. Add a diner
-            membership and earn a one-time{" "}
-            <strong className="text-brand">
-              +{POINT_ACTIONS.partner_member_bonus.points} points
-            </strong>{" "}
-            bonus on top of the usual welcome points — keep your partner role
-            and redeem deals as a member.
-          </p>
+      {isPartnerLogin && (
+        <div className="mt-6 rounded-lg border border-border bg-elevated/50 p-4 text-sm text-muted">
+          You&apos;re signed in as partner staff. To enroll a{" "}
+          <strong className="text-stone-300">customer</strong> and earn a $5
+          referral, use{" "}
+          <Link href="/restaurant/dashboard" className="text-brand underline">
+            Partner dashboard → Enroll customer
+          </Link>
+          .
+        </div>
+      )}
+
+      {referralCode && (
+        <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-sm text-orange-200">
+          Referral code applied:{" "}
+          <code className="font-mono font-bold">{referralCode}</code>
         </div>
       )}
 
@@ -149,15 +177,15 @@ export default function MembershipPage() {
           {[
             {
               title: "SURF",
-              body: "Browse local eats — see every deal.",
+              body: "Browse Local Eats. See Every Deal. Listen to your taste buds.",
             },
             {
               title: "SUBSCRIBE",
-              body: "Individual (seat) or family & friends (table — up to 6 seats) plans available.",
+              body: "Individual or Family & Friends plans available.",
             },
             {
               title: "SAVOR",
-              body: "Redeem in store or online, automatically.",
+              body: "Redeem in store or online.",
             },
           ].map((step, i) => (
             <li key={step.title} className="flex gap-3 text-sm leading-relaxed">
@@ -168,7 +196,7 @@ export default function MembershipPage() {
                 <span className="font-bold uppercase tracking-wide text-brand">
                   {step.title}
                 </span>
-                <span className="text-stone-300"> — {step.body}</span>
+                <span className="mt-0.5 block text-stone-300">{step.body}</span>
               </span>
             </li>
           ))}
@@ -229,12 +257,6 @@ export default function MembershipPage() {
               +{POINT_ACTIONS.join_member.points} welcome points on the primary
               account. Favorites & food prefs can be set later in profile.
             </p>
-            {isPartnerLogin && (
-              <p className="mt-2 text-xs font-medium text-brand">
-                +{POINT_ACTIONS.partner_member_bonus.points} partner membership
-                bonus applied (one-time).
-              </p>
-            )}
             {referralCode.trim() && (
               <p className="mt-2 text-xs font-medium text-brand">
                 +{POINT_ACTIONS.referral_friend.points} referral welcome bonus ·

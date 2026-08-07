@@ -253,6 +253,40 @@ export interface MockUser {
   referralCount?: number;
 }
 
+/** Taste Buds = mutual friends between members */
+export type TasteBudRequestStatus = "pending" | "accepted" | "declined";
+
+export interface TasteBudRequest {
+  id: string;
+  fromUserId: string;
+  fromName: string;
+  fromAvatar?: string;
+  toUserId: string;
+  toName: string;
+  toAvatar?: string;
+  status: TasteBudRequestStatus;
+  createdAt: string;
+  respondedAt?: string;
+}
+
+/** Staff signed up a customer for membership — $5 cash referral */
+export interface StaffMembershipReferral {
+  id: string;
+  staffUserId: string;
+  staffName: string;
+  staffEmail: string;
+  staffRole?: StaffRole;
+  customerUserId: string;
+  customerEmail: string;
+  customerName: string;
+  planId: MembershipPlanId;
+  amountUsd: number;
+  at: string;
+  /** YYYY-MM for monthly check grouping */
+  monthKey: string;
+  checkStatus: "pending" | "paid";
+}
+
 export type NotificationType =
   | "passport_earned"
   | "passport_revoked"

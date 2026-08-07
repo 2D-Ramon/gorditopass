@@ -23,6 +23,7 @@ type TabId =
   | "rewards"
   | "billing"
   | "referral"
+  | "tastebuds"
   | "chat"
   | "staff";
 
@@ -64,6 +65,12 @@ function AccountInner() {
     removeHouseholdSeat,
     ensureReferralCode,
     setReferredByCode,
+    tasteBudIds,
+    tasteBudRequests,
+    respondTasteBud,
+    removeTasteBud,
+    memberFollowing,
+    unfollowMember,
   } = useStore();
 
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -94,6 +101,7 @@ function AccountInner() {
       t === "rewards" ||
       t === "billing" ||
       t === "referral" ||
+      t === "tastebuds" ||
       t === "chat" ||
       t === "household" ||
       t === "staff" ||
@@ -165,30 +173,72 @@ function AccountInner() {
     { id: "profile", label: "Profile", show: true },
     { id: "passports", label: "Passports", show: isDiner },
     { id: "badges", label: "Badges", show: isDiner },
-    { id: "rewards", label: "Rewards", show: isDiner || isRestaurant },
+    { id: "rewards", label: "Rewards", show: isDiner },
     {
       id: "billing",
       label: "Billing",
-      show: isDiner || (isRestaurant && Boolean(user.isMember)),
+      show: isDiner,
     },
-    { id: "referral", label: "Referrals", show: true },
+    { id: "referral", label: "Referrals", show: isDiner },
+    {
+      id: "tastebuds",
+      label: "Taste Buds",
+      show: isDiner || isRestaurant,
+    },
     { id: "chat", label: "Chat", show: isDiner || isRestaurant },
     { id: "staff", label: "Staff logins", show: canInviteStaff },
   ];
 
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === user.planId);
+  const membershipActive = Boolean(user.isMember && user.role === "diner");
+
+  function resolvePerson(id: string) {
+    const a = accounts.find((x) => x.id === id);
+    if (a) return { id: a.id, name: a.name, avatar: a.avatarDataUrl };
+    const demoName = id.startsWith("mem-")
+      ? id.replace("mem-", "").replace(/^\w/, (c) => c.toUpperCase())
+      : id;
+    return { id, name: demoName, avatar: undefined as string | undefined };
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="gp-page-title">Account</h1>
-      <p className="gp-page-sub">
-        {user.name} · {user.email}
-        {unreadNotificationCount > 0 && isDiner ? (
-          <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">
-            {unreadNotificationCount} new
-          </span>
-        ) : null}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="gp-page-title">Account</h1>
+          <p className="gp-page-sub">
+            {user.name} · {user.email}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {isDiner && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ring-1 ${
+                membershipActive
+                  ? "bg-success/15 text-success ring-success/30"
+                  : "bg-stone-500/15 text-stone-400 ring-stone-500/30"
+              }`}
+              title={
+                membershipActive
+                  ? "Membership is active"
+                  : "No active membership"
+              }
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  membershipActive ? "bg-success" : "bg-stone-500"
+                }`}
+              />
+              {membershipActive ? "Active" : "Non-active"}
+            </span>
+          )}
+          {unreadNotificationCount > 0 && isDiner ? (
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">
+              {unreadNotificationCount} new
+            </span>
+          ) : null}
+        </div>
+      </div>
 
       {(isDiner || isRestaurant) && (
         <div className="mt-6 flex items-center gap-4">
@@ -806,6 +856,129 @@ function AccountInner() {
         </div>
       )}
 
+      {tab === "tastebuds" && (
+        <div className="mt-6 space-y-4">
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Taste Buds</p>
+            <p className="mt-1 text-sm text-muted">
+              Friends on GorditoPass. Follow movements from their profiles and
+              the city feed.
+            </p>
+            {tasteBudIds.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">
+                No Taste Buds yet — open a member&apos;s profile from the feed
+                and send a request.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-2">
+                {tasteBudIds.map((id) => {
+                  const p = resolvePerson(id);
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border bg-elevated/40 px-3 py-2 text-sm"
+                    >
+                      <Link
+                        href={`/u/${id}`}
+                        className="font-medium text-orange-100 hover:underline"
+                      >
+                        🌿 {p.name}
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-xs text-red-300"
+                        onClick={() => removeTasteBud(id)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {tasteBudRequests.some(
+            (r) => r.status === "pending" && r.toUserId === user.id,
+          ) && (
+            <div className="gp-card gp-card-static p-5">
+              <p className="gp-section-label">Incoming requests</p>
+              <ul className="mt-3 space-y-2">
+                {tasteBudRequests
+                  .filter(
+                    (r) => r.status === "pending" && r.toUserId === user.id,
+                  )
+                  .map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                    >
+                      <Link
+                        href={`/u/${r.fromUserId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {r.fromName}
+                      </Link>
+                      <span className="flex gap-2">
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary !py-1 text-xs"
+                          onClick={() => respondTasteBud(r.id, true)}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-ghost !py-1 text-xs"
+                          onClick={() => respondTasteBud(r.id, false)}
+                        >
+                          Decline
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="gp-card gp-card-static p-5">
+            <p className="gp-section-label">Following</p>
+            <p className="mt-1 text-sm text-muted">
+              Members whose movements you follow (without full Taste Buds).
+            </p>
+            {memberFollowing.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">Not following anyone yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {memberFollowing.map((id) => {
+                  const p = resolvePerson(id);
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <Link
+                        href={`/u/${id}`}
+                        className="text-orange-100 hover:underline"
+                      >
+                        {p.name}
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-xs text-muted underline"
+                        onClick={() => unfollowMember(id)}
+                      >
+                        Unfollow
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === "referral" && (
         <div className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
@@ -843,7 +1016,42 @@ function AccountInner() {
               >
                 {copiedCode ? "Copied!" : "Copy code"}
               </button>
+              <button
+                type="button"
+                className="gp-btn gp-btn-primary text-sm"
+                onClick={async () => {
+                  const code = user.referralCode || ensureReferralCode();
+                  if (!code) return;
+                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}/membership?ref=${encodeURIComponent(code)}`;
+                  const text = `Join GorditoPass with my code ${code} and get member deals.`;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: "GorditoPass referral",
+                        text,
+                        url,
+                      });
+                      setReferralMsg("Share sheet opened.");
+                    } else {
+                      await navigator.clipboard.writeText(`${text}\n${url}`);
+                      setReferralMsg("Share link copied to clipboard.");
+                    }
+                  } catch {
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      setReferralMsg("Share link copied.");
+                    } catch {
+                      setReferralMsg(url);
+                    }
+                  }
+                }}
+              >
+                Share link
+              </button>
             </div>
+            <p className="mt-3 text-xs text-muted break-all">
+              Link: /membership?ref={user.referralCode ?? "…"}
+            </p>
             <p className="mt-3 text-sm text-muted">
               Successful referrals:{" "}
               <strong className="text-stone-200">
@@ -910,10 +1118,26 @@ function AccountInner() {
         </div>
       )}
 
-      {tab === "billing" && (isDiner || (isRestaurant && user.isMember)) && (
+      {tab === "billing" && isDiner && (
         <div className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
-            <p className="gp-section-label">Plan & billing</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="gp-section-label">Plan & billing</p>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${
+                  membershipActive
+                    ? "bg-success/15 text-success ring-success/30"
+                    : "bg-stone-500/15 text-stone-400 ring-stone-500/30"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    membershipActive ? "bg-success" : "bg-stone-500"
+                  }`}
+                />
+                {membershipActive ? "Active" : "Non-active"}
+              </span>
+            </div>
             {user.isMember && plan ? (
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
@@ -1221,11 +1445,9 @@ function AccountInner() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-2">
-        {!user.isMember && (isDiner || isRestaurant) && (
+        {!user.isMember && isDiner && (
           <Link href="/membership" className="gp-btn gp-btn-primary text-sm">
-            {isRestaurant
-              ? `Add membership · +${POINT_ACTIONS.partner_member_bonus.points} pts`
-              : "Get membership"}
+            Get membership
           </Link>
         )}
         {isRestaurant && (

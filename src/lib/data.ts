@@ -1,4 +1,4 @@
-import type { FeedPost, Restaurant, Review } from "./types";
+import type { CityId, FeedPost, Restaurant, Review } from "./types";
 
 export const CITIES = [
   { id: "dallas" as const, name: "Dallas", state: "TX", live: true },
@@ -769,11 +769,57 @@ export const REVIEWS: Review[] = [
   },
 ];
 
+/** Demo public member profiles (feed seed authors) */
+export const DEMO_MEMBERS: {
+  id: string;
+  name: string;
+  city: CityId;
+  favoriteFoodType?: string;
+  favoriteRestaurant?: string;
+  isMember: boolean;
+}[] = [
+  {
+    id: "mem-maya",
+    name: "Maya",
+    city: "dallas",
+    favoriteFoodType: "Wings",
+    favoriteRestaurant: "Just Winging It",
+    isMember: true,
+  },
+  {
+    id: "mem-diego",
+    name: "Diego",
+    city: "dallas",
+    favoriteFoodType: "Tacos",
+    favoriteRestaurant: "Mi Tierra",
+    isMember: true,
+  },
+  {
+    id: "mem-chris",
+    name: "Chris",
+    city: "dallas",
+    favoriteFoodType: "Burgers",
+    isMember: true,
+  },
+  {
+    id: "mem-priya",
+    name: "Priya",
+    city: "dallas",
+    favoriteFoodType: "Indian",
+    isMember: true,
+  },
+];
+
+export function getDemoMember(id: string) {
+  return DEMO_MEMBERS.find((m) => m.id === id);
+}
+
 export const FEED_POSTS: FeedPost[] = [
   {
     id: "p1",
     city: "dallas",
     author: "Maya",
+    authorId: "mem-maya",
     title: "Best late-night wings under a member deal?",
     body: "Looking for spicy + a free dessert hook. Where are y’all going?",
     createdAt: "2026-08-02T18:00:00Z",
@@ -781,12 +827,14 @@ export const FEED_POSTS: FeedPost[] = [
       {
         id: "p1r1",
         author: "Chris",
+        authorId: "mem-chris",
         body: "Just Winging It — free soft-serve with 10pc. Go.",
         createdAt: "2026-08-02T18:20:00Z",
       },
       {
         id: "p1r2",
         author: "Priya",
+        authorId: "mem-priya",
         body: "Second that. Redeem QR took 5 seconds.",
         createdAt: "2026-08-02T19:05:00Z",
       },
@@ -796,6 +844,7 @@ export const FEED_POSTS: FeedPost[] = [
     id: "p2",
     city: "dallas",
     author: "Diego",
+    authorId: "mem-diego",
     title: "Oak Cliff taco crawl this weekend",
     body: "Starting at Mi Tierra. Anyone want to split a table? Members only vibes.",
     createdAt: "2026-08-03T12:00:00Z",
