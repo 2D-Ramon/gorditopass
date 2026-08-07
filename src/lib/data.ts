@@ -52,6 +52,18 @@ export const RESTAURANTS: Restaurant[] = [
         excludesAlcohol: true,
         active: true,
       },
+      {
+        id: "mt-total-15",
+        restaurantId: "mi-tierra",
+        title: "15% off total order",
+        description:
+          "Members get 15% off the full check (excludes alcohol). Redeem in store or online.",
+        type: "percent_off_total",
+        value: 15,
+        memberOnly: true,
+        excludesAlcohol: true,
+        active: true,
+      },
     ],
     menu: [
       {
