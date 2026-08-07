@@ -24,6 +24,7 @@ export type Cuisine =
   | "ethiopian"
   | "moroccan"
   | "german"
+  | "seafood"
   | "other";
 
 export type DealType =

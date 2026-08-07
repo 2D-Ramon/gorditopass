@@ -19,6 +19,7 @@ const CUISINES: (Cuisine | "all")[] = [
   "mediterranean",
   "mexican",
   "pizza",
+  "seafood",
   "thai",
   "wings",
 ];

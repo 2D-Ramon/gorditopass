@@ -901,6 +901,7 @@ export function cuisineLabel(c: string) {
     ethiopian: "Ethiopian",
     moroccan: "Moroccan",
     german: "German",
+    seafood: "Seafood",
     other: "Other",
   };
   return map[c] ?? c;
@@ -908,13 +909,15 @@ export function cuisineLabel(c: string) {
 
 /**
  * Cuisine options for apply intake — matches demo partner cuisines
- * (alphabetized, Other last) so approved apps map cleanly into the system.
+ * plus standard types (alphabetized, Other last).
  */
 export const APPLY_CUISINE_OPTIONS: { id: string; label: string }[] = (() => {
   const fromDemo = Array.from(
     new Set(RESTAURANTS.map((r) => r.cuisine)),
   ) as string[];
-  if (!fromDemo.includes("other")) fromDemo.push("other");
+  for (const extra of ["seafood", "other"] as const) {
+    if (!fromDemo.includes(extra)) fromDemo.push(extra);
+  }
   const other = fromDemo.filter((id) => id === "other");
   const rest = fromDemo
     .filter((id) => id !== "other")
