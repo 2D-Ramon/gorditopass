@@ -12,6 +12,15 @@ export function RestaurantCard({
   highlightPromo?: boolean;
 }) {
   const topDeal = restaurant.deals.find((d) => d.active);
+  // Featured strip already implies member deals — drop redundant phrasing
+  const promoDescription = topDeal?.description
+    ?.replace(/\s*for members\.?/gi, "")
+    .replace(/\s*members get\s+/gi, "")
+    .replace(/\s*member-only\.?/gi, "")
+    .replace(/\s*member item only\.?/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\.\s*\./g, ".")
+    .trim();
 
   return (
     <Link
@@ -41,9 +50,9 @@ export function RestaurantCard({
           <p className="mt-0.5 line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-white">
             {topDeal.title}
           </p>
-          {topDeal.description && (
+          {promoDescription && (
             <p className="mt-0.5 line-clamp-1 text-xs font-medium text-orange-100/75">
-              {topDeal.description}
+              {promoDescription}
             </p>
           )}
         </div>
