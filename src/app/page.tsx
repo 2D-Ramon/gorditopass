@@ -41,26 +41,6 @@ export default function HomePage() {
                 This month’s events →
               </Link>
             </div>
-            <dl className="mt-12 grid grid-cols-3 gap-4 border-t border-border pt-8">
-              <div>
-                <dt className="text-2xl font-bold tracking-tight text-brand-gold">
-                  $7
-                </dt>
-                <dd className="mt-1 text-xs text-muted">monthly membership</dd>
-              </div>
-              <div>
-                <dt className="text-2xl font-bold tracking-tight text-brand-mint">
-                  Free
-                </dt>
-                <dd className="mt-1 text-xs text-muted">to browse deals</dd>
-              </div>
-              <div>
-                <dt className="text-2xl font-bold tracking-tight text-orange-300">
-                  5
-                </dt>
-                <dd className="mt-1 text-xs text-muted">plates, not stars</dd>
-              </div>
-            </dl>
           </div>
 
           <div className="gp-card gp-card-static relative overflow-hidden p-6 sm:p-8">
