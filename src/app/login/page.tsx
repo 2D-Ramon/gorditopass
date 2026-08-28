@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 
-type Mode = "password" | "magic" | "signup";
+type Mode = "password" | "magic";
 
 /**
  * Recommended auth model (demo):
@@ -19,16 +19,12 @@ export default function LoginPage() {
   const {
     loginWithPassword,
     loginWithMagicLink,
-    registerDinerAccount,
     signInDemo,
     accounts,
   } = useStore();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("demo1234");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -49,7 +45,6 @@ export default function LoginPage() {
           [
             ["password", "Email + password"],
             ["magic", "Magic link"],
-            ["signup", "Create account"],
           ] as [Mode, string][]
         ).map(([id, label]) => (
           <button
@@ -69,6 +64,12 @@ export default function LoginPage() {
             {label}
           </button>
         ))}
+        <Link
+          href="/membership"
+          className="rounded-full bg-elevated px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-border transition hover:text-white"
+        >
+          Create account
+        </Link>
       </div>
 
       {mode === "password" && (
@@ -151,82 +152,6 @@ export default function LoginPage() {
           {msg && <p className="text-sm text-success">{msg}</p>}
           <button type="submit" className="gp-btn gp-btn-primary w-full">
             Email me a link
-          </button>
-        </form>
-      )}
-
-      {mode === "signup" && (
-        <form
-          className="mt-6 space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setErr("");
-            const res = registerDinerAccount({
-              email,
-              password,
-              firstName,
-              lastName,
-              phone,
-            });
-            if (!res.ok) {
-              setErr(res.error ?? "Could not create account");
-              return;
-            }
-            goAccount();
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              First name
-              <input
-                required
-                className="gp-input mt-1"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              Last name
-              <input
-                required
-                className="gp-input mt-1"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </label>
-          </div>
-          <label className="block text-sm">
-            Email
-            <input
-              required
-              type="email"
-              className="gp-input mt-1"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            Phone
-            <input
-              className="gp-input mt-1"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            Password (6+)
-            <input
-              required
-              type="password"
-              minLength={6}
-              className="gp-input mt-1"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          {err && <p className="text-sm text-red-300">{err}</p>}
-          <button type="submit" className="gp-btn gp-btn-primary w-full">
-            Create diner account
           </button>
         </form>
       )}
