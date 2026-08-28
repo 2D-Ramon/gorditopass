@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { OpsHub, type OpsTab } from "./OpsHub";
 import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 
 type AdminTab =
+  | OpsTab
   | "apps"
   | "deals"
   | "menu"
@@ -77,7 +79,7 @@ export default function AdminPage() {
     getAutoApprove,
     setAutoApprove,
   } = useStore();
-  const [tab, setTab] = useState<AdminTab>("apps");
+  const [tab, setTab] = useState<AdminTab>("connect");
   const [autoBiz, setAutoBiz] = useState(RESTAURANTS[0]?.id ?? "mi-tierra");
 
   const pendingApps = useMemo(
@@ -154,6 +156,10 @@ export default function AdminPage() {
   }
 
   const tabs: { id: AdminTab; label: string; count?: number }[] = [
+    { id: "connect", label: "Connect" },
+    { id: "crm", label: "Business CRM" },
+    { id: "members", label: "Members" },
+    { id: "campaigns", label: "Campaigns" },
     { id: "apps", label: "Applications", count: pendingApps.length },
     { id: "deals", label: "Deals", count: pendingDeals.length },
     { id: "menu", label: "Menu", count: pendingMenu.length },
@@ -167,11 +173,12 @@ export default function AdminPage() {
   const auto = getAutoApprove(autoBiz);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="gp-page-title">Admin queue</h1>
+    <div className="mx-auto max-w-5xl px-4 py-10">
+      <h1 className="gp-page-title">Admin</h1>
       <p className="gp-page-sub">
-        Review partner submissions with photos, AI flags, and per-business
-        auto-approve. Demo state is in this browser.
+        Business CRM, member records, and campaigns live in your Supabase
+        project. Application review below is still this-browser demo until
+        those queues move over.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -221,6 +228,11 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
+
+      {(tab === "connect" ||
+        tab === "crm" ||
+        tab === "members" ||
+        tab === "campaigns") && <OpsHub tab={tab} />}
 
       {tab === "apps" && (
         <section className="mt-6 gp-card gp-card-static p-5">
