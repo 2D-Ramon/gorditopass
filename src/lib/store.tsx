@@ -131,6 +131,8 @@ interface StoreValue {
     staffRole: StaffRole;
     password?: string;
   }) => { ok: boolean; error?: string };
+  /** Owner or manager revokes a staff login */
+  removeStaffAccount: (accountId: string) => { ok: boolean; error?: string };
   accounts: AuthAccount[];
   activateMembership: (
     planId: MembershipPlanId,
@@ -1041,6 +1043,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     },
     [],
+  );
+
+  const removeStaffAccount = useCallback(
+    (accountId: string) => {
+      if (!user || user.role !== "restaurant") {
+        return { ok: false, error: "Sign in as a partner to manage staff." };
+      }
+      const actorRole = user.staffRole ?? "owner";
+      if (actorRole !== "owner" && actorRole !== "manager") {
+        return {
+          ok: false,
+          error: "Only owners and managers can remove staff access.",
+        };
+      }
+      const target = accounts.find((a) => a.id === accountId);
+      if (!target || target.role !== "restaurant") {
+        return { ok: false, error: "Staff account not found." };
+      }
+      const isSelf =
+        target.id === user.id ||
+        target.email.toLowerCase() === (user.email ?? "").toLowerCase();
+      if (isSelf) {
+        return { ok: false, error: "You can’t remove your own access." };
+      }
+      const targetRole = target.staffRole ?? "owner";
+      if (targetRole === "owner" && actorRole !== "owner") {
+        return { ok: false, error: "Managers can’t remove an owner." };
+      }
+      if (targetRole === "owner") {
+        const ownerCount = accounts.filter(
+          (a) =>
+            a.role === "restaurant" && (a.staffRole ?? "owner") === "owner",
+        ).length;
+        if (ownerCount <= 1) {
+          return { ok: false, error: "Keep at least one owner on the account." };
+        }
+      }
+      setAccounts((prev) => prev.filter((a) => a.id !== accountId));
+      return { ok: true };
+    },
+    [user, accounts],
   );
 
   const ensureReferralCode = useCallback(() => {
@@ -2944,6 +2987,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loginWithMagicLink,
     registerDinerAccount,
     inviteStaffAccount,
+    removeStaffAccount,
     accounts,
     activateMembership,
     staffEnrollCustomerMembership,

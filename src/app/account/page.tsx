@@ -59,6 +59,7 @@ function AccountInner() {
     markAllNotificationsRead,
     dismissNotification,
     inviteStaffAccount,
+    removeStaffAccount,
     accounts,
     loginWithPassword,
     addHouseholdSeat,
@@ -80,6 +81,7 @@ function AccountInner() {
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState<StaffRole>("employee");
   const [staffMsg, setStaffMsg] = useState("");
+  const [staffMsgError, setStaffMsgError] = useState(false);
   const [seatForm, setSeatForm] = useState({
     firstName: "",
     lastName: "",
@@ -1353,7 +1355,7 @@ function AccountInner() {
           <p className="gp-section-label">Invite staff (separate logins)</p>
           <p className="mt-1 text-sm text-muted">
             Never share the owner password. Each employee gets their own email
-            login and role.
+            login and role. Owners and managers can remove access at any time.
           </p>
           <form
             className="mt-4 space-y-3"
@@ -1364,6 +1366,7 @@ function AccountInner() {
                 name: staffName,
                 staffRole,
               });
+              setStaffMsgError(!res.ok);
               setStaffMsg(
                 res.ok
                   ? `Invited ${staffEmail} as ${staffRole}. They sign in with password demo1234.`
@@ -1411,18 +1414,81 @@ function AccountInner() {
               Create staff login
             </button>
             {staffMsg && (
-              <p className="text-sm text-success">{staffMsg}</p>
+              <p
+                className={`text-sm ${staffMsgError ? "text-red-300" : "text-success"}`}
+              >
+                {staffMsg}
+              </p>
             )}
           </form>
-          <ul className="mt-4 space-y-1 text-xs text-muted">
-            {accounts
-              .filter((a) => a.role === "restaurant")
-              .map((a) => (
-                <li key={a.id}>
-                  {a.name} · {a.email} · {a.staffRole ?? "—"}
-                </li>
-              ))}
-          </ul>
+          <div className="mt-6 border-t border-border pt-4">
+            <h3 className="text-sm font-semibold">Staff with access</h3>
+            <p className="mt-1 text-xs text-muted">
+              Remove access to revoke their login. They will need a new invite
+              to sign in again.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {accounts.filter((a) => a.role === "restaurant").length === 0 && (
+                <li className="text-sm text-muted">No staff logins yet.</li>
+              )}
+              {accounts
+                .filter((a) => a.role === "restaurant")
+                .map((a) => {
+                  const isSelf =
+                    a.id === user.id ||
+                    a.email.toLowerCase() === user.email.toLowerCase();
+                  const theirRole = a.staffRole ?? "owner";
+                  const actorRole = user.staffRole ?? "owner";
+                  const canRemove =
+                    !isSelf &&
+                    (actorRole === "owner" || theirRole !== "owner");
+                  return (
+                    <li
+                      key={a.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background/60 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-stone-200">
+                          {a.name}
+                          {isSelf ? " · you" : ""}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {a.email} · {theirRole}
+                        </p>
+                      </div>
+                      {canRemove ? (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                `Remove access for ${a.name}? They will no longer be able to sign in.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            const res = removeStaffAccount(a.id);
+                            setStaffMsgError(!res.ok);
+                            setStaffMsg(
+                              res.ok
+                                ? `Removed access for ${a.name}.`
+                                : res.error ?? "Could not remove access.",
+                            );
+                          }}
+                        >
+                          Remove access
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-muted">
+                          {isSelf ? "Your login" : "Owner"}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
         </div>
       )}
 
