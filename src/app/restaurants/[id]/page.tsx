@@ -24,6 +24,7 @@ export default function RestaurantDetailPage() {
     getReviewsForRestaurant,
     partnerDeals,
     partnerMenuItems,
+    getRestaurantStory,
   } = useStore();
 
   const [rateOpen, setRateOpen] = useState(false);
@@ -57,6 +58,7 @@ export default function RestaurantDetailPage() {
 
   const isFav = favorites.includes(restaurant.id);
   const isFollowing = following.includes(restaurant.id);
+  const story = getRestaurantStory(restaurant.id).trim();
   // Only diner members rate plates — restaurants never rate
   const canRate = Boolean(
     user?.role === "diner" && user.isMember,
@@ -148,7 +150,6 @@ export default function RestaurantDetailPage() {
               </p>
             </div>
           </div>
-          <p className="text-sm text-stone-300">{restaurant.story}</p>
           <p className="text-sm text-muted">
             {restaurant.hours} · {restaurant.address}
           </p>
@@ -260,6 +261,17 @@ export default function RestaurantDetailPage() {
           )}
         </div>
       </div>
+
+      {story && (
+        <section className="mt-10">
+          <h2 className="text-xl font-bold">Our story</h2>
+          <div className="gp-card gp-card-static mt-4 p-6">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+              {story}
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="text-xl font-bold">Member deals</h2>

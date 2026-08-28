@@ -35,6 +35,7 @@ import type {
   StaffRole,
   TasteBudRequest,
 } from "./types";
+import { canManagePartnerContent } from "./types";
 import {
   BADGES,
   MAX_FAMILY_SEATS,
@@ -71,6 +72,7 @@ interface Persisted {
   partnerJobs: JobPosting[];
   partnerDeals: PartnerDealDraft[];
   partnerMenuItems: PartnerMenuItem[];
+  partnerStories: Record<string, string>;
   userReviews: Review[];
   rewardHistory: RewardEvent[];
   moderatedFeedPosts: ModeratedFeedPost[];
@@ -98,6 +100,7 @@ interface StoreValue {
   partnerJobs: JobPosting[];
   partnerDeals: PartnerDealDraft[];
   partnerMenuItems: PartnerMenuItem[];
+  partnerStories: Record<string, string>;
   userReviews: Review[];
   rewardHistory: RewardEvent[];
   moderatedFeedPosts: ModeratedFeedPost[];
@@ -287,6 +290,11 @@ interface StoreValue {
   deletePartnerMenuItem: (id: string) => void;
   deletePartnerEvent: (id: string) => void;
   deletePartnerJob: (id: string) => void;
+  getRestaurantStory: (restaurantId: string) => string;
+  updatePartnerStory: (
+    restaurantId: string,
+    body: string,
+  ) => { ok: boolean; error?: string };
   chats: ChatThread[];
   createDmChat: (otherUserId: string, otherName: string) => string;
   createGroupChat: (title: string, memberIds: string[], memberNames: string[]) => string;
@@ -404,6 +412,7 @@ function emptyPersisted(): Persisted {
     partnerJobs: [],
     partnerDeals: [],
     partnerMenuItems: [],
+    partnerStories: {},
     userReviews: [],
     rewardHistory: [],
     moderatedFeedPosts: [],
@@ -607,6 +616,7 @@ function load(): Persisted {
         status: m.status ?? "pending",
         createdAt: m.createdAt ?? new Date().toISOString(),
       })),
+      partnerStories: parsed.partnerStories ?? {},
       userReviews: parsed.userReviews ?? [],
       rewardHistory: parsed.rewardHistory ?? [],
       moderatedFeedPosts: parsed.moderatedFeedPosts ?? [],
@@ -778,6 +788,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [partnerMenuItems, setPartnerMenuItems] = useState<PartnerMenuItem[]>(
     [],
   );
+  const [partnerStories, setPartnerStories] = useState<Record<string, string>>(
+    {},
+  );
   const [userReviews, setUserReviews] = useState<Review[]>([]);
   const [rewardHistory, setRewardHistory] = useState<RewardEvent[]>([]);
   const [moderatedFeedPosts, setModeratedFeedPosts] = useState<
@@ -809,6 +822,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPartnerJobs(data.partnerJobs);
     setPartnerDeals(data.partnerDeals);
     setPartnerMenuItems(data.partnerMenuItems);
+    setPartnerStories(data.partnerStories ?? {});
     setUserReviews(data.userReviews);
     setRewardHistory(data.rewardHistory);
     setModeratedFeedPosts(data.moderatedFeedPosts);
@@ -838,6 +852,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       partnerJobs,
       partnerDeals,
       partnerMenuItems,
+      partnerStories,
       userReviews,
       rewardHistory,
       moderatedFeedPosts,
@@ -864,6 +879,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     partnerJobs,
     partnerDeals,
     partnerMenuItems,
+    partnerStories,
     userReviews,
     rewardHistory,
     moderatedFeedPosts,
@@ -2269,6 +2285,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPartnerJobs([]);
     setPartnerDeals([]);
     setPartnerMenuItems([]);
+    setPartnerStories({});
     setUserReviews([]);
     setRewardHistory([]);
     setModeratedFeedPosts([]);
@@ -2493,6 +2510,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deletePartnerJob = useCallback((id: string) => {
     setPartnerJobs((prev) => prev.filter((j) => j.id !== id));
   }, []);
+
+  const getRestaurantStory = useCallback(
+    (restaurantId: string) => {
+      if (Object.prototype.hasOwnProperty.call(partnerStories, restaurantId)) {
+        return partnerStories[restaurantId];
+      }
+      return getRestaurant(restaurantId)?.story ?? "";
+    },
+    [partnerStories],
+  );
+
+  const updatePartnerStory = useCallback(
+    (restaurantId: string, body: string) => {
+      if (!user || user.role !== "restaurant") {
+        return { ok: false, error: "Sign in as a partner to edit Our story." };
+      }
+      if (!canManagePartnerContent(user.staffRole ?? "owner")) {
+        return { ok: false, error: "Employees cannot edit Our story." };
+      }
+      setPartnerStories((prev) => ({
+        ...prev,
+        [restaurantId]: body.trim(),
+      }));
+      return { ok: true };
+    },
+    [user],
+  );
 
   const createDmChat = useCallback(
     (otherUserId: string, otherName: string) => {
@@ -2887,6 +2931,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     partnerJobs,
     partnerDeals,
     partnerMenuItems,
+    partnerStories,
     userReviews,
     rewardHistory,
     moderatedFeedPosts,
@@ -2961,6 +3006,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deletePartnerMenuItem,
     deletePartnerEvent,
     deletePartnerJob,
+    getRestaurantStory,
+    updatePartnerStory,
     chats,
     createDmChat,
     createGroupChat,

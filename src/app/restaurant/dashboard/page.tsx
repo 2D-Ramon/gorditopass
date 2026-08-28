@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RESTAURANTS } from "@/lib/data";
 import {
@@ -17,7 +17,7 @@ import {
   type StaffRole,
 } from "@/lib/types";
 
-type Tab = "scan" | "enroll" | "deal" | "menu" | "event" | "job";
+type Tab = "scan" | "enroll" | "story" | "deal" | "menu" | "event" | "job";
 
 function ExpireFields({
   enabled,
@@ -86,6 +86,8 @@ export default function RestaurantDashboardPage() {
     addPartnerMenuItem,
     addPartnerEvent,
     addPartnerJob,
+    getRestaurantStory,
+    updatePartnerStory,
     updatePartnerDeal,
     updatePartnerMenuItem,
     updatePartnerEvent,
@@ -157,7 +159,15 @@ export default function RestaurantDashboardPage() {
     useState<MembershipPlanId>("monthly");
   const [enrollMsg, setEnrollMsg] = useState("");
 
-  const canManage = canManagePartnerContent(user?.staffRole);
+  const canManage =
+    user?.role === "restaurant" &&
+    canManagePartnerContent(user.staffRole ?? "owner");
+  const liveStory = getRestaurantStory(restaurant.id);
+  const [storyDraft, setStoryDraft] = useState(liveStory);
+
+  useEffect(() => {
+    setStoryDraft(liveStory);
+  }, [liveStory]);
 
   const myRedeems = useMemo(
     () =>
@@ -237,6 +247,7 @@ export default function RestaurantDashboardPage() {
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [
     { id: "scan", label: "Redeem scan", managersOnly: false },
     { id: "enroll", label: "Enroll customer", managersOnly: false },
+    { id: "story", label: "Our story", managersOnly: true },
     { id: "deal", label: "Promotions", managersOnly: true },
     { id: "menu", label: "Menu items", managersOnly: true },
     { id: "event", label: "Events", managersOnly: true },
@@ -362,8 +373,8 @@ export default function RestaurantDashboardPage() {
 
       {!canManage && (
         <p className="mt-3 text-xs text-muted">
-          Content tabs (deals, menu, events, jobs) are limited to owner, manager,
-          and marketing. Employees can redeem only.
+          Content tabs (our story, deals, menu, events, jobs) are limited to
+          owner, manager, and marketing. Employees can redeem only.
         </p>
       )}
 
@@ -524,6 +535,51 @@ export default function RestaurantDashboardPage() {
               ))}
             </ul>
           </div>
+        </section>
+      )}
+
+      {activeTab === "story" && canManage && (
+        <section className="mt-6 gp-card gp-card-static p-5">
+          <h2 className="font-semibold">Our story</h2>
+          <p className="mt-1 text-sm text-muted">
+            This is the story guests see on your public business page. Owner,
+            manager, and marketing can edit it. Employees cannot.
+          </p>
+          <form
+            className="mt-4 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const res = updatePartnerStory(restaurant.id, storyDraft);
+              if (res.ok) {
+                toast("Our story saved. It now shows on your public page.");
+              } else {
+                toast(res.error ?? "Could not save Our story.");
+              }
+            }}
+          >
+            <label className="block text-sm">
+              Tell guests who you are
+              <textarea
+                className="gp-input mt-1 min-h-[160px] text-sm leading-relaxed"
+                value={storyDraft}
+                maxLength={2000}
+                onChange={(e) => setStoryDraft(e.target.value)}
+                placeholder="Family recipes, the neighborhood, why you cook…"
+              />
+            </label>
+            <p className="text-xs text-muted">{storyDraft.length}/2000</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="gp-btn gp-btn-primary text-sm">
+                Save our story
+              </button>
+              <Link
+                href={`/restaurants/${restaurant.id}`}
+                className="gp-btn gp-btn-secondary text-sm"
+              >
+                View public page
+              </Link>
+            </div>
+          </form>
         </section>
       )}
 
