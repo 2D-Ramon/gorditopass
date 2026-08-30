@@ -4,7 +4,7 @@ import { jsonError, withOps } from "../../_util";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const gate = await withOps();
+  const gate = await withOps("can_crm");
   if (!gate.ok) return gate.response;
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -45,7 +45,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
-  const gate = await withOps();
+  const gate = await withOps("can_crm");
   if (!gate.ok) return gate.response;
   const { id } = await ctx.params;
   const { error } = await gate.supabase

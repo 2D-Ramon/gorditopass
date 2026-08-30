@@ -10,10 +10,53 @@ import type {
   MemberPlanId,
   MemberRecord,
   MemberStatus,
+  OpsAdminPublic,
+  OpsPermission,
   OpsStatus,
 } from "@/lib/ops-types";
 
-export type OpsTab = "connect" | "crm" | "members" | "campaigns";
+export type OpsTab = "connect" | "crm" | "members" | "campaigns" | "admins";
+
+const ACCESS_FLAGS: { id: OpsPermission; label: string }[] = [
+  { id: "can_crm", label: "Business CRM" },
+  { id: "can_members", label: "Members" },
+  { id: "can_campaigns", label: "Campaigns" },
+  { id: "can_applications", label: "Restaurant applications" },
+  { id: "can_content", label: "Deals, menu, events, jobs, auto-approve" },
+  { id: "can_restaurants", label: "Restaurants" },
+  { id: "can_feed", label: "Feed moderation" },
+  { id: "can_manage_admins", label: "Add and remove admins" },
+];
+
+const ADMINS_SQL = `create table if not exists public.ops_admins (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  name text not null,
+  password_hash text not null,
+  is_owner boolean not null default false,
+  active boolean not null default true,
+  can_crm boolean not null default false,
+  can_members boolean not null default false,
+  can_campaigns boolean not null default false,
+  can_applications boolean not null default false,
+  can_content boolean not null default false,
+  can_restaurants boolean not null default false,
+  can_feed boolean not null default false,
+  can_manage_admins boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists ops_admins_one_owner
+  on public.ops_admins (is_owner)
+  where is_owner = true;
+
+drop trigger if exists ops_admins_updated_at on public.ops_admins;
+create trigger ops_admins_updated_at
+before update on public.ops_admins
+for each row execute procedure public.set_updated_at();
+
+alter table public.ops_admins enable row level security;`;
 
 const BIZ_STATUSES: { id: BusinessStatus; label: string }[] = [
   { id: "lead", label: "Lead" },
@@ -93,6 +136,7 @@ export function OpsHub({ tab }: { tab: OpsTab }) {
       {ready && tab === "crm" && <CrmPanel />}
       {ready && tab === "members" && <MembersPanel />}
       {ready && tab === "campaigns" && <CampaignsPanel />}
+      {ready && tab === "admins" && <AdminsPanel status={status} onRefresh={refreshStatus} />}
     </div>
   );
 }
@@ -120,6 +164,12 @@ function ConnectPanel({
           <StatusRow ok={status.supabase} label="Supabase URL + service key" />
           <StatusRow ok={status.hasOpsSecret} label="OPS_ADMIN_SECRET" />
           <StatusRow ok={status.unlocked} label="This browser unlocked" />
+          <StatusRow ok={!status.needsAdminTable} label="Admins table in Supabase" />
+          <StatusRow ok={status.hasOwner} label="Owner admin account" />
+          <StatusRow
+            ok={Boolean(status.me)}
+            label={status.me ? `Signed in as ${status.me.email}` : "Admin email sign-in"}
+          />
         </ul>
         {status.supabase && status.hasOpsSecret && !status.unlocked && (
           <form className="mt-4 space-y-3" onSubmit={onUnlock}>
@@ -141,6 +191,23 @@ function ConnectPanel({
         {msg && <p className="mt-3 text-sm text-success">{msg}</p>}
         {err && <p className="mt-3 text-sm text-red-300">{err}</p>}
       </div>
+      {status.needsAdminTable && (
+        <div className="gp-card gp-card-static p-5">
+          <h2 className="font-semibold">One more SQL script</h2>
+          <p className="mt-2 text-sm text-muted">
+            In Supabase → SQL Editor, paste this, click Run (the destructive
+            warning is OK), then refresh this page.
+          </p>
+          <textarea
+            readOnly
+            className="gp-input mt-3 min-h-[10rem] font-mono text-xs"
+            value={ADMINS_SQL}
+          />
+        </div>
+      )}
+      {status.unlocked && !status.needsAdminTable && !status.hasOwner && (
+        <OwnerSetupForm />
+      )}
       <div className="gp-card gp-card-static p-5 text-sm leading-relaxed text-muted">
         <h2 className="font-semibold text-white">Setup checklist</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5">
@@ -173,6 +240,293 @@ function ConnectPanel({
             <code className="text-stone-300">OPS_ADMIN_SECRET</code>.
           </li>
         </ol>
+      </div>
+    </div>
+  );
+}
+
+function OwnerSetupForm() {
+  const [form, setForm] = useState({
+    secret: "",
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setMsg("");
+    const res = await fetch("/api/ops/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setErr(data.error ?? "Could not create owner.");
+      return;
+    }
+    setMsg("Owner account created. Use this email and password next time.");
+    window.location.reload();
+  }
+
+  return (
+    <form className="gp-card gp-card-static space-y-3 p-5" onSubmit={submit}>
+      <h2 className="font-semibold">Create your owner login</h2>
+      <p className="text-sm text-muted">
+        This is you — the main admin. You cannot be removed. Other admins will
+        sign in with their own email and password.
+      </p>
+      <label className="block text-sm">
+        Ops secret (same as unlock)
+        <input
+          required
+          type="password"
+          className="gp-input mt-1"
+          value={form.secret}
+          onChange={(e) => setForm({ ...form, secret: e.target.value })}
+        />
+      </label>
+      <label className="block text-sm">
+        Your name
+        <input
+          required
+          className="gp-input mt-1"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+        />
+      </label>
+      <label className="block text-sm">
+        Email
+        <input
+          required
+          type="email"
+          className="gp-input mt-1"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+      </label>
+      <label className="block text-sm">
+        Password (8+)
+        <input
+          required
+          minLength={8}
+          type="password"
+          className="gp-input mt-1"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+      </label>
+      <button type="submit" className="gp-btn gp-btn-primary text-sm">
+        Save owner account
+      </button>
+      {msg && <p className="text-sm text-success">{msg}</p>}
+      {err && <p className="text-sm text-red-300">{err}</p>}
+    </form>
+  );
+}
+
+function emptyFlags(): Record<OpsPermission, boolean> {
+  return {
+    can_crm: true,
+    can_members: true,
+    can_campaigns: false,
+    can_applications: false,
+    can_content: false,
+    can_restaurants: false,
+    can_feed: false,
+    can_manage_admins: false,
+  };
+}
+
+function AdminsPanel({
+  status,
+  onRefresh,
+}: {
+  status: OpsStatus;
+  onRefresh: () => Promise<void>;
+}) {
+  const [rows, setRows] = useState<OpsAdminPublic[]>([]);
+  const [flash, setFlash] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    ...emptyFlags(),
+  });
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/ops/admins");
+    const data = await res.json();
+    if (res.ok) setRows(data.admins ?? []);
+    else setFlash(data.error ?? "Could not load admins.");
+  }, []);
+
+  useEffect(() => {
+    if (status.hasOwner) void load();
+  }, [load, status.hasOwner]);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setFlash("");
+    const res = await fetch("/api/ops/admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setFlash(data.error ?? "Could not add admin.");
+      return;
+    }
+    setForm({ name: "", email: "", password: "", ...emptyFlags() });
+    setFlash(`Added ${data.admin.email}. They sign in on /admin with that email.`);
+    await load();
+    await onRefresh();
+  }
+
+  async function setFlag(id: string, key: OpsPermission, value: boolean) {
+    await fetch(`/api/ops/admins/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: value }),
+    });
+    await load();
+  }
+
+  async function remove(admin: OpsAdminPublic) {
+    if (!confirm(`Remove access for ${admin.email}?`)) return;
+    const res = await fetch(`/api/ops/admins/${admin.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) {
+      setFlash(data.error ?? "Could not remove.");
+      return;
+    }
+    setFlash(`Removed ${admin.email}.`);
+    await load();
+  }
+
+  if (!status.hasOwner) {
+    return (
+      <div className="gp-card gp-card-static p-5">
+        <h2 className="font-semibold">Admins</h2>
+        <p className="mt-2 text-sm text-muted">
+          Finish Connect first: run the admins SQL if needed, then create your
+          owner login. After that you can add other admins here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <form className="gp-card gp-card-static space-y-3 p-5" onSubmit={add}>
+        <h2 className="font-semibold">Add admin</h2>
+        <p className="text-sm text-muted">
+          They get their own email and password. Check only the areas they
+          should see.
+        </p>
+        <label className="block text-sm">
+          Name
+          <input
+            required
+            className="gp-input mt-1"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </label>
+        <label className="block text-sm">
+          Email
+          <input
+            required
+            type="email"
+            className="gp-input mt-1"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </label>
+        <label className="block text-sm">
+          Temporary password (8+)
+          <input
+            required
+            minLength={8}
+            type="password"
+            className="gp-input mt-1"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+        </label>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Access</legend>
+          {ACCESS_FLAGS.map((f) => (
+            <label key={f.id} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form[f.id]}
+                onChange={(e) => setForm({ ...form, [f.id]: e.target.checked })}
+              />
+              {f.label}
+            </label>
+          ))}
+        </fieldset>
+        <button type="submit" className="gp-btn gp-btn-primary text-sm">
+          Create admin login
+        </button>
+        {flash && <p className="text-sm text-stone-300">{flash}</p>}
+      </form>
+      <div className="gp-card gp-card-static p-5">
+        <h2 className="font-semibold">People with access</h2>
+        <ul className="mt-3 space-y-3">
+          {rows.map((a) => (
+            <li
+              key={a.id}
+              className="rounded-lg border border-border bg-background/50 p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">
+                    {a.name}
+                    {a.is_owner ? " · owner" : ""}
+                    {status.me?.id === a.id ? " · you" : ""}
+                  </p>
+                  <p className="text-xs text-muted">{a.email}</p>
+                </div>
+                {!a.is_owner && status.me?.id !== a.id && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-300 hover:underline"
+                    onClick={() => void remove(a)}
+                  >
+                    Remove access
+                  </button>
+                )}
+              </div>
+              {a.is_owner ? (
+                <p className="mt-2 text-xs text-muted">
+                  Owner has access to every area and cannot be removed.
+                </p>
+              ) : (
+                <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                  {ACCESS_FLAGS.map((f) => (
+                    <label key={f.id} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={a[f.id]}
+                        onChange={(e) =>
+                          void setFlag(a.id, f.id, e.target.checked)
+                        }
+                      />
+                      {f.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { OpsHub, type OpsTab } from "./OpsHub";
 import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
+import type { OpsAdminPublic, OpsStatus } from "@/lib/ops-types";
 
 type AdminTab =
   | OpsTab
@@ -17,6 +18,27 @@ type AdminTab =
   | "restaurants"
   | "auto"
   | "feed";
+
+function canSeeTab(
+  id: AdminTab,
+  me: OpsAdminPublic | null,
+  hasOwner: boolean,
+): boolean {
+  if (!hasOwner || !me) return true;
+  if (me.is_owner) return true;
+  if (id === "connect") return false;
+  if (id === "crm") return me.can_crm;
+  if (id === "members") return me.can_members;
+  if (id === "campaigns") return me.can_campaigns;
+  if (id === "admins") return me.can_manage_admins;
+  if (id === "apps") return me.can_applications;
+  if (id === "deals" || id === "menu" || id === "events" || id === "jobs" || id === "auto") {
+    return me.can_content;
+  }
+  if (id === "restaurants") return me.can_restaurants;
+  if (id === "feed") return me.can_feed;
+  return false;
+}
 
 function Thumbs({ urls }: { urls?: string[] }) {
   if (!urls?.length) return null;
@@ -59,6 +81,7 @@ export default function AdminPage() {
   const {
     user,
     signInDemo,
+    signInOpsAdmin,
     restaurantApplications,
     redemptions,
     partnerDeals,
@@ -81,6 +104,19 @@ export default function AdminPage() {
   } = useStore();
   const [tab, setTab] = useState<AdminTab>("connect");
   const [autoBiz, setAutoBiz] = useState(RESTAURANTS[0]?.id ?? "mi-tierra");
+  const [ops, setOps] = useState<OpsStatus | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginErr, setLoginErr] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/ops/status")
+      .then((r) => r.json())
+      .then((s: OpsStatus) => {
+        setOps(s);
+        if (s.me) signInOpsAdmin(s.me);
+      });
+  }, [signInOpsAdmin]);
 
   const pendingApps = useMemo(
     () =>
@@ -137,16 +173,67 @@ export default function AdminPage() {
 
   if (!user || user.role !== "admin") {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="gp-page-title">Admin</h1>
-        <p className="mt-2 text-muted">
-          Approve applications, deals, menu, events, jobs · auto-approve · AI
-          flags. Caps: {PLATFORM.earlyCapDiners} diners /{" "}
-          {PLATFORM.earlyCapBusinesses} businesses.
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <h1 className="gp-page-title text-center">Admin</h1>
+        <p className="mt-2 text-center text-muted">
+          Sign in with the email the owner created for you. Caps:{" "}
+          {PLATFORM.earlyCapDiners} diners / {PLATFORM.earlyCapBusinesses}{" "}
+          businesses.
         </p>
+        <form
+          className="mt-8 space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setLoginErr("");
+            const res = await fetch("/api/ops/session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: loginEmail,
+                password: loginPassword,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              setLoginErr(data.error ?? "Could not sign in.");
+              return;
+            }
+            if (data.admin) signInOpsAdmin(data.admin);
+            setOps((s) =>
+              s
+                ? { ...s, unlocked: true, hasOwner: true, me: data.admin }
+                : s,
+            );
+          }}
+        >
+          <label className="block text-sm">
+            Email
+            <input
+              required
+              type="email"
+              className="gp-input mt-1"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+            />
+          </label>
+          <label className="block text-sm">
+            Password
+            <input
+              required
+              type="password"
+              className="gp-input mt-1"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+            />
+          </label>
+          {loginErr && <p className="text-sm text-red-300">{loginErr}</p>}
+          <button type="submit" className="gp-btn gp-btn-primary w-full">
+            Sign in
+          </button>
+        </form>
         <button
           type="button"
-          className="gp-btn gp-btn-primary mt-6"
+          className="gp-btn gp-btn-secondary mt-6 w-full"
           onClick={() => signInDemo("admin")}
         >
           Demo admin sign-in
@@ -155,8 +242,11 @@ export default function AdminPage() {
     );
   }
 
-  const tabs: { id: AdminTab; label: string; count?: number }[] = [
+  const me = ops?.me ?? null;
+  const hasOwner = Boolean(ops?.hasOwner);
+  const allTabs: { id: AdminTab; label: string; count?: number }[] = [
     { id: "connect", label: "Connect" },
+    { id: "admins", label: "Admins" },
     { id: "crm", label: "Business CRM" },
     { id: "members", label: "Members" },
     { id: "campaigns", label: "Campaigns" },
@@ -169,6 +259,10 @@ export default function AdminPage() {
     { id: "restaurants", label: "Restaurants" },
     { id: "feed", label: "Feed" },
   ];
+  const tabs = allTabs.filter((t) => canSeeTab(t.id, me, hasOwner));
+  const visibleTab = tabs.some((t) => t.id === tab)
+    ? tab
+    : (tabs[0]?.id ?? "connect");
 
   const auto = getAutoApprove(autoBiz);
 
@@ -214,7 +308,7 @@ export default function AdminPage() {
             type="button"
             onClick={() => setTab(t.id)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              tab === t.id
+              visibleTab === t.id
                 ? "bg-brand/15 text-orange-200 ring-1 ring-brand/30"
                 : "text-muted hover:bg-card"
             }`}
@@ -229,12 +323,13 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {(tab === "connect" ||
-        tab === "crm" ||
-        tab === "members" ||
-        tab === "campaigns") && <OpsHub tab={tab} />}
+      {(visibleTab === "connect" ||
+        visibleTab === "crm" ||
+        visibleTab === "members" ||
+        visibleTab === "campaigns" ||
+        visibleTab === "admins") && <OpsHub tab={visibleTab} />}
 
-      {tab === "apps" && (
+      {visibleTab === "apps" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Restaurant applications</h2>
           {restaurantApplications.length === 0 ? (
@@ -411,7 +506,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "deals" && (
+      {visibleTab === "deals" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Deals for approval</h2>
           {partnerDeals.length === 0 ? (
@@ -486,7 +581,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "menu" && (
+      {visibleTab === "menu" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Menu items for approval</h2>
           {partnerMenuItems.length === 0 ? (
@@ -544,7 +639,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "events" && (
+      {visibleTab === "events" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Events for approval</h2>
           {partnerEvents.length === 0 ? (
@@ -605,7 +700,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "jobs" && (
+      {visibleTab === "jobs" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Jobs for approval</h2>
           {partnerJobs.length === 0 ? (
@@ -667,7 +762,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "auto" && (
+      {visibleTab === "auto" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Auto-approve settings</h2>
           <p className="mt-1 text-sm text-muted">
@@ -715,7 +810,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "restaurants" && (
+      {visibleTab === "restaurants" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Live restaurants</h2>
           <ul className="mt-4 space-y-2">
@@ -746,7 +841,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {tab === "feed" && (
+      {visibleTab === "feed" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Feed moderation</h2>
           <ul className="mt-4 space-y-2">

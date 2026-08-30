@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { jsonError, withOps } from "../_util";
 
 export async function GET() {
-  const gate = await withOps();
+  const gate = await withOps("can_crm");
   if (!gate.ok) return gate.response;
   const { data, error } = await gate.supabase
     .from("business_accounts")
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const gate = await withOps();
+  const gate = await withOps("can_crm");
   if (!gate.ok) return gate.response;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const name = String(body?.name ?? "").trim();

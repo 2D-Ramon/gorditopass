@@ -4,7 +4,7 @@ import type { CampaignAudience, CampaignChannel } from "@/lib/ops-types";
 import { jsonError, withOps } from "../_util";
 
 export async function GET(req: Request) {
-  const gate = await withOps();
+  const gate = await withOps("can_campaigns");
   if (!gate.ok) return gate.response;
   const url = new URL(req.url);
   const channel = url.searchParams.get("channel") as CampaignChannel | null;

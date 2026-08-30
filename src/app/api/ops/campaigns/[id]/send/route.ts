@@ -6,7 +6,7 @@ import { jsonError, withOps } from "../../../_util";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, ctx: Ctx) {
-  const gate = await withOps();
+  const gate = await withOps("can_campaigns");
   if (!gate.ok) return gate.response;
   const { id } = await ctx.params;
   const { data: campaign, error: loadErr } = await gate.supabase

@@ -108,6 +108,7 @@ interface StoreValue {
   city: CityId;
   setCity: (c: CityId) => void;
   signInDemo: (role?: MockUser["role"], staffRole?: StaffRole) => void;
+  signInOpsAdmin: (input: { id: string; name: string; email: string }) => void;
   signOut: () => void;
   /** Recommended model: each person logs in with their own email */
   loginWithPassword: (
@@ -909,9 +910,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const signInOpsAdmin = useCallback(
+    (input: { id: string; name: string; email: string }) => {
+      const u = defaultUser("admin");
+      u.id = input.id;
+      u.name = input.name;
+      u.email = input.email.toLowerCase();
+      setUser(u);
+    },
+    [],
+  );
+
   const signOut = useCallback(() => {
     setUser(null);
     setCart([]);
+    void fetch("/api/ops/session", { method: "DELETE" });
   }, []);
 
   const loginWithPassword = useCallback(
@@ -2982,6 +2995,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     city,
     setCity,
     signInDemo,
+    signInOpsAdmin,
     signOut,
     loginWithPassword,
     loginWithMagicLink,

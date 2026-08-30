@@ -1,17 +1,15 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import {
-  OPS_COOKIE,
-  hasOpsSecret,
-  verifyOpsToken,
-} from "@/lib/ops-auth";
+import { hasOpsSecret, readOpsSession } from "@/lib/ops-auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
-  const jar = await cookies();
+  const session = await readOpsSession();
   return NextResponse.json({
     supabase: isSupabaseConfigured(),
     hasOpsSecret: hasOpsSecret(),
-    unlocked: verifyOpsToken(jar.get(OPS_COOKIE)?.value),
+    unlocked: session.unlocked,
+    needsAdminTable: session.needsAdminTable,
+    hasOwner: session.hasOwner,
+    me: session.admin,
   });
 }

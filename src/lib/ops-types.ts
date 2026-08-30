@@ -75,8 +75,38 @@ export interface CampaignRecord {
   sent_at: string | null;
 }
 
+export type OpsPermission =
+  | "can_crm"
+  | "can_members"
+  | "can_campaigns"
+  | "can_applications"
+  | "can_content"
+  | "can_restaurants"
+  | "can_feed"
+  | "can_manage_admins";
+
+export interface OpsAdminPublic {
+  id: string;
+  email: string;
+  name: string;
+  is_owner: boolean;
+  active: boolean;
+  can_crm: boolean;
+  can_members: boolean;
+  can_campaigns: boolean;
+  can_applications: boolean;
+  can_content: boolean;
+  can_restaurants: boolean;
+  can_feed: boolean;
+  can_manage_admins: boolean;
+  created_at: string;
+}
+
 export interface OpsStatus {
   supabase: boolean;
   hasOpsSecret: boolean;
   unlocked: boolean;
+  needsAdminTable: boolean;
+  hasOwner: boolean;
+  me: OpsAdminPublic | null;
 }
