@@ -56,7 +56,12 @@ create trigger ops_admins_updated_at
 before update on public.ops_admins
 for each row execute procedure public.set_updated_at();
 
-alter table public.ops_admins enable row level security;`;
+alter table public.ops_admins enable row level security;
+
+grant all on table public.ops_admins to postgres;
+grant all on table public.ops_admins to service_role;
+
+notify pgrst, 'reload schema';`;
 
 const BIZ_STATUSES: { id: BusinessStatus; label: string }[] = [
   { id: "lead", label: "Lead" },

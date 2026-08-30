@@ -64,10 +64,19 @@ export async function loadAdminsTable(supabase: SupabaseClient): Promise<{
 }> {
   const { error } = await supabase.from("ops_admins").select("id").limit(1);
   if (!error) return { ok: true, missing: false };
-  if (error.code === "42P01" || /does not exist/i.test(error.message)) {
+  const code = error.code ?? "";
+  const msg = error.message ?? "";
+  if (
+    code === "42P01" ||
+    code === "PGRST125" ||
+    code === "PGRST205" ||
+    /does not exist/i.test(msg) ||
+    /invalid path/i.test(msg) ||
+    /not find the table/i.test(msg)
+  ) {
     return { ok: false, missing: true };
   }
-  return { ok: false, missing: false, error: error.message };
+  return { ok: false, missing: false, error: msg };
 }
 
 export async function loadAdminById(

@@ -30,3 +30,8 @@ before update on public.ops_admins
 for each row execute procedure public.set_updated_at();
 
 alter table public.ops_admins enable row level security;
+
+grant all on table public.ops_admins to postgres;
+grant all on table public.ops_admins to service_role;
+
+notify pgrst, 'reload schema';

@@ -8,13 +8,20 @@ export function isSupabaseConfigured(): boolean {
 }
 
 /** Server-only client. Bypasses RLS. Never import this into a client component. */
+function normalizeSupabaseUrl(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "");
+}
+
 export function createOpsClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error("Supabase is not configured.");
   }
-  return createClient(url, key, {
+  return createClient(normalizeSupabaseUrl(url), key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

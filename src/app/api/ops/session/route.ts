@@ -65,7 +65,10 @@ export async function POST(req: Request) {
     const table = await loadAdminsTable(supabase);
     if (table.missing) {
       return NextResponse.json(
-        { error: "Run supabase/admins.sql in the SQL editor first." },
+        {
+          error:
+            "The admins table is not visible to the API yet. In Supabase SQL Editor run the script on the Connect tab (it includes NOTIFY pgrst, 'reload schema'), then try again.",
+        },
         { status: 503 },
       );
     }
