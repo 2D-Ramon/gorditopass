@@ -17,6 +17,7 @@ import {
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 type Body = {
+  action?: string;
   secret?: string;
   email?: string;
   password?: string;
@@ -40,34 +41,11 @@ export async function POST(req: Request) {
   const password = body?.password ?? "";
   const name = body?.name?.trim() ?? "";
   const secret = body?.secret?.trim() ?? "";
+  const creatingOwner =
+    body?.action === "create_owner" ||
+    Boolean(secret && name && email && password);
 
-  if (email && password && isSupabaseConfigured()) {
-    const supabase = createOpsClient();
-    const table = await loadAdminsTable(supabase);
-    if (table.missing) {
-      return NextResponse.json(
-        { error: "Run supabase/admins.sql in the SQL editor first." },
-        { status: 503 },
-      );
-    }
-    const { data, error } = await supabase
-      .from("ops_admins")
-      .select("*")
-      .eq("email", email)
-      .eq("active", true)
-      .maybeSingle();
-    if (error || !data || !verifyPassword(password, String(data.password_hash))) {
-      return NextResponse.json(
-        { error: "Email or password is incorrect." },
-        { status: 401 },
-      );
-    }
-    const admin = toPublicAdmin(data);
-    const res = NextResponse.json({ ok: true, admin });
-    return setSession(res, admin.id);
-  }
-
-  if (secret && name && email && password && isSupabaseConfigured()) {
+  if (creatingOwner && isSupabaseConfigured()) {
     if (!secretsMatch(secret)) {
       return NextResponse.json(
         { error: "That secret does not match." },
@@ -118,6 +96,32 @@ export async function POST(req: Request) {
         );
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const admin = toPublicAdmin(data);
+    const res = NextResponse.json({ ok: true, admin });
+    return setSession(res, admin.id);
+  }
+
+  if (email && password && !secret && isSupabaseConfigured()) {
+    const supabase = createOpsClient();
+    const table = await loadAdminsTable(supabase);
+    if (table.missing) {
+      return NextResponse.json(
+        { error: "Run supabase/admins.sql in the SQL editor first." },
+        { status: 503 },
+      );
+    }
+    const { data, error } = await supabase
+      .from("ops_admins")
+      .select("*")
+      .eq("email", email)
+      .eq("active", true)
+      .maybeSingle();
+    if (error || !data || !verifyPassword(password, String(data.password_hash))) {
+      return NextResponse.json(
+        { error: "Email or password is incorrect." },
+        { status: 401 },
+      );
     }
     const admin = toPublicAdmin(data);
     const res = NextResponse.json({ ok: true, admin });

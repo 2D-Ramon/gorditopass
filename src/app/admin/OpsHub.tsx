@@ -262,7 +262,7 @@ function OwnerSetupForm() {
     const res = await fetch("/api/ops/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, action: "create_owner" }),
     });
     const data = await res.json();
     if (!res.ok) {
