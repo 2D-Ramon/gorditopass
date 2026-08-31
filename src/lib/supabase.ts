@@ -7,12 +7,28 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-/** Server-only client. Bypasses RLS. Never import this into a client component. */
-function normalizeSupabaseUrl(raw: string): string {
+export function isBrowserSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
+export function normalizeSupabaseUrl(raw: string): string {
   return raw
     .trim()
     .replace(/\/+$/, "")
     .replace(/\/rest\/v1$/i, "");
+}
+
+/** Browser client (anon key). Safe in client components. */
+export function createBrowserClient(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(normalizeSupabaseUrl(url), key, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  });
 }
 
 export function createOpsClient(): SupabaseClient {

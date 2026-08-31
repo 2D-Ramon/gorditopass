@@ -114,16 +114,41 @@ export default function RedeemPage() {
     );
   }
 
-  function generate() {
-    const r = createRedeemCode(dealId);
-    setCode(r.code);
-    setExpiresAt(r.expiresAt);
+  async function generate() {
+    const { authedFetch } = await import("@/lib/authed");
+    const res = await authedFetch("/api/redeem/start", {
+      method: "POST",
+      body: JSON.stringify({ dealId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const r = createRedeemCode(dealId);
+      setCode(r.code);
+      setExpiresAt(r.expiresAt);
+      setSecondsLeft(60);
+      setStaffOk(false);
+      return;
+    }
+    setCode(data.code);
+    setExpiresAt(new Date(data.expiresAt).getTime());
     setSecondsLeft(60);
     setStaffOk(false);
   }
 
-  function staffConfirm() {
+  async function staffConfirm() {
     if (!code) return;
+    const { authedFetch } = await import("@/lib/authed");
+    const res = await authedFetch("/api/redeem/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    if (res.ok) {
+      setPointsEarned(10);
+      setLastSavings(savingsPreview);
+      setStaffOk(true);
+      setCode(null);
+      return;
+    }
     const result = recordRedemption(dealId, code);
     setPointsEarned(result.pointsEarned);
     setLastSavings(result.savingsUsd ?? savingsPreview);
@@ -229,7 +254,7 @@ export default function RedeemPage() {
                 onClick={staffConfirm}
                 className="gp-btn gp-btn-secondary mt-6 text-sm"
               >
-                Simulate staff scan ✓
+                Staff confirmed on their dashboard ✓
               </button>
               <button
                 type="button"

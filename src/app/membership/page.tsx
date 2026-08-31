@@ -46,8 +46,7 @@ export default function MembershipPage() {
 
 function MembershipInner() {
   const search = useSearchParams();
-  const { user, signInDemo, activateMembership, setReferredByCode } =
-    useStore();
+  const { user, activateMembership, setReferredByCode } = useStore();
   const [planId, setPlanId] = useState<MembershipPlanId>("monthly");
   const [seats, setSeats] = useState(1);
   const [step, setStep] = useState<Step>("plan");
@@ -56,6 +55,10 @@ function MembershipInner() {
   const [referralCode, setReferralCode] = useState(
     () => user?.referredByCode ?? "",
   );
+  const [primaryPassword, setPrimaryPassword] = useState("");
+  const [emailOptIn, setEmailOptIn] = useState(true);
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   // Auto-populate from share link: /membership?ref=CODE
   useEffect(() => {
@@ -122,8 +125,6 @@ function MembershipInner() {
       return;
     }
 
-    if (!user) signInDemo("diner");
-
     const finalized = members.map((m, i) => ({
       ...m,
       firstName: m.firstName.trim(),
@@ -135,13 +136,79 @@ function MembershipInner() {
       id: m.id || `seat-${i}-${Date.now()}`,
     }));
 
-    activateMembership(
-      planId,
-      seats,
-      finalized,
-      referralCode.trim() || undefined,
-    );
-    setStep("done");
+    const primary = finalized[0];
+    if (!user && primaryPassword.length < 8) {
+      setIntakeError("Create an 8+ character password for the primary account.");
+      return;
+    }
+
+    void (async () => {
+      setPaying(true);
+      try {
+        const { createBrowserClient } = await import("@/lib/supabase");
+        const { authedFetch } = await import("@/lib/authed");
+        const sb = createBrowserClient();
+        if (sb && !user) {
+          const reg = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: primary.email,
+              password: primaryPassword,
+              first_name: primary.firstName,
+              last_name: primary.lastName,
+              phone: primary.phone,
+              role: "diner",
+              email_opt_in: emailOptIn,
+              sms_opt_in: smsOptIn,
+            }),
+          });
+          const regJson = await reg.json();
+          if (!reg.ok) {
+            setIntakeError(regJson.error ?? "Could not create account.");
+            setPaying(false);
+            return;
+          }
+          const { error } = await sb.auth.signInWithPassword({
+            email: primary.email,
+            password: primaryPassword,
+          });
+          if (error) {
+            setIntakeError(error.message);
+            setPaying(false);
+            return;
+          }
+        }
+        const pay = await authedFetch("/api/membership/checkout", {
+          method: "POST",
+          body: JSON.stringify({
+            planId,
+            seats,
+            members: finalized,
+            email_opt_in: emailOptIn,
+            sms_opt_in: smsOptIn,
+            referral_code: referralCode.trim() || undefined,
+          }),
+        });
+        const payJson = await pay.json();
+        if (pay.ok && payJson.url) {
+          window.location.href = payJson.url;
+          return;
+        }
+        setIntakeError(payJson.error ?? "Could not start checkout.");
+        if (!sb) {
+          activateMembership(
+            planId,
+            seats,
+            finalized,
+            referralCode.trim() || undefined,
+          );
+          setStep("done");
+        }
+      } finally {
+        setPaying(false);
+      }
+    })();
   }
 
   return (
@@ -159,6 +226,12 @@ function MembershipInner() {
             Partner dashboard → Enroll customer
           </Link>
           .
+        </div>
+      )}
+
+      {search.get("paid") === "1" && (
+        <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+          Payment received. Your membership is active — redeem deals on Explore.
         </div>
       )}
 
@@ -445,6 +518,20 @@ function MembershipInner() {
                     placeholder="name@example.com"
                   />
                 </label>
+                {i === 0 && !user && (
+                  <label className="block text-sm">
+                    Password for this login (8+) *
+                    <input
+                      required
+                      minLength={8}
+                      type="password"
+                      className="gp-input mt-1"
+                      value={primaryPassword}
+                      onChange={(e) => setPrimaryPassword(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </label>
+                )}
                 <label className="block text-sm">
                   Phone number *
                   <input
@@ -509,13 +596,37 @@ function MembershipInner() {
               </label>
             </div>
 
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={emailOptIn}
+                onChange={(e) => setEmailOptIn(e.target.checked)}
+              />
+              Email me deals and city updates (unsubscribe anytime)
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={smsOptIn}
+                onChange={(e) => setSmsOptIn(e.target.checked)}
+              />
+              Text me (US). Msg/data rates may apply. Opt out by replying STOP.
+            </label>
+
             {intakeError && (
               <p className="text-sm text-red-300">{intakeError}</p>
             )}
 
-            <button type="submit" className="gp-btn gp-btn-primary">
-              Create {seats} account{seats > 1 ? "s" : ""} & subscribe · $
-              {total.toFixed(2)}
+            <button
+              type="submit"
+              className="gp-btn gp-btn-primary"
+              disabled={paying}
+            >
+              {paying
+                ? "Starting checkout…"
+                : `Create ${seats} account${seats > 1 ? "s" : ""} & pay · $${total.toFixed(2)}`}
             </button>
             <p className="text-xs text-muted">
               Favorite restaurant & food type can be filled in later on each

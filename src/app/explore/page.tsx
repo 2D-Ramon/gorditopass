@@ -73,7 +73,15 @@ export default function ExplorePage() {
       </div>
 
       <div className="mt-8 gp-card gp-card-static p-4">
-        <p className="mb-3 text-sm font-medium text-muted">Map (demo pins)</p>
+        <p className="mb-3 text-sm font-medium text-muted">Map</p>
+        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+          <iframe
+            title="Dallas map"
+            className="h-56 w-full rounded-lg border-0 ring-1 ring-border"
+            loading="lazy"
+            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=32.7767,-96.7970&zoom=11`}
+          />
+        ) : (
         <div className="relative h-48 overflow-hidden rounded-lg bg-background ring-1 ring-border">
           <div
             className="absolute inset-0 opacity-30"
@@ -97,9 +105,10 @@ export default function ExplorePage() {
             </div>
           ))}
           <p className="absolute bottom-2 right-2 text-[10px] text-muted">
-            Google Maps live tiles plug-in later
+            Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for live Google tiles
           </p>
         </div>
+        )}
       </div>
 
       <p className="mt-8 text-sm text-muted">

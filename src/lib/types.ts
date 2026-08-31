@@ -213,6 +213,8 @@ export interface MockUser {
   avatarDataUrl?: string;
   /** Partner staff role — controls dashboard tabs */
   staffRole?: StaffRole;
+  /** Live listing this partner account manages */
+  restaurantId?: string;
   /** Member rewards points balance */
   rewardPoints?: number;
   /** Lifetime points earned */

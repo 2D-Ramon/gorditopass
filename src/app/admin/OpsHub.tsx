@@ -237,8 +237,9 @@ function ConnectPanel({
             (and in Vercel → Environment Variables for the live site).
           </li>
           <li>
-            SQL Editor → paste <code className="text-stone-300">supabase/schema.sql</code>{" "}
-            → Run.
+            SQL Editor → paste{" "}
+            <code className="text-stone-300">supabase/market.sql</code> (live
+            logins, listings, redeem) → Run.
           </li>
           <li>
             Restart the app, come back here, unlock with{" "}

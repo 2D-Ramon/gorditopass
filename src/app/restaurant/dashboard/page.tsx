@@ -101,7 +101,8 @@ export default function RestaurantDashboardPage() {
     partnerRevenueYtd,
     partnerRedemptionCount,
   } = useStore();
-  const restaurant = RESTAURANTS[0];
+  const restaurant =
+    RESTAURANTS.find((r) => r.id === user?.restaurantId) ?? RESTAURANTS[0];
   const [tab, setTab] = useState<Tab>("scan");
   const [scanCode, setScanCode] = useState("");
   const [scanMsg, setScanMsg] = useState("");
@@ -547,8 +548,17 @@ export default function RestaurantDashboardPage() {
           </p>
           <form
             className="mt-4 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
+              const { authedFetch } = await import("@/lib/authed");
+              const live = await authedFetch("/api/partner/story", {
+                method: "POST",
+                body: JSON.stringify({ story: storyDraft }),
+              });
+              if (live.ok) {
+                toast("Our story saved. It now shows on your public page.");
+                return;
+              }
               const res = updatePartnerStory(restaurant.id, storyDraft);
               if (res.ok) {
                 toast("Our story saved. It now shows on your public page.");
@@ -601,14 +611,22 @@ export default function RestaurantDashboardPage() {
             <button
               type="button"
               className="gp-btn gp-btn-primary text-sm"
-              onClick={() => {
-                if (scanCode.length === 6) {
-                  setScanMsg(
-                    `Code ${scanCode} accepted (demo). Honor deal on POS.`,
-                  );
+              onClick={async () => {
+                if (scanCode.length !== 6) {
+                  setScanMsg("Enter a 6-digit code.");
+                  return;
+                }
+                const { authedFetch } = await import("@/lib/authed");
+                const res = await authedFetch("/api/redeem/confirm", {
+                  method: "POST",
+                  body: JSON.stringify({ code: scanCode }),
+                });
+                const data = await res.json();
+                if (res.ok) {
+                  setScanMsg(`Code ${scanCode} accepted. Honor deal on POS.`);
                   setScanCode("");
                 } else {
-                  setScanMsg("Enter a 6-digit code.");
+                  setScanMsg(data.error ?? "Could not confirm code.");
                 }
               }}
             >

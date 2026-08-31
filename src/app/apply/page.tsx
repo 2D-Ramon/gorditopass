@@ -128,7 +128,7 @@ export default function ApplyPage() {
       {done ? (
         <div className="mt-8 gp-card gp-card-static border-success/30 p-6">
           <p className="font-semibold text-success">
-            Application received (demo)
+            Application received
           </p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Admin will approve listings before they go live. You can also open
@@ -138,7 +138,7 @@ export default function ApplyPage() {
       ) : (
         <form
           className="mt-8 space-y-4"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setError("");
             if (!hasAuthority) {
@@ -233,6 +233,23 @@ export default function ApplyPage() {
                   ],
               uploads,
             });
+            const live = await fetch("/api/apply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name,
+                email,
+                city,
+                promo,
+                contactName,
+                position,
+                address,
+              }),
+            });
+            if (!live.ok) {
+              const data = await live.json().catch(() => ({}));
+              if (data.error) setError(data.error);
+            }
             setDone(true);
           }}
         >

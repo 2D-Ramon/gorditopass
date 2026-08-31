@@ -109,6 +109,7 @@ interface StoreValue {
   setCity: (c: CityId) => void;
   signInDemo: (role?: MockUser["role"], staffRole?: StaffRole) => void;
   signInOpsAdmin: (input: { id: string; name: string; email: string }) => void;
+  hydrateFromServer: (user: MockUser) => void;
   signOut: () => void;
   /** Recommended model: each person logs in with their own email */
   loginWithPassword: (
@@ -921,10 +922,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const hydrateFromServer = useCallback((next: MockUser) => {
+    setUser(next);
+  }, []);
+
   const signOut = useCallback(() => {
     setUser(null);
     setCart([]);
     void fetch("/api/ops/session", { method: "DELETE" });
+    void import("./supabase").then(({ createBrowserClient }) => {
+      void createBrowserClient()?.auth.signOut();
+    });
   }, []);
 
   const loginWithPassword = useCallback(
@@ -2996,6 +3004,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCity,
     signInDemo,
     signInOpsAdmin,
+    hydrateFromServer,
     signOut,
     loginWithPassword,
     loginWithMagicLink,

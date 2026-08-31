@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { createBrowserClient } from "@/lib/supabase";
 import { useStore } from "@/lib/store";
 
 type Mode = "password" | "magic";
@@ -24,7 +25,7 @@ export default function LoginPage() {
   } = useStore();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("demo1234");
+  const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -75,9 +76,22 @@ export default function LoginPage() {
       {mode === "password" && (
         <form
           className="mt-6 space-y-3"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setErr("");
+            const sb = createBrowserClient();
+            if (sb) {
+              const { error } = await sb.auth.signInWithPassword({
+                email,
+                password,
+              });
+              if (error) {
+                setErr(error.message);
+                return;
+              }
+              goAccount();
+              return;
+            }
             const res = loginWithPassword(email, password);
             if (!res.ok) {
               setErr(res.error ?? "Login failed");
@@ -113,8 +127,7 @@ export default function LoginPage() {
             Sign in
           </button>
           <p className="text-xs text-muted">
-            Demo default password for membership seats:{" "}
-            <code className="text-stone-300">demo1234</code>
+            Use the email and password from membership or partner invite.
           </p>
         </form>
       )}
@@ -122,10 +135,23 @@ export default function LoginPage() {
       {mode === "magic" && (
         <form
           className="mt-6 space-y-3"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setErr("");
             setMsg("");
+            const sb = createBrowserClient();
+            if (sb) {
+              const { error } = await sb.auth.signInWithOtp({
+                email,
+                options: { emailRedirectTo: `${window.location.origin}/account` },
+              });
+              if (error) {
+                setErr(error.message);
+                return;
+              }
+              setMsg("Check your email for a sign-in link.");
+              return;
+            }
             const res = loginWithMagicLink(email);
             if (!res.ok) {
               setErr(res.error ?? "Failed");

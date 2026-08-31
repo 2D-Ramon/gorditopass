@@ -1511,6 +1511,22 @@ function AccountInner() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-2">
+        {user.isMember && isDiner && (
+          <button
+            type="button"
+            className="gp-btn gp-btn-secondary text-sm"
+            onClick={async () => {
+              const { authedFetch } = await import("@/lib/authed");
+              const res = await authedFetch("/api/membership/portal", {
+                method: "POST",
+              });
+              const data = await res.json();
+              if (data.url) window.location.href = data.url;
+            }}
+          >
+            Cancel or manage billing
+          </button>
+        )}
         {!user.isMember && isDiner && (
           <Link href="/membership" className="gp-btn gp-btn-primary text-sm">
             Get membership

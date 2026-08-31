@@ -55,8 +55,40 @@ export async function POST(_req: Request, ctx: Ctx) {
     .single();
   if (error) return jsonError(error.message, 500);
 
+  const resendKey = process.env.RESEND_API_KEY;
+  let sent = 0;
+  if (resendKey && campaign.channel === "email") {
+    const from =
+      process.env.RESEND_FROM || "GorditoPass <hello@gorditopass.local>";
+    for (const row of audience) {
+      if (!row.email) continue;
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: row.email,
+          subject: campaign.subject || campaign.name,
+          text: campaign.body,
+        }),
+      });
+      if (r.ok) sent += 1;
+    }
+    if (sent > 0) {
+      await gate.supabase
+        .from("campaigns")
+        .update({ status: "sent" })
+        .eq("id", id);
+    }
+  }
+
   return NextResponse.json({
     campaign: data,
-    note: "Audience saved in GorditoPass. Email/SMS delivery pipes (Resend / Twilio) connect next so these actually send.",
+    note: resendKey
+      ? `Queued ${audience.length}. Emails sent: ${sent}. SMS needs Twilio later.`
+      : "Audience saved. Add RESEND_API_KEY to actually send email.",
   });
 }
