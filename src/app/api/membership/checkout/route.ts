@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (profile.banned) {
     return NextResponse.json({ error: "This account is closed." }, { status: 403 });
   }
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = (process.env.STRIPE_SECRET_KEY ?? "").trim();
   if (!key) {
     return NextResponse.json(
       {
