@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 import { useStore } from "@/lib/store";
-import type { MockUser } from "@/lib/types";
+import type { LiveMemberBundle } from "@/lib/types";
 
 export function AuthSync() {
   const { hydrateFromServer, signOut, user } = useStore();
@@ -18,8 +18,8 @@ export function AuthSync() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) return;
-      const data = (await res.json()) as { user?: MockUser };
-      if (data.user) hydrateFromServer(data.user);
+      const data = (await res.json()) as LiveMemberBundle & { user?: LiveMemberBundle["user"] | null };
+      if (data.user) hydrateFromServer(data.user, data);
     }
 
     void sb.auth.getSession().then(({ data }) => {

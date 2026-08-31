@@ -402,8 +402,8 @@ function AccountInner() {
                   type="button"
                   disabled={rewardsAvailable < 1}
                   className="gp-btn gp-btn-primary text-sm disabled:opacity-40"
-                  onClick={() => {
-                    const ok = claimReward();
+                  onClick={async () => {
+                    const ok = await claimReward();
                     setClaimMsg(
                       ok
                         ? `Claimed ${REWARDS.rewardLabel}!`
@@ -798,7 +798,7 @@ function AccountInner() {
               type="button"
               disabled={rewardsAvailable < 1}
               className="gp-btn gp-btn-primary mt-4 text-sm disabled:opacity-40"
-              onClick={() => claimReward()}
+              onClick={() => void claimReward()}
             >
               Claim {REWARDS.rewardLabel}
             </button>
@@ -1226,8 +1226,8 @@ function AccountInner() {
                           <button
                             type="button"
                             className="text-xs text-red-300"
-                            onClick={() => {
-                              const res = removeHouseholdSeat(m.id);
+                            onClick={async () => {
+                              const res = await removeHouseholdSeat(m.id);
                               setSeatMsg(
                                 res.ok ? "Seat removed." : res.error ?? "Could not remove",
                               );
@@ -1245,12 +1245,12 @@ function AccountInner() {
             {householdMembers.length < MAX_FAMILY_SEATS && (
               <form
                 className="mt-6 space-y-2 border-t border-border pt-4"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  const res = addHouseholdSeat(seatForm);
+                  const res = await addHouseholdSeat(seatForm);
                   setSeatMsg(
                     res.ok
-                      ? "Seat added — they can sign in with demo1234."
+                      ? "Seat added. They can create their own login with that email."
                       : res.error ?? "Failed",
                   );
                   if (res.ok) {

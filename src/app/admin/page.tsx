@@ -7,6 +7,7 @@ import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { OpsAdminPublic, OpsStatus } from "@/lib/ops-types";
+import type { RestaurantApplication } from "@/lib/types";
 
 type AdminTab =
   | OpsTab
@@ -108,6 +109,24 @@ export default function AdminPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginErr, setLoginErr] = useState("");
+  const [queue, setQueue] = useState<{
+    applications: Record<string, unknown>[];
+    deals: Record<string, unknown>[];
+    menu: Record<string, unknown>[];
+    events: Record<string, unknown>[];
+    jobs: Record<string, unknown>[];
+    listings: Record<string, unknown>[];
+    redemptions: number;
+    posts: Record<string, unknown>[];
+  } | null>(null);
+
+  function refreshQueue() {
+    void fetch("/api/ops/queue")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setQueue(d);
+      });
+  }
 
   useEffect(() => {
     void fetch("/api/ops/status")
@@ -115,44 +134,152 @@ export default function AdminPage() {
       .then((s: OpsStatus) => {
         setOps(s);
         if (s.me) signInOpsAdmin(s.me);
+        if (s.unlocked) refreshQueue();
       });
   }, [signInOpsAdmin]);
 
+  const liveApps = useMemo(
+    () =>
+      (queue?.applications ?? []).map((a) => ({
+        id: String(a.id),
+        name: String(a.name ?? ""),
+        email: String(a.email ?? ""),
+        at: String(a.created_at ?? ""),
+        contactName: String(a.contact_name ?? ""),
+        position: String(a.position ?? ""),
+        address: String(a.address ?? ""),
+        city: String(a.city ?? ""),
+        promo: String(a.promo ?? ""),
+        status: (String(a.status ?? "pending") as "pending" | "approved" | "rejected"),
+        uploads: [] as {
+          label: string;
+          fileName: string;
+          dataUrl?: string;
+          mimeType?: string;
+        }[],
+        plannedStartDate: "",
+        hasAuthority: undefined as boolean | undefined,
+        businessType: undefined as RestaurantApplication["businessType"],
+        businessTypeOther: undefined as string | undefined,
+        ownershipType: undefined as RestaurantApplication["ownershipType"],
+        ownershipTypeOther: undefined as string | undefined,
+        totalLocations: undefined as number | undefined,
+        concepts: undefined as RestaurantApplication["concepts"],
+      })),
+    [queue],
+  );
+  const appsList = queue ? liveApps : restaurantApplications;
+  const liveDeals = useMemo(
+    () =>
+      (queue?.deals ?? []).map((d) => ({
+        id: String(d.id),
+        restaurantId: String(d.restaurant_id ?? ""),
+        title: String(d.title ?? ""),
+        description: String(d.description ?? ""),
+        type: String(d.type ?? "free_item"),
+        regularPriceUsd:
+          d.regular_price_usd == null ? undefined : Number(d.regular_price_usd),
+        value: d.value == null ? null : Number(d.value),
+        status: String(d.status ?? "pending") as "pending" | "approved" | "rejected",
+        imageDataUrls: undefined as string[] | undefined,
+        aiFlagged: false,
+        aiReasons: [] as string[],
+      })),
+    [queue],
+  );
+  const dealsList = queue ? liveDeals : partnerDeals;
+  const liveMenu = useMemo(
+    () =>
+      (queue?.menu ?? []).map((m) => ({
+        id: String(m.id),
+        restaurantId: String(m.restaurant_id ?? ""),
+        name: String(m.name ?? ""),
+        description: String(m.description ?? ""),
+        category: String(m.category ?? ""),
+        priceUsd: Number(m.price_usd ?? 0),
+        status: String(m.status ?? "pending") as "pending" | "approved" | "rejected",
+        imageDataUrls: undefined as string[] | undefined,
+        aiFlagged: false,
+        aiReasons: [] as string[],
+      })),
+    [queue],
+  );
+  const menuList = queue ? liveMenu : partnerMenuItems;
+  const liveEvents = useMemo(
+    () =>
+      (queue?.events ?? []).map((e) => ({
+        id: String(e.id),
+        restaurantName: String(e.restaurant_name ?? ""),
+        title: String(e.title ?? ""),
+        description: String(e.description ?? ""),
+        date: String(e.event_date ?? ""),
+        time: String(e.event_time ?? ""),
+        emoji: String(e.emoji ?? "🎉"),
+        address: String(e.address ?? ""),
+        status: String(e.status ?? "pending") as "pending" | "approved" | "rejected",
+        imageDataUrls: undefined as string[] | undefined,
+        aiFlagged: false,
+        aiReasons: [] as string[],
+      })),
+    [queue],
+  );
+  const eventsList = queue ? liveEvents : partnerEvents;
+  const liveJobs = useMemo(
+    () =>
+      (queue?.jobs ?? []).map((j) => ({
+        id: String(j.id),
+        restaurantName: String(j.restaurant_name ?? ""),
+        title: String(j.title ?? ""),
+        description: String(j.description ?? ""),
+        type: String(j.job_type ?? "part-time"),
+        payRange: String(j.pay_range ?? ""),
+        applyUrl: String(j.apply_url ?? ""),
+        status: String(j.status ?? "pending") as "pending" | "approved" | "rejected",
+        imageDataUrls: undefined as string[] | undefined,
+        aiFlagged: false,
+        aiReasons: [] as string[],
+      })),
+    [queue],
+  );
+  const jobsList = queue ? liveJobs : partnerJobs;
+
   const pendingApps = useMemo(
     () =>
-      restaurantApplications.filter(
+      appsList.filter(
         (a) => (a.status ?? "pending") === "pending",
       ),
-    [restaurantApplications],
+    [appsList],
   );
   const pendingDeals = useMemo(
-    () => partnerDeals.filter((d) => (d.status ?? "pending") === "pending"),
-    [partnerDeals],
+    () => dealsList.filter((d) => (d.status ?? "pending") === "pending"),
+    [dealsList],
   );
   const pendingMenu = useMemo(
-    () =>
-      partnerMenuItems.filter((m) => (m.status ?? "pending") === "pending"),
-    [partnerMenuItems],
+    () => menuList.filter((m) => (m.status ?? "pending") === "pending"),
+    [menuList],
   );
   const pendingEvents = useMemo(
-    () => partnerEvents.filter((e) => (e.status ?? "pending") === "pending"),
-    [partnerEvents],
+    () => eventsList.filter((e) => (e.status ?? "pending") === "pending"),
+    [eventsList],
   );
   const pendingJobs = useMemo(
-    () => partnerJobs.filter((j) => (j.status ?? "pending") === "pending"),
-    [partnerJobs],
+    () => jobsList.filter((j) => (j.status ?? "pending") === "pending"),
+    [jobsList],
   );
   const flaggedCount = useMemo(
     () =>
       [
-        ...partnerDeals,
-        ...partnerMenuItems,
-        ...partnerEvents,
-        ...partnerJobs,
+        ...dealsList,
+        ...menuList,
+        ...eventsList,
+        ...jobsList,
       ].filter(
-        (x) => x.aiFlagged && (x.status ?? "pending") === "pending",
+        (x) =>
+          "aiFlagged" in x &&
+          x.aiFlagged &&
+          (x.status ?? "pending") === "pending",
       ).length,
-    [partnerDeals, partnerMenuItems, partnerEvents, partnerJobs],
+    [dealsList, menuList, eventsList, jobsList],
   );
 
   const feedQueue = useMemo(() => {
@@ -270,9 +397,8 @@ export default function AdminPage() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="gp-page-title">Admin</h1>
       <p className="gp-page-sub">
-        Business CRM, member records, and campaigns live in your Supabase
-        project. Application review below is still this-browser demo until
-        those queues move over.
+        Business CRM, members, campaigns, applications, deals, menus, and
+        listings live in your Supabase project — not this browser.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-4">
@@ -332,7 +458,7 @@ export default function AdminPage() {
       {visibleTab === "apps" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Restaurant applications</h2>
-          {restaurantApplications.length === 0 ? (
+          {appsList.length === 0 ? (
             <p className="mt-2 text-sm text-muted">
               None yet.{" "}
               <Link href="/apply" className="text-brand underline">
@@ -342,7 +468,7 @@ export default function AdminPage() {
             </p>
           ) : (
             <ul className="mt-4 space-y-4">
-              {restaurantApplications.map((a) => {
+              {appsList.map((a) => {
                 const id = a.id ?? a.at + a.email;
                 const status = a.status ?? "pending";
                 const uploads = a.uploads ?? [];
@@ -485,14 +611,38 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          onClick={() => setApplicationStatus(id, "approved")}
+                          onClick={async () => {
+                            const live = await fetch(
+                              `/api/ops/applications/${id}/approve`,
+                              { method: "POST" },
+                            );
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setApplicationStatus(id, "approved");
+                          }}
                         >
                           Approve
                         </button>
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          onClick={() => setApplicationStatus(id, "rejected")}
+                          onClick={async () => {
+                            const live = await fetch(
+                              `/api/ops/applications/${id}`,
+                              {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "rejected" }),
+                              },
+                            );
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setApplicationStatus(id, "rejected");
+                          }}
                         >
                           Reject
                         </button>
@@ -509,7 +659,7 @@ export default function AdminPage() {
       {visibleTab === "deals" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Deals for approval</h2>
-          {partnerDeals.length === 0 ? (
+          {dealsList.length === 0 ? (
             <p className="mt-2 text-sm text-muted">
               No partner deals yet. Create from{" "}
               <Link href="/restaurant/dashboard" className="text-brand underline">
@@ -519,7 +669,7 @@ export default function AdminPage() {
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {partnerDeals.map((d) => {
+              {dealsList.map((d) => {
                 const rest = RESTAURANTS.find((r) => r.id === d.restaurantId);
                 const status = d.status ?? "pending";
                 return (
@@ -549,7 +699,21 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          onClick={() => setPartnerDealStatus(d.id, "approved")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/deals/${d.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                status: "approved",
+                                active: true,
+                              }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerDealStatus(d.id, "approved");
+                          }}
                         >
                           Approve
                         </button>
@@ -558,7 +722,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          onClick={() => setPartnerDealStatus(d.id, "rejected")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/deals/${d.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "rejected" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerDealStatus(d.id, "rejected");
+                          }}
                         >
                           Reject
                         </button>
@@ -567,7 +742,21 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-ghost text-xs !py-1.5"
-                          onClick={() => setPartnerDealStatus(d.id, "pending")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/deals/${d.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                status: "pending",
+                                active: false,
+                              }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerDealStatus(d.id, "pending");
+                          }}
                         >
                           Unpublish
                         </button>
@@ -584,11 +773,11 @@ export default function AdminPage() {
       {visibleTab === "menu" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Menu items for approval</h2>
-          {partnerMenuItems.length === 0 ? (
+          {menuList.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No partner menu items yet.</p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {partnerMenuItems.map((m) => {
+              {menuList.map((m) => {
                 const rest = RESTAURANTS.find((r) => r.id === m.restaurantId);
                 const status = m.status ?? "pending";
                 return (
@@ -616,7 +805,21 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          onClick={() => setPartnerMenuStatus(m.id, "approved")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/menu/${m.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                status: "approved",
+                                active: true,
+                              }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerMenuStatus(m.id, "approved");
+                          }}
                         >
                           Approve
                         </button>
@@ -625,7 +828,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          onClick={() => setPartnerMenuStatus(m.id, "rejected")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/menu/${m.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "rejected" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerMenuStatus(m.id, "rejected");
+                          }}
                         >
                           Reject
                         </button>
@@ -642,11 +856,11 @@ export default function AdminPage() {
       {visibleTab === "events" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Events for approval</h2>
-          {partnerEvents.length === 0 ? (
+          {eventsList.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No partner events yet.</p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {partnerEvents.map((e) => {
+              {eventsList.map((e) => {
                 const status = e.status ?? "pending";
                 return (
                   <li
@@ -677,7 +891,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          onClick={() => setPartnerEventStatus(e.id, "approved")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/events/${e.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "approved" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerEventStatus(e.id, "approved");
+                          }}
                         >
                           Approve
                         </button>
@@ -686,7 +911,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          onClick={() => setPartnerEventStatus(e.id, "rejected")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/events/${e.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "rejected" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerEventStatus(e.id, "rejected");
+                          }}
                         >
                           Reject
                         </button>
@@ -703,11 +939,11 @@ export default function AdminPage() {
       {visibleTab === "jobs" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Jobs for approval</h2>
-          {partnerJobs.length === 0 ? (
+          {jobsList.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No partner jobs yet.</p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {partnerJobs.map((j) => {
+              {jobsList.map((j) => {
                 const status = j.status ?? "pending";
                 return (
                   <li
@@ -739,7 +975,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          onClick={() => setPartnerJobStatus(j.id, "approved")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/jobs/${j.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "approved" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerJobStatus(j.id, "approved");
+                          }}
                         >
                           Approve
                         </button>
@@ -748,7 +995,18 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          onClick={() => setPartnerJobStatus(j.id, "rejected")}
+                          onClick={async () => {
+                            const live = await fetch(`/api/ops/jobs/${j.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "rejected" }),
+                            });
+                            if (live.ok) {
+                              refreshQueue();
+                              return;
+                            }
+                            setPartnerJobStatus(j.id, "rejected");
+                          }}
                         >
                           Reject
                         </button>
@@ -814,8 +1072,23 @@ export default function AdminPage() {
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Live restaurants</h2>
           <ul className="mt-4 space-y-2">
-            {RESTAURANTS.map((r) => {
-              const live = isRestaurantApproved(r.id);
+            {(queue?.listings?.length
+              ? queue.listings.map((l) => ({
+                  id: String(l.id),
+                  name: String(l.name ?? ""),
+                  emoji: String(l.emoji ?? "🍽️"),
+                  cuisine: String(l.cuisine ?? ""),
+                  approved: l.approved !== false && l.banned !== true,
+                }))
+              : RESTAURANTS.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  emoji: r.emoji,
+                  cuisine: r.cuisine,
+                  approved: isRestaurantApproved(r.id),
+                }))
+            ).map((r) => {
+              const live = r.approved;
               return (
                 <li
                   key={r.id}
@@ -830,7 +1103,21 @@ export default function AdminPage() {
                     className={`gp-btn text-xs !py-1.5 ${
                       live ? "gp-btn-secondary" : "gp-btn-primary"
                     }`}
-                    onClick={() => setRestaurantApproved(r.id, !live)}
+                    onClick={async () => {
+                      const res = await fetch(`/api/ops/listings/${r.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          approved: !live,
+                          banned: live,
+                        }),
+                      });
+                      if (res.ok) {
+                        refreshQueue();
+                        return;
+                      }
+                      setRestaurantApproved(r.id, !live);
+                    }}
                   >
                     {live ? "Unlist" : "List live"}
                   </button>

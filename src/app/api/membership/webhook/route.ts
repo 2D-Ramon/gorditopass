@@ -6,6 +6,7 @@ import {
   planRenewsAt,
   upsertDirectoryMember,
 } from "@/lib/market";
+import { recomputeMember } from "@/lib/member-state";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -67,8 +68,15 @@ export async function POST(req: Request) {
           birthday?: string;
           homeAddress?: string;
         }[]) || [];
+        const { data: billed } = await sb
+          .from("profiles")
+          .select("email")
+          .eq("id", pending.profile_id)
+          .maybeSingle();
+        const billedEmail = String(billed?.email ?? "").toLowerCase();
         for (const seat of seats) {
           if (!seat.email) continue;
+          const seatEmail = String(seat.email).trim().toLowerCase();
           await upsertDirectoryMember({
             email: seat.email,
             first_name: seat.firstName,
@@ -82,12 +90,26 @@ export async function POST(req: Request) {
             birthday: seat.birthday,
             home_address: seat.homeAddress,
           });
+          await sb.from("household_seats").upsert(
+            {
+              primary_member_id: pending.profile_id,
+              email: seatEmail,
+              first_name: seat.firstName ?? null,
+              last_name: seat.lastName ?? null,
+              phone: seat.phone ?? null,
+              birthday: seat.birthday || null,
+              home_address: seat.homeAddress ?? null,
+              is_primary: seatEmail === billedEmail,
+            },
+            { onConflict: "primary_member_id,email" },
+          );
         }
         await addPoints(
           pending.profile_id,
           POINT_ACTIONS.join_member.points,
           POINT_ACTIONS.join_member.label,
         );
+        await recomputeMember(pending.profile_id);
         await sb
           .from("pending_memberships")
           .update({ status: "paid" })

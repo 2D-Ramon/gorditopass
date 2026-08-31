@@ -1,6 +1,6 @@
 import { createOpsClient } from "./supabase";
 import type { CityId, MembershipPlanId, MockUser, StaffRole } from "./types";
-import { BADGES, MEMBERSHIP_PLANS, PLATFORM } from "./pricing";
+import { MEMBERSHIP_PLANS, PLATFORM } from "./pricing";
 export async function userFromRequest(req: Request): Promise<ProfileRow | null> {
   const header = req.headers.get("authorization") || "";
   const token = header.toLowerCase().startsWith("bearer ")
@@ -41,6 +41,8 @@ export type ProfileRow = {
   rewards_claimed: number;
   banned: boolean;
   badges?: string[] | null;
+  completed_passports?: string[] | null;
+  passport_points_claimed?: string[] | null;
 };
 
 export function profileToUser(p: ProfileRow): MockUser {
@@ -72,6 +74,8 @@ export function profileToUser(p: ProfileRow): MockUser {
     membershipActivatedAt: p.membership_activated_at ?? undefined,
     membershipRenewsAt: p.membership_renews_at ?? undefined,
     badges: p.badges ?? [],
+    completedPassports: p.completed_passports ?? [],
+    passportPointsClaimed: p.passport_points_claimed ?? [],
   };
 }
 
@@ -189,27 +193,6 @@ export async function addPoints(
 }
 
 export async function unlockRedeemBadges(memberId: string): Promise<string[]> {
-  const sb = createOpsClient();
-  const { count } = await sb
-    .from("redeem_codes")
-    .select("id", { count: "exact", head: true })
-    .eq("member_id", memberId)
-    .eq("status", "used");
-  const n = count ?? 0;
-  const earned = BADGES.filter(
-    (b) => b.rule.type === "redemptions" && n >= b.rule.min,
-  ).map((b) => b.id);
-  const p = await loadProfile(memberId);
-  const have = new Set(p?.badges ?? []);
-  const newly = earned.filter((id) => !have.has(id));
-  const next = [...have, ...newly];
-  const { error } = await sb
-    .from("profiles")
-    .update({ badges: next })
-    .eq("id", memberId);
-  if (error) {
-    // Column may not exist until badges.sql is run; still return newly earned.
-    return newly.length ? newly : earned.filter((id) => id === "first_bite" && n >= 1);
-  }
-  return newly;
+  const { recomputeMember } = await import("./member-state");
+  return recomputeMember(memberId);
 }

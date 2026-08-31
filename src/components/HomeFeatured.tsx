@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { RestaurantCard } from "@/components/RestaurantCard";
-import { CITIES, RESTAURANTS } from "@/lib/data";
+import { CITIES } from "@/lib/data";
+import { useLiveCatalog } from "@/lib/live-catalog";
 import { useStore } from "@/lib/store";
 
 /**
@@ -12,10 +13,11 @@ import { useStore } from "@/lib/store";
  */
 export function HomeFeatured() {
   const { isRestaurantApproved, city } = useStore();
+  const { restaurants } = useLiveCatalog();
   const cityName =
     CITIES.find((c) => c.id === city)?.name ?? "your city";
-  const featured = RESTAURANTS.filter(
-    (r) => isRestaurantApproved(r.id) && r.city === city,
+  const featured = restaurants.filter(
+    (r) => isRestaurantApproved(r.id) && r.city === city && r.approved,
   );
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);

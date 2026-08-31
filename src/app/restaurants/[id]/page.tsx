@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel, getRestaurant } from "@/lib/data";
+import { useLiveCatalog } from "@/lib/live-catalog";
 import { MENU_CATEGORIES } from "@/lib/pricing";
 import { isPartnerContentLive, useStore } from "@/lib/store";
+import type { Review } from "@/lib/types";
 
 export default function RestaurantDetailPage() {
   const params = useParams();
   const id = String(params.id);
-  const restaurant = getRestaurant(id);
+  const { restaurants } = useLiveCatalog();
+  const restaurant =
+    restaurants.find((r) => r.id === id || r.slug === id) ?? getRestaurant(id);
+  const [liveReviews, setLiveReviews] = useState<Review[]>([]);
   const {
     user,
     addToCart,
@@ -33,6 +38,19 @@ export default function RestaurantDetailPage() {
   const [rateDone, setRateDone] = useState(false);
   const [rateTick, setRateTick] = useState(0);
 
+  useEffect(() => {
+    let stop = false;
+    void fetch(`/api/listings/${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { reviews?: Review[] } | null) => {
+        if (!stop && data?.reviews) setLiveReviews(data.reviews);
+      })
+      .catch(() => {});
+    return () => {
+      stop = true;
+    };
+  }, [id, rateTick]);
+
   const plateStats = useMemo(() => {
     void rateTick;
     return restaurant
@@ -42,8 +60,13 @@ export default function RestaurantDetailPage() {
 
   const reviews = useMemo(() => {
     void rateTick;
-    return restaurant ? getReviewsForRestaurant(restaurant.id) : [];
-  }, [restaurant, getReviewsForRestaurant, rateTick]);
+    const local = restaurant ? getReviewsForRestaurant(restaurant.id) : [];
+    const seen = new Set(local.map((r) => r.id));
+    return [
+      ...local,
+      ...liveReviews.filter((r) => !seen.has(r.id)),
+    ];
+  }, [restaurant, getReviewsForRestaurant, rateTick, liveReviews]);
 
   if (!restaurant) {
     return (

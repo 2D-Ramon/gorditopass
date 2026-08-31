@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { RestaurantCard } from "@/components/RestaurantCard";
-import { RESTAURANTS, cuisineLabel } from "@/lib/data";
+import { cuisineLabel } from "@/lib/data";
+import { useLiveCatalog } from "@/lib/live-catalog";
 import { useStore } from "@/lib/store";
 import type { Cuisine } from "@/lib/types";
 
@@ -26,12 +27,13 @@ const CUISINES: (Cuisine | "all")[] = [
 
 export default function ExplorePage() {
   const { city, isRestaurantApproved } = useStore();
+  const { restaurants } = useLiveCatalog();
   const [q, setQ] = useState("");
   const [cuisine, setCuisine] = useState<Cuisine | "all">("all");
 
   const list = useMemo(() => {
-    return RESTAURANTS.filter((r) => {
-      if (!isRestaurantApproved(r.id)) return false;
+    return restaurants.filter((r) => {
+      if (!isRestaurantApproved(r.id) || !r.approved) return false;
       if (r.city !== city) return false;
       if (cuisine !== "all" && r.cuisine !== cuisine) return false;
       if (q) {
@@ -40,7 +42,7 @@ export default function ExplorePage() {
       }
       return true;
     });
-  }, [city, cuisine, q, isRestaurantApproved]);
+  }, [city, cuisine, q, isRestaurantApproved, restaurants]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">

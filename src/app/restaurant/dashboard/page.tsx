@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RESTAURANTS } from "@/lib/data";
+import { useLiveCatalog } from "@/lib/live-catalog";
 import {
   MEMBERSHIP_PLANS,
   MENU_CATEGORIES,
@@ -14,6 +15,10 @@ import {
   type CityId,
   type DealType,
   type MembershipPlanId,
+  type PartnerDealDraft,
+  type PartnerEvent,
+  type PartnerMenuItem,
+  type JobPosting,
   type StaffRole,
 } from "@/lib/types";
 
@@ -261,8 +266,15 @@ export default function RestaurantDashboardPage() {
     partnerRevenueYtd,
     partnerRedemptionCount,
   } = useStore();
+  const { restaurants: liveRestaurants } = useLiveCatalog();
   const restaurant =
-    RESTAURANTS.find((r) => r.id === user?.restaurantId) ?? RESTAURANTS[0];
+    liveRestaurants.find((r) => r.id === user?.restaurantId) ??
+    RESTAURANTS.find((r) => r.id === user?.restaurantId) ??
+    RESTAURANTS[0];
+  const [dbDeals, setDbDeals] = useState<PartnerDealDraft[] | null>(null);
+  const [dbMenu, setDbMenu] = useState<PartnerMenuItem[] | null>(null);
+  const [dbEvents, setDbEvents] = useState<PartnerEvent[] | null>(null);
+  const [dbJobs, setDbJobs] = useState<JobPosting[] | null>(null);
   const [tab, setTab] = useState<Tab>("scan");
   const [scanCode, setScanCode] = useState("");
   const [scanMsg, setScanMsg] = useState("");
@@ -333,13 +345,98 @@ export default function RestaurantDashboardPage() {
 
   useEffect(() => {
     if (user?.role !== "restaurant") return;
-    void import("@/lib/authed").then(({ authedFetch }) =>
-      authedFetch("/api/partner/pin")
+    void import("@/lib/authed").then(({ authedFetch }) => {
+      void authedFetch("/api/partner/pin")
         .then((r) => r.json())
         .then((d) => {
           if (d.pin) setStaffPin(d.pin);
-        }),
-    );
+        });
+      void authedFetch("/api/partner/deals")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!Array.isArray(d.deals)) return;
+          setDbDeals(
+            d.deals.map((row: Record<string, unknown>) => ({
+              id: String(row.id),
+              restaurantId: String(row.restaurant_id ?? ""),
+              title: String(row.title ?? ""),
+              description: String(row.description ?? ""),
+              type: (row.type as DealType) || "free_item",
+              value: row.value == null ? null : Number(row.value),
+              regularPriceUsd:
+                row.regular_price_usd == null
+                  ? undefined
+                  : Number(row.regular_price_usd),
+              active: row.active !== false,
+              status: (row.status as PartnerDealDraft["status"]) || "pending",
+              createdAt: String(row.created_at ?? ""),
+            })),
+          );
+        });
+      void authedFetch("/api/partner/menu")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!Array.isArray(d.menu)) return;
+          setDbMenu(
+            d.menu.map((row: Record<string, unknown>) => ({
+              id: String(row.id),
+              restaurantId: String(row.restaurant_id ?? ""),
+              name: String(row.name ?? ""),
+              description: String(row.description ?? ""),
+              priceUsd: Number(row.price_usd ?? 0),
+              category: String(row.category ?? "Mains"),
+              status: (row.status as PartnerMenuItem["status"]) || "pending",
+              createdAt: String(row.created_at ?? ""),
+              active: row.active !== false,
+            })),
+          );
+        });
+      void authedFetch("/api/partner/events")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!Array.isArray(d.events)) return;
+          setDbEvents(
+            d.events.map((row: Record<string, unknown>) => ({
+              id: String(row.id),
+              restaurantId: String(row.restaurant_id ?? ""),
+              restaurantName: String(row.restaurant_name ?? ""),
+              title: String(row.title ?? ""),
+              description: String(row.description ?? ""),
+              date: String(row.event_date ?? ""),
+              time: String(row.event_time ?? ""),
+              city: (row.city as CityId) || "dallas",
+              emoji: String(row.emoji ?? "🎉"),
+              address: String(row.address ?? ""),
+              ticketUrl: String(row.ticket_url ?? ""),
+              ticketPriceUsd: Number(row.ticket_price_usd ?? 0),
+              status: (row.status as PartnerEvent["status"]) || "pending",
+              createdAt: String(row.created_at ?? ""),
+            })),
+          );
+        });
+      void authedFetch("/api/partner/jobs")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!Array.isArray(d.jobs)) return;
+          setDbJobs(
+            d.jobs.map((row: Record<string, unknown>) => ({
+              id: String(row.id),
+              restaurantId: String(row.restaurant_id ?? ""),
+              restaurantName: String(row.restaurant_name ?? ""),
+              title: String(row.title ?? ""),
+              description: String(row.description ?? ""),
+              type:
+                (row.job_type as JobPosting["type"]) || "part-time",
+              city: (row.city as CityId) || "dallas",
+              postedAt: String(row.created_at ?? ""),
+              payRange: String(row.pay_range ?? ""),
+              applyUrl: String(row.apply_url ?? ""),
+              status: (row.status as JobPosting["status"]) || "pending",
+              createdAt: String(row.created_at ?? ""),
+            })),
+          );
+        });
+    });
   }, [user?.role, user?.restaurantId]);
 
   const myRedeems = useMemo(
@@ -353,14 +450,18 @@ export default function RestaurantDashboardPage() {
     [redemptions, partnerDeals, restaurant],
   );
 
-  const myDeals = partnerDeals.filter((d) => d.restaurantId === restaurant.id);
-  const myMenu = partnerMenuItems.filter(
+  const myDeals = (dbDeals ?? partnerDeals).filter(
+    (d) => d.restaurantId === restaurant.id,
+  );
+  const myMenu = (dbMenu ?? partnerMenuItems).filter(
     (m) => m.restaurantId === restaurant.id,
   );
-  const myEvents = partnerEvents.filter(
+  const myEvents = (dbEvents ?? partnerEvents).filter(
     (e) => e.restaurantId === restaurant.id,
   );
-  const myJobs = partnerJobs.filter((j) => j.restaurantId === restaurant.id);
+  const myJobs = (dbJobs ?? partnerJobs).filter(
+    (j) => j.restaurantId === restaurant.id,
+  );
 
   function toast(msg: string) {
     setFlash(msg);
@@ -432,7 +533,7 @@ export default function RestaurantDashboardPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="gp-page-title">Partner dashboard</h1>
       <p className="gp-page-sub">
-        Demo bound to <strong className="text-stone-300">{restaurant.name}</strong>
+        Bound to <strong className="text-stone-300">{restaurant.name}</strong>
         . Signed in as{" "}
         <strong className="text-stone-300">{user.staffRole ?? "owner"}</strong>
         {!canManage && " — redeem scan only"}.
@@ -818,53 +919,89 @@ export default function RestaurantDashboardPage() {
           </p>
           <form
             className="mt-4 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!dealTitle.trim() || !regularPrice) return;
               const expire = {
                 expireEnabled: dealExpireOn,
                 expiresAt: dealExpireOn ? dealExpiresAt || null : null,
               };
+              const payload = {
+                title: dealTitle.trim(),
+                description: dealDesc.trim() || "Member deal",
+                type: dealType,
+                value:
+                  dealType === "percent_off" ||
+                  dealType === "percent_off_total" ||
+                  dealType === "fixed_price"
+                    ? Number(dealValue) || null
+                    : null,
+                regularPrice: Number(regularPrice) || 0,
+              };
               if (editId && tab === "deal") {
                 updatePartnerDeal(editId, {
-                  title: dealTitle.trim(),
-                  description: dealDesc.trim() || "Member deal",
+                  title: payload.title,
+                  description: payload.description,
                   type: dealType,
-                  value:
-                    dealType === "percent_off" ||
-                    dealType === "percent_off_total" ||
-                    dealType === "fixed_price"
-                      ? Number(dealValue) || null
-                      : null,
-                  regularPriceUsd: Number(regularPrice) || 0,
+                  value: payload.value,
+                  regularPriceUsd: payload.regularPrice,
                   imageDataUrls: dealImages.length ? dealImages : undefined,
                   ...expire,
                 });
                 setEditId(null);
                 toast("Promotion updated.");
               } else {
-                const res = addPartnerDeal({
-                  restaurantId: restaurant.id,
-                  title: dealTitle.trim(),
-                  description: dealDesc.trim() || "Member deal",
-                  type: dealType,
-                  value:
-                    dealType === "percent_off" ||
-                    dealType === "percent_off_total" ||
-                    dealType === "fixed_price"
-                      ? Number(dealValue) || null
-                      : null,
-                  regularPriceUsd: Number(regularPrice) || 0,
-                  imageDataUrls: dealImages.length ? dealImages : undefined,
-                  ...expire,
+                const { authedFetch } = await import("@/lib/authed");
+                const live = await authedFetch("/api/partner/deals", {
+                  method: "POST",
+                  body: JSON.stringify(payload),
                 });
-                toast(
-                  res.aiFlagged
-                    ? "Promotion flagged by AI for admin review."
-                    : res.status === "approved"
-                      ? "Promotion auto-approved and live."
-                      : "Promotion submitted — pending admin approval.",
-                );
+                if (live.ok) {
+                  toast("Promotion submitted — pending admin approval.");
+                  const list = await authedFetch("/api/partner/deals");
+                  if (list.ok) {
+                    const d = await list.json();
+                    if (Array.isArray(d.deals)) {
+                      setDbDeals(
+                        d.deals.map((row: Record<string, unknown>) => ({
+                          id: String(row.id),
+                          restaurantId: String(row.restaurant_id ?? ""),
+                          title: String(row.title ?? ""),
+                          description: String(row.description ?? ""),
+                          type: (row.type as DealType) || "free_item",
+                          value: row.value == null ? null : Number(row.value),
+                          regularPriceUsd:
+                            row.regular_price_usd == null
+                              ? undefined
+                              : Number(row.regular_price_usd),
+                          active: row.active !== false,
+                          status:
+                            (row.status as PartnerDealDraft["status"]) ||
+                            "pending",
+                          createdAt: String(row.created_at ?? ""),
+                        })),
+                      );
+                    }
+                  }
+                } else {
+                  const res = addPartnerDeal({
+                    restaurantId: restaurant.id,
+                    title: payload.title,
+                    description: payload.description,
+                    type: dealType,
+                    value: payload.value,
+                    regularPriceUsd: payload.regularPrice,
+                    imageDataUrls: dealImages.length ? dealImages : undefined,
+                    ...expire,
+                  });
+                  toast(
+                    res.aiFlagged
+                      ? "Promotion flagged by AI for admin review."
+                      : res.status === "approved"
+                        ? "Promotion auto-approved and live."
+                        : "Promotion submitted — pending admin approval.",
+                  );
+                }
               }
               setDealTitle("");
               setDealDesc("");
@@ -1074,7 +1211,7 @@ export default function RestaurantDashboardPage() {
           <h2 className="font-semibold">Add menu item</h2>
           <form
             className="mt-4 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!menuName.trim()) return;
               const expire = {
@@ -1093,22 +1230,36 @@ export default function RestaurantDashboardPage() {
                 setEditId(null);
                 toast("Menu item updated.");
               } else {
-                const res = addPartnerMenuItem({
-                  restaurantId: restaurant.id,
-                  name: menuName.trim(),
-                  description: menuDesc.trim(),
-                  priceUsd: Number(menuPrice) || 0,
-                  category: menuCat.trim() || "Mains",
-                  imageDataUrls: menuImages.length ? menuImages : undefined,
-                  ...expire,
+                const { authedFetch } = await import("@/lib/authed");
+                const live = await authedFetch("/api/partner/menu", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    name: menuName.trim(),
+                    description: menuDesc.trim(),
+                    priceUsd: Number(menuPrice) || 0,
+                    category: menuCat.trim() || "Mains",
+                  }),
                 });
-                toast(
-                  res.aiFlagged
-                    ? "Menu item flagged by AI for admin review."
-                    : res.status === "approved"
-                      ? "Menu item auto-approved and live."
-                      : "Menu item submitted — pending admin approval.",
-                );
+                if (live.ok) {
+                  toast("Menu item submitted — pending admin approval.");
+                } else {
+                  const res = addPartnerMenuItem({
+                    restaurantId: restaurant.id,
+                    name: menuName.trim(),
+                    description: menuDesc.trim(),
+                    priceUsd: Number(menuPrice) || 0,
+                    category: menuCat.trim() || "Mains",
+                    imageDataUrls: menuImages.length ? menuImages : undefined,
+                    ...expire,
+                  });
+                  toast(
+                    res.aiFlagged
+                      ? "Menu item flagged by AI for admin review."
+                      : res.status === "approved"
+                        ? "Menu item auto-approved and live."
+                        : "Menu item submitted — pending admin approval.",
+                  );
+                }
               }
               setMenuName("");
               setMenuDesc("");
@@ -1268,7 +1419,7 @@ export default function RestaurantDashboardPage() {
           <h2 className="font-semibold">Create an event</h2>
           <form
             className="mt-4 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!evTitle.trim() || !evDate.trim()) return;
               const expire = {
@@ -1290,6 +1441,24 @@ export default function RestaurantDashboardPage() {
                 setEditId(null);
                 toast("Event updated.");
               } else {
+                const { authedFetch } = await import("@/lib/authed");
+                const live = await authedFetch("/api/partner/events", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: evTitle.trim(),
+                    description: evDesc.trim(),
+                    date: evDate,
+                    time: evTime || "TBA",
+                    city: restaurant.city,
+                    emoji: evEmoji || "🎉",
+                    address: evAddress,
+                    ticketUrl: evTicketUrl.trim(),
+                    ticketPriceUsd: Number(evTicketPrice) || 0,
+                  }),
+                });
+                if (live.ok) {
+                  toast("Event submitted — pending admin approval.");
+                } else {
                 const res = addPartnerEvent({
                   restaurantId: restaurant.id,
                   restaurantName: restaurant.name,
@@ -1313,6 +1482,7 @@ export default function RestaurantDashboardPage() {
                       ? "Event auto-approved and live."
                       : "Event submitted — pending admin approval.",
                 );
+                }
               }
               setEvTitle("");
               setEvDesc("");
@@ -1470,7 +1640,7 @@ export default function RestaurantDashboardPage() {
           <h2 className="font-semibold">Jobs</h2>
           <form
             className="mt-4 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!jobTitle.trim() || !jobApplyUrl.trim()) return;
               const expire = {
@@ -1489,6 +1659,21 @@ export default function RestaurantDashboardPage() {
                 setEditId(null);
                 toast("Job updated.");
               } else {
+                const { authedFetch } = await import("@/lib/authed");
+                const live = await authedFetch("/api/partner/jobs", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: jobTitle.trim(),
+                    description: jobDesc.trim(),
+                    type: jobType,
+                    city: restaurant.city,
+                    payRange: jobPay.trim(),
+                    applyUrl: jobApplyUrl.trim(),
+                  }),
+                });
+                if (live.ok) {
+                  toast("Job submitted — pending admin approval.");
+                } else {
                 const res = addPartnerJob({
                   restaurantId: restaurant.id,
                   restaurantName: restaurant.name,
@@ -1507,6 +1692,7 @@ export default function RestaurantDashboardPage() {
                       ? "Job auto-approved and live."
                       : "Job submitted — pending admin approval.",
                 );
+                }
               }
               setJobTitle("");
               setJobDesc("");

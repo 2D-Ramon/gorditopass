@@ -20,6 +20,7 @@ import type {
   EventRsvp,
   EventRsvpStatus,
   JobPosting,
+  LiveMemberBundle,
   MemberSeatProfile,
   MembershipPlanId,
   ModeratedFeedPost,
@@ -109,7 +110,7 @@ interface StoreValue {
   setCity: (c: CityId) => void;
   signInDemo: (role?: MockUser["role"], staffRole?: StaffRole) => void;
   signInOpsAdmin: (input: { id: string; name: string; email: string }) => void;
-  hydrateFromServer: (user: MockUser) => void;
+  hydrateFromServer: (user: MockUser, extras?: Omit<LiveMemberBundle, "user">) => void;
   signOut: () => void;
   /** Recommended model: each person logs in with their own email */
   loginWithPassword: (
@@ -224,14 +225,15 @@ interface StoreValue {
     restaurantId: string,
     patch: Partial<Omit<RestaurantAutoApprove, "restaurantId">>,
   ) => void;
-  addHouseholdSeat: (seat: Omit<MemberSeatProfile, "id" | "isPrimary">) => {
-    ok: boolean;
-    error?: string;
-  };
-  removeHouseholdSeat: (seatId: string) => { ok: boolean; error?: string };
+  addHouseholdSeat: (
+    seat: Omit<MemberSeatProfile, "id" | "isPrimary">,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  removeHouseholdSeat: (
+    seatId: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   hideFeedPost: (post: Omit<ModeratedFeedPost, "hidden">) => void;
   unhideFeedPost: (id: string) => void;
-  claimReward: () => boolean;
+  claimReward: () => Promise<boolean>;
   resetDemoData: () => void;
   addPartnerEvent: (
     event: Omit<
@@ -922,9 +924,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const hydrateFromServer = useCallback((next: MockUser) => {
+  const applyLiveBundle = useCallback((bundle: LiveMemberBundle) => {
+    const next = { ...bundle.user };
+    if (bundle.household) {
+      next.householdMembers = bundle.household;
+      next.familySeats = Math.max(next.familySeats ?? 1, bundle.household.length);
+    }
+    if (typeof bundle.feedPostCount === "number") {
+      next.feedPostCount = bundle.feedPostCount;
+    }
     setUser(next);
+    if (bundle.favorites) setFavorites(bundle.favorites);
+    if (bundle.redemptions) setRedemptions(bundle.redemptions);
+    if (bundle.reviews) setUserReviews(bundle.reviews);
+    if (bundle.rewardHistory) setRewardHistory(bundle.rewardHistory);
   }, []);
+
+  const hydrateFromServer = useCallback(
+    (next: MockUser, extras?: Omit<LiveMemberBundle, "user">) => {
+      if (extras) {
+        applyLiveBundle({ user: next, ...extras });
+        return;
+      }
+      setUser(next);
+    },
+    [applyLiveBundle],
+  );
 
   const signOut = useCallback(() => {
     setUser(null);
@@ -1944,16 +1969,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!user) return;
       setFavorites((prev) => {
         const removing = prev.includes(restaurantId);
-        if (removing) return prev.filter((id) => id !== restaurantId);
-        const next = [...prev, restaurantId];
-        queueMicrotask(() => {
-          awardPoints("favorite");
-          evaluateBadges({ favorites: next });
-        });
+        const next = removing
+          ? prev.filter((id) => id !== restaurantId)
+          : [...prev, restaurantId];
+        void (async () => {
+          const { authedFetch } = await import("./authed");
+          const res = await authedFetch("/api/me/favorite", {
+            method: "POST",
+            body: JSON.stringify({ restaurantId }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as LiveMemberBundle;
+            if (data.user) applyLiveBundle(data);
+            return;
+          }
+          if (!removing) {
+            awardPoints("favorite");
+            evaluateBadges({ favorites: next });
+          }
+        })();
         return next;
       });
     },
-    [awardPoints, evaluateBadges, user],
+    [awardPoints, evaluateBadges, user, applyLiveBundle],
   );
 
   const toggleFollow = useCallback(
@@ -2049,7 +2087,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [partnerDeals, evaluateBadges, evaluatePassports],
   );
 
-  const claimReward = useCallback(() => {
+  const claimReward = useCallback(async () => {
+    const { authedFetch } = await import("./authed");
+    const live = await authedFetch("/api/me/claim", { method: "POST" });
+    if (live.ok) {
+      const data = (await live.json()) as LiveMemberBundle;
+      if (data.user) applyLiveBundle(data);
+      return true;
+    }
     let ok = false;
     setUser((u) => {
       if (!u || u.role !== "diner") return u;
@@ -2076,7 +2121,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       queueMicrotask(() => evaluateBadges());
     }
     return ok;
-  }, [evaluateBadges]);
+  }, [evaluateBadges, applyLiveBundle]);
 
   const submitRestaurantApplication = useCallback(
     (app: Omit<RestaurantApplication, "at" | "status" | "id">) => {
@@ -2176,9 +2221,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const addHouseholdSeat = useCallback(
-    (seat: Omit<MemberSeatProfile, "id" | "isPrimary">) => {
+    async (seat: Omit<MemberSeatProfile, "id" | "isPrimary">) => {
       if (!user || user.role !== "diner") {
         return { ok: false, error: "Sign in as a member first." };
+      }
+      const { authedFetch } = await import("./authed");
+      const live = await authedFetch("/api/me/household", {
+        method: "POST",
+        body: JSON.stringify(seat),
+      });
+      if (live.ok) {
+        const data = (await live.json()) as LiveMemberBundle;
+        if (data.user) applyLiveBundle(data);
+        return { ok: true };
+      }
+      if (live.status !== 401) {
+        const err = (await live.json().catch(() => null)) as { error?: string } | null;
+        if (err?.error) return { ok: false, error: err.error };
       }
       const seats = user.householdMembers ?? [];
       if (seats.length >= MAX_FAMILY_SEATS) {
@@ -2252,13 +2311,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       return { ok: true };
     },
-    [user, accounts],
+    [user, accounts, applyLiveBundle],
   );
 
   const removeHouseholdSeat = useCallback(
-    (seatId: string) => {
+    async (seatId: string) => {
       if (!user || user.role !== "diner") {
         return { ok: false, error: "Sign in as a member first." };
+      }
+      const { authedFetch } = await import("./authed");
+      const live = await authedFetch(`/api/me/household?id=${encodeURIComponent(seatId)}`, {
+        method: "DELETE",
+      });
+      if (live.ok) {
+        const data = (await live.json()) as LiveMemberBundle;
+        if (data.user) applyLiveBundle(data);
+        return { ok: true };
       }
       const seats = user.householdMembers ?? [];
       if (seats.length < 2) {
@@ -2286,7 +2354,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       return { ok: true };
     },
-    [user],
+    [user, applyLiveBundle],
   );
 
   const setRestaurantApproved = useCallback(
@@ -2866,22 +2934,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         nextReviews = [full, ...prev];
         return nextReviews;
       });
-      if (full.fromFeed) {
-        setUser((u) =>
-          u
-            ? { ...u, feedPostCount: (u.feedPostCount ?? 0) + 1 }
-            : u,
-        );
-        awardPoints("feed_post");
-      } else {
-        awardPoints("review");
-      }
-      queueMicrotask(() =>
-        evaluateBadges({ userReviews: nextReviews }),
-      );
+      void (async () => {
+        const { authedFetch } = await import("./authed");
+        const res = await authedFetch("/api/me/review", {
+          method: "POST",
+          body: JSON.stringify({
+            restaurantId: full.restaurantId,
+            plates: full.plates,
+            text: full.text,
+            fromFeed: full.fromFeed,
+            menuItemId: full.menuItemId,
+            menuItemName: full.menuItemName,
+            dealId: full.dealId,
+            dealTitle: full.dealTitle,
+            cuisine: full.cuisine,
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as LiveMemberBundle;
+          if (data.user) applyLiveBundle(data);
+          return;
+        }
+        if (full.fromFeed) {
+          setUser((u) =>
+            u ? { ...u, feedPostCount: (u.feedPostCount ?? 0) + 1 } : u,
+          );
+          awardPoints("feed_post");
+        } else {
+          awardPoints("review");
+        }
+        evaluateBadges({ userReviews: nextReviews });
+      })();
       return full;
     },
-    [user?.name, user?.role, awardPoints, evaluateBadges],
+    [user?.name, user?.role, awardPoints, evaluateBadges, applyLiveBundle],
   );
 
   const getReviewsForRestaurant = useCallback(

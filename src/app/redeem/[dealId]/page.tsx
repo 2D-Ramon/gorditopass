@@ -78,19 +78,28 @@ export default function RedeemPage() {
         const before = user?.rewardPoints ?? 0;
         const after = typeof data.points === "number" ? data.points : before;
         setPointsEarned(Math.max(0, after - before) || 10);
-        if (Array.isArray(data.badges) && data.badges.includes("first_bite")) {
-          setUnlockedBadge("First Bite");
+        const newly = Array.isArray(data.newBadges)
+          ? data.newBadges
+          : Array.isArray(data.badges)
+            ? data.badges
+            : [];
+        if (newly.length) {
+          setUnlockedBadge(
+            newly
+              .map((id: string) =>
+                id === "first_bite"
+                  ? "First Bite"
+                  : id.replace(/_/g, " "),
+              )
+              .join(", "),
+          );
         }
         setStaffOk(true);
         const me = await authedFetch("/api/me");
         if (me.ok) {
           const body = await me.json();
           if (body.user) {
-            const badges = new Set(body.user.badges ?? []);
-            if (Array.isArray(data.badges)) {
-              for (const id of data.badges) badges.add(id);
-            }
-            hydrateFromServer({ ...body.user, badges: Array.from(badges) });
+            hydrateFromServer(body.user, body);
           }
         }
         return;

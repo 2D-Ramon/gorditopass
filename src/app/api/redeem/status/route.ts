@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { userFromRequest } from "@/lib/market";
+import { recomputeMember } from "@/lib/member-state";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function GET(req: Request) {
@@ -21,19 +22,26 @@ export async function GET(req: Request) {
   if (!row) {
     return NextResponse.json({ status: "unknown" });
   }
-  const { count } = await sb
-    .from("redeem_codes")
-    .select("id", { count: "exact", head: true })
-    .eq("member_id", profile.id)
-    .eq("status", "used");
-  const badges = [...(profile.badges ?? [])];
-  if ((count ?? 0) >= 1 && !badges.includes("first_bite")) {
-    badges.push("first_bite");
+  if (row.status === "used") {
+    const newBadges = await recomputeMember(profile.id);
+    const { data: fresh } = await sb
+      .from("profiles")
+      .select("reward_points, badges")
+      .eq("id", profile.id)
+      .maybeSingle();
+    return NextResponse.json({
+      status: "used",
+      dealId: row.deal_id,
+      points: fresh?.reward_points ?? profile.reward_points,
+      badges: fresh?.badges ?? profile.badges ?? [],
+      newBadges,
+      savingsUsd: row.savings_usd ?? 0,
+    });
   }
   return NextResponse.json({
     status: row.status,
     dealId: row.deal_id,
     points: profile.reward_points,
-    badges,
+    badges: profile.badges ?? [],
   });
 }

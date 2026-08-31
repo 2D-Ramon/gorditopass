@@ -238,8 +238,9 @@ function ConnectPanel({
           </li>
           <li>
             SQL Editor → paste{" "}
-            <code className="text-stone-300">supabase/market.sql</code> (live
-            logins, listings, redeem) → Run.
+            <code className="text-stone-300">supabase/market.sql</code> then{" "}
+            <code className="text-stone-300">supabase/member_activity.sql</code>{" "}
+            (badges, reviews, favorites, feed, seats) → Run.
           </li>
           <li>
             Restart the app, come back here, unlock with{" "}

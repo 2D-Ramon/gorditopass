@@ -256,6 +256,19 @@ export interface MockUser {
   referralCount?: number;
 }
 
+/** Payload from /api/me and member activity routes */
+export interface LiveMemberBundle {
+  user: MockUser;
+  favorites?: string[];
+  redemptions?: Redemption[];
+  reviews?: Review[];
+  household?: MemberSeatProfile[];
+  rewardHistory?: RewardEvent[];
+  feedPostCount?: number;
+  savingsYtd?: number;
+  newBadges?: string[];
+}
+
 /** Taste Buds = mutual friends between members */
 export type TasteBudRequestStatus = "pending" | "accepted" | "declined";
 

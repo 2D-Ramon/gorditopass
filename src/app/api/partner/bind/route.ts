@@ -14,12 +14,18 @@ export async function POST(req: Request) {
     staffRole?: string;
   } | null;
   const restaurantId = String(body?.restaurantId ?? "").trim();
-  const seed = getRestaurant(restaurantId);
-  if (!seed) {
-    return NextResponse.json({ error: "Unknown restaurant." }, { status: 400 });
-  }
   const role = (body?.staffRole as string) || "owner";
   const sb = createOpsClient();
+  const { data: existing } = await sb
+    .from("listings")
+    .select("id")
+    .eq("id", restaurantId)
+    .maybeSingle();
+  const seed = getRestaurant(restaurantId);
+  if (!existing && !seed) {
+    return NextResponse.json({ error: "Unknown restaurant." }, { status: 400 });
+  }
+  if (seed) {
   await sb.from("listings").upsert(
     {
       id: seed.id,
@@ -42,9 +48,11 @@ export async function POST(req: Request) {
     },
     { onConflict: "id" },
   );
+  }
+  const listingId = existing?.id || seed!.id;
   await sb.from("listing_staff").upsert(
     {
-      restaurant_id: seed.id,
+      restaurant_id: listingId,
       email: profile.email,
       name: [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email,
       staff_role: role,
@@ -56,7 +64,7 @@ export async function POST(req: Request) {
     .from("profiles")
     .update({
       role: "restaurant",
-      restaurant_id: seed.id,
+      restaurant_id: listingId,
       staff_role: role,
     })
     .eq("id", profile.id);
@@ -64,7 +72,7 @@ export async function POST(req: Request) {
   const { data: pinRow } = await sb
     .from("listing_staff")
     .select("name")
-    .eq("restaurant_id", seed.id)
+    .eq("restaurant_id", listingId)
     .eq("email", SCAN_PIN_EMAIL)
     .maybeSingle();
   let pin = pinRow?.name ?? "";
@@ -72,7 +80,7 @@ export async function POST(req: Request) {
     pin = randomStaffPin();
     await sb.from("listing_staff").upsert(
       {
-        restaurant_id: seed.id,
+        restaurant_id: listingId,
         email: SCAN_PIN_EMAIL,
         name: pin,
         staff_role: "employee",
@@ -81,5 +89,5 @@ export async function POST(req: Request) {
       { onConflict: "restaurant_id,email" },
     );
   }
-  return NextResponse.json({ ok: true, restaurantId: seed.id, staffPin: pin });
+  return NextResponse.json({ ok: true, restaurantId: listingId, staffPin: pin });
 }

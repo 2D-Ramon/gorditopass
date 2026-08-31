@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDeal } from "@/lib/data";
+import { estimateDealValue } from "@/lib/deal-value";
 import { userFromRequest } from "@/lib/market";
 import { SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
@@ -71,6 +72,9 @@ export async function POST(req: Request) {
       id: seed.deal.id,
       restaurant_id: seed.deal.restaurantId,
       title: seed.deal.title,
+      type: seed.deal.type,
+      value: seed.deal.value,
+      regular_price_usd: seed.restaurant.menu[0]?.priceUsd ?? null,
       active: true,
     };
     const { data: pinRow } = await sb
@@ -104,17 +108,31 @@ export async function POST(req: Request) {
     .eq("deal_id", deal.id)
     .eq("status", "pending");
 
+  const value = estimateDealValue({
+    type: deal.type,
+    value: deal.value,
+    regular_price_usd: deal.regular_price_usd,
+  });
   const expires = new Date(Date.now() + 60_000).toISOString();
   let code = sixDigit();
   for (let i = 0; i < 8; i++) {
-    const { error } = await sb.from("redeem_codes").insert({
+    const row = {
       code,
       deal_id: deal.id,
       restaurant_id: deal.restaurant_id,
       member_id: profile.id,
       status: "pending",
       expires_at: expires,
+    };
+    let { error } = await sb.from("redeem_codes").insert({
+      ...row,
+      savings_usd: value.savingsUsd,
+      revenue_usd: value.revenueUsd,
+      deal_title: deal.title,
     });
+    if (error) {
+      ({ error } = await sb.from("redeem_codes").insert(row));
+    }
     if (!error) {
       return NextResponse.json({
         code,

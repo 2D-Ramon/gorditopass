@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   FEED_POSTS,
@@ -118,8 +118,14 @@ function sharePost(post: FeedPost) {
 }
 
 export default function FeedPage() {
-  const { city, user, signInDemo, submitPlateReview, moderatedFeedPosts } =
-    useStore();
+  const {
+    city,
+    user,
+    signInDemo,
+    submitPlateReview,
+    moderatedFeedPosts,
+    hydrateFromServer,
+  } = useStore();
   const hiddenIds = new Set(
     moderatedFeedPosts.filter((p) => p.hidden).map((p) => p.id),
   );
@@ -131,6 +137,23 @@ export default function FeedPage() {
   const [title, setTitle] = useState(POST_TEMPLATES[2].title);
   const [body, setBody] = useState(POST_TEMPLATES[2].body);
   const [localPosts, setLocalPosts] = useState<FeedPost[]>(seedPosts);
+
+  useEffect(() => {
+    let stop = false;
+    void fetch(`/api/feed?city=${city}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { posts?: FeedPost[] } | null) => {
+        if (stop || !data?.posts?.length) return;
+        setLocalPosts((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...data.posts!.filter((p) => !seen.has(p.id)), ...prev];
+        });
+      })
+      .catch(() => {});
+    return () => {
+      stop = true;
+    };
+  }, [city]);
   const [media, setMedia] = useState<FeedMedia[]>([]);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGifs, setShowGifs] = useState(false);
@@ -263,6 +286,25 @@ export default function FeedPage() {
         author: user?.name,
       });
     }
+    void (async () => {
+      const { authedFetch } = await import("@/lib/authed");
+      if (restaurantId && user?.role === "diner") return;
+      const live = await authedFetch("/api/me/feed", {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          body: reviewText,
+          city,
+          restaurantId: restaurantId || undefined,
+          restaurantName: selectedRestaurant?.name,
+          plates: restaurantId ? plates : undefined,
+        }),
+      });
+      if (live.ok) {
+        const data = await live.json();
+        if (data.user) hydrateFromServer(data.user, data);
+      }
+    })();
 
     setLocalPosts((prev) => [
       {

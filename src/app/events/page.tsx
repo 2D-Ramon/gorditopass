@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PARTNER_EVENTS } from "@/lib/data";
 import { isPartnerContentLive, useStore } from "@/lib/store";
 import type { PartnerEvent } from "@/lib/types";
@@ -51,10 +51,23 @@ export default function EventsPage() {
   } = useStore();
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [rsvpMsg, setRsvpMsg] = useState("");
+  const [dbEvents, setDbEvents] = useState<PartnerEvent[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/events")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { events?: PartnerEvent[] } | null) => {
+        if (d?.events) setDbEvents(d.events);
+      })
+      .catch(() => {});
+  }, []);
 
   const livePartner = useMemo(
-    () => partnerEvents.filter((e) => isPartnerContentLive(e)),
-    [partnerEvents],
+    () => [
+      ...dbEvents,
+      ...partnerEvents.filter((e) => isPartnerContentLive(e)),
+    ],
+    [partnerEvents, dbEvents],
   );
 
   const { start, end, rangeLabel } = useMemo(() => {
