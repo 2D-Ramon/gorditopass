@@ -52,6 +52,7 @@ create table if not exists public.profiles (
   reward_points_lifetime integer not null default 0,
   rewards_claimed integer not null default 0,
   banned boolean not null default false,
+  badges text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

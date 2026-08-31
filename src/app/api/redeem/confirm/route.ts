@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { POINT_ACTIONS } from "@/lib/pricing";
-import { addPoints, userFromRequest } from "@/lib/market";
+import { addPoints, unlockRedeemBadges, userFromRequest } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -96,10 +96,12 @@ export async function POST(req: Request) {
       ? POINT_ACTIONS.first_redeem.label
       : POINT_ACTIONS.redeem.label;
   await addPoints(row.member_id, pts, note);
+  const newBadges = await unlockRedeemBadges(row.member_id);
   return NextResponse.json({
     ok: true,
     dealId: row.deal_id,
     memberId: row.member_id,
     points: pts,
+    newBadges,
   });
 }

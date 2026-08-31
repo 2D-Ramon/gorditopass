@@ -14,7 +14,7 @@ function dealTypeLabel(type: DealType | string): string {
 export default function RedeemPage() {
   const params = useParams();
   const dealId = String(params.dealId);
-  const { user, rewardPoints, partnerDeals } = useStore();
+  const { user, rewardPoints, partnerDeals, hydrateFromServer } = useStore();
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -22,6 +22,7 @@ export default function RedeemPage() {
   const [pointsEarned, setPointsEarned] = useState(0);
   const [lastSavings, setLastSavings] = useState<number | null>(null);
   const [liveErr, setLiveErr] = useState("");
+  const [unlockedBadge, setUnlockedBadge] = useState("");
 
   const resolved = useMemo(() => {
     const partner = partnerDeals.find((d) => d.id === dealId);
@@ -57,16 +58,55 @@ export default function RedeemPage() {
   }, [dealId, partnerDeals]);
 
   useEffect(() => {
-    if (!code || !expiresAt) return;
+    if (!code || !expiresAt || staffOk) return;
     const t = setInterval(() => {
       const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left === 0) {
-        setCode(null);
-      }
     }, 250);
     return () => clearInterval(t);
-  }, [code, expiresAt]);
+  }, [code, expiresAt, staffOk]);
+
+  useEffect(() => {
+    if (!code || staffOk) return;
+    let stop = false;
+    const tick = async () => {
+      const { authedFetch } = await import("@/lib/authed");
+      const res = await authedFetch(`/api/redeem/status?code=${code}`);
+      if (!res.ok || stop) return;
+      const data = await res.json();
+      if (data.status === "used") {
+        const before = user?.rewardPoints ?? 0;
+        const after = typeof data.points === "number" ? data.points : before;
+        setPointsEarned(Math.max(0, after - before) || 10);
+        if (Array.isArray(data.badges) && data.badges.includes("first_bite")) {
+          setUnlockedBadge("First Bite");
+        }
+        setStaffOk(true);
+        const me = await authedFetch("/api/me");
+        if (me.ok) {
+          const body = await me.json();
+          if (body.user) {
+            const badges = new Set(body.user.badges ?? []);
+            if (Array.isArray(data.badges)) {
+              for (const id of data.badges) badges.add(id);
+            }
+            hydrateFromServer({ ...body.user, badges: Array.from(badges) });
+          }
+        }
+        return;
+      }
+      if (data.status === "expired") {
+        setCode(null);
+        setLiveErr("Code expired. Generate a new one.");
+      }
+    };
+    const t = setInterval(() => void tick(), 1200);
+    void tick();
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [code, staffOk, hydrateFromServer, user?.rewardPoints]);
 
   if (!resolved) {
     return (
@@ -176,6 +216,11 @@ export default function RedeemPage() {
               +{pointsEarned} reward points · balance {rewardPoints}
             </p>
           )}
+          {unlockedBadge && (
+            <p className="mt-3 text-lg font-bold text-orange-200">
+              🌮 Badge unlocked: {unlockedBadge}
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <Link
               href={`/restaurants/${restaurant.id}`}
@@ -219,9 +264,9 @@ export default function RedeemPage() {
                 Expires in {secondsLeft}s
               </p>
               <p className="mt-4 text-xs text-muted">
-                Show this to staff. They open /scan, type this code plus the
-                restaurant PIN. This code dies in 60 seconds and can be used
-                once.
+                Waiting for staff… Keep this screen open. They confirm on
+                /scan with the restaurant PIN. This code dies in 60 seconds
+                and can be used once.
                 {deal.type === "percent_off_total" && deal.value != null
                   ? ` Apply ${deal.value}% off the entire order on the POS.`
                   : ""}
