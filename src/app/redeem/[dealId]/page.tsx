@@ -219,8 +219,9 @@ export default function RedeemPage() {
                 Expires in {secondsLeft}s
               </p>
               <p className="mt-4 text-xs text-muted">
-                Show this to staff. They type it under Partner dashboard →
-                Redeem scan. This code dies in 60 seconds and can be used once.
+                Show this to staff. They open /scan, type this code plus the
+                restaurant PIN. This code dies in 60 seconds and can be used
+                once.
                 {deal.type === "percent_off_total" && deal.value != null
                   ? ` Apply ${deal.value}% off the entire order on the POS.`
                   : ""}

@@ -5,17 +5,12 @@ import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const staff = await userFromRequest(req);
-  if (!staff || staff.role !== "restaurant") {
-    return NextResponse.json(
-      {
-        error:
-          "Sign in on the partner dashboard with a restaurant email (not Demo).",
-      },
-      { status: 401 },
-    );
-  }
-  const body = (await req.json().catch(() => null)) as { code?: string } | null;
+  const body = (await req.json().catch(() => null)) as {
+    code?: string;
+    pin?: string;
+  } | null;
   const code = String(body?.code ?? "").replace(/\D/g, "");
+  const pin = String(body?.pin ?? "").replace(/\D/g, "");
   if (code.length !== 6) {
     return NextResponse.json({ error: "Enter the 6-digit code." }, { status: 400 });
   }
@@ -28,27 +23,43 @@ export async function POST(req: Request) {
   if (!row) {
     return NextResponse.json({ error: "Code not found." }, { status: 404 });
   }
-  let restaurantId = staff.restaurant_id;
-  if (!restaurantId) {
-    const { data: staffRow } = await sb
+  if (pin) {
+    const { data: pinRow } = await sb
       .from("listing_staff")
-      .select("restaurant_id")
-      .eq("email", staff.email)
+      .select("name")
+      .eq("restaurant_id", row.restaurant_id)
+      .eq("email", "__scan_pin__")
       .eq("active", true)
       .maybeSingle();
-    restaurantId = staffRow?.restaurant_id ?? row.restaurant_id;
-    if (restaurantId) {
-      await sb
-        .from("profiles")
-        .update({ restaurant_id: restaurantId, role: "restaurant" })
-        .eq("id", staff.id);
+    if (!pinRow || pinRow.name !== pin) {
+      return NextResponse.json({ error: "Wrong staff PIN." }, { status: 403 });
     }
-  }
-  if (restaurantId && row.restaurant_id !== restaurantId) {
-    return NextResponse.json(
-      { error: "This code is for a different restaurant." },
-      { status: 403 },
-    );
+  } else {
+    if (!staff || staff.role !== "restaurant") {
+      return NextResponse.json(
+        {
+          error:
+            "Enter the staff PIN on /scan, or sign in as restaurant staff.",
+        },
+        { status: 401 },
+      );
+    }
+    let restaurantId = staff.restaurant_id;
+    if (!restaurantId) {
+      const { data: staffRow } = await sb
+        .from("listing_staff")
+        .select("restaurant_id")
+        .eq("email", staff.email)
+        .eq("active", true)
+        .maybeSingle();
+      restaurantId = staffRow?.restaurant_id ?? null;
+    }
+    if (restaurantId && row.restaurant_id !== restaurantId) {
+      return NextResponse.json(
+        { error: "This code is for a different restaurant." },
+        { status: 403 },
+      );
+    }
   }
   if (row.status === "used") {
     return NextResponse.json({ error: "This code was already used." }, { status: 400 });
@@ -62,7 +73,7 @@ export async function POST(req: Request) {
     .update({
       status: "used",
       used_at: new Date().toISOString(),
-      used_by: staff.id,
+      used_by: staff?.id ?? null,
     })
     .eq("id", row.id)
     .eq("status", "pending")

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDeal } from "@/lib/data";
 import { userFromRequest } from "@/lib/market";
+import { SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
 
 function sixDigit() {
@@ -72,6 +73,24 @@ export async function POST(req: Request) {
       title: seed.deal.title,
       active: true,
     };
+    const { data: pinRow } = await sb
+      .from("listing_staff")
+      .select("name")
+      .eq("restaurant_id", seed.deal.restaurantId)
+      .eq("email", SCAN_PIN_EMAIL)
+      .maybeSingle();
+    if (!pinRow) {
+      await sb.from("listing_staff").upsert(
+        {
+          restaurant_id: seed.deal.restaurantId,
+          email: SCAN_PIN_EMAIL,
+          name: "1234",
+          staff_role: "employee",
+          active: true,
+        },
+        { onConflict: "restaurant_id,email" },
+      );
+    }
   }
 
   if (deal.active === false) {

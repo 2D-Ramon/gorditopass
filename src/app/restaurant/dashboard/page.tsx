@@ -266,6 +266,7 @@ export default function RestaurantDashboardPage() {
   const [tab, setTab] = useState<Tab>("scan");
   const [scanCode, setScanCode] = useState("");
   const [scanMsg, setScanMsg] = useState("");
+  const [staffPin, setStaffPin] = useState("");
   const [flash, setFlash] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -329,6 +330,17 @@ export default function RestaurantDashboardPage() {
   useEffect(() => {
     setStoryDraft(liveStory);
   }, [liveStory]);
+
+  useEffect(() => {
+    if (user?.role !== "restaurant") return;
+    void import("@/lib/authed").then(({ authedFetch }) =>
+      authedFetch("/api/partner/pin")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.pin) setStaffPin(d.pin);
+        }),
+    );
+  }, [user?.role, user?.restaurantId]);
 
   const myRedeems = useMemo(
     () =>
@@ -730,9 +742,20 @@ export default function RestaurantDashboardPage() {
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Staff redeem scan</h2>
           <p className="text-sm text-muted">
-            Enter the 6-digit code from the member’s phone. Available to all
-            employees.
+            Enter the 6-digit code from the member’s phone. Or open{" "}
+            <Link href="/scan" className="text-brand underline">
+              /scan
+            </Link>{" "}
+            in another tab and use the staff PIN — no extra sign-in.
           </p>
+          {staffPin && (
+            <p className="mt-2 text-sm">
+              Staff PIN:{" "}
+              <code className="font-mono text-lg font-bold tracking-widest text-brand-gold">
+                {staffPin}
+              </code>
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <input
               className="gp-input max-w-[10rem] font-mono tracking-widest"

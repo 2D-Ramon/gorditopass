@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRestaurant } from "@/lib/data";
 import { userFromRequest } from "@/lib/market";
+import { randomStaffPin, SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -59,5 +60,26 @@ export async function POST(req: Request) {
       staff_role: role,
     })
     .eq("id", profile.id);
-  return NextResponse.json({ ok: true, restaurantId: seed.id });
+
+  const { data: pinRow } = await sb
+    .from("listing_staff")
+    .select("name")
+    .eq("restaurant_id", seed.id)
+    .eq("email", SCAN_PIN_EMAIL)
+    .maybeSingle();
+  let pin = pinRow?.name ?? "";
+  if (!/^\d{4,6}$/.test(pin)) {
+    pin = randomStaffPin();
+    await sb.from("listing_staff").upsert(
+      {
+        restaurant_id: seed.id,
+        email: SCAN_PIN_EMAIL,
+        name: pin,
+        staff_role: "employee",
+        active: true,
+      },
+      { onConflict: "restaurant_id,email" },
+    );
+  }
+  return NextResponse.json({ ok: true, restaurantId: seed.id, staffPin: pin });
 }
