@@ -7,7 +7,10 @@ export async function POST(req: Request) {
   const staff = await userFromRequest(req);
   if (!staff || staff.role !== "restaurant") {
     return NextResponse.json(
-      { error: "Sign in as restaurant staff to confirm." },
+      {
+        error:
+          "Sign in on the partner dashboard with a restaurant email (not Demo).",
+      },
       { status: 401 },
     );
   }
@@ -25,7 +28,23 @@ export async function POST(req: Request) {
   if (!row) {
     return NextResponse.json({ error: "Code not found." }, { status: 404 });
   }
-  if (staff.restaurant_id && row.restaurant_id !== staff.restaurant_id) {
+  let restaurantId = staff.restaurant_id;
+  if (!restaurantId) {
+    const { data: staffRow } = await sb
+      .from("listing_staff")
+      .select("restaurant_id")
+      .eq("email", staff.email)
+      .eq("active", true)
+      .maybeSingle();
+    restaurantId = staffRow?.restaurant_id ?? row.restaurant_id;
+    if (restaurantId) {
+      await sb
+        .from("profiles")
+        .update({ restaurant_id: restaurantId, role: "restaurant" })
+        .eq("id", staff.id);
+    }
+  }
+  if (restaurantId && row.restaurant_id !== restaurantId) {
     return NextResponse.json(
       { error: "This code is for a different restaurant." },
       { status: 403 },
@@ -52,10 +71,24 @@ export async function POST(req: Request) {
   if (!updated) {
     return NextResponse.json({ error: "This code was already used." }, { status: 400 });
   }
-  await addPoints(row.member_id, POINT_ACTIONS.redeem.points, POINT_ACTIONS.redeem.label);
+  const { count: prior } = await sb
+    .from("redeem_codes")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", row.member_id)
+    .eq("status", "used");
+  const pts =
+    (prior ?? 0) <= 1
+      ? POINT_ACTIONS.first_redeem.points
+      : POINT_ACTIONS.redeem.points;
+  const note =
+    (prior ?? 0) <= 1
+      ? POINT_ACTIONS.first_redeem.label
+      : POINT_ACTIONS.redeem.label;
+  await addPoints(row.member_id, pts, note);
   return NextResponse.json({
     ok: true,
     dealId: row.deal_id,
     memberId: row.member_id,
+    points: pts,
   });
 }

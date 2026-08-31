@@ -19,6 +19,166 @@ import {
 
 type Tab = "scan" | "enroll" | "story" | "deal" | "menu" | "event" | "job";
 
+function PartnerSignIn() {
+  const { signInDemo } = useStore();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [restaurantId, setRestaurantId] = useState(RESTAURANTS[0]?.id ?? "mi-tierra");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function afterAuth() {
+    const { authedFetch } = await import("@/lib/authed");
+    await authedFetch("/api/partner/bind", {
+      method: "POST",
+      body: JSON.stringify({ restaurantId, staffRole: "owner" }),
+    });
+    window.location.reload();
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-16">
+      <h1 className="text-2xl font-bold">Partner dashboard</h1>
+      <p className="mt-2 text-muted">
+        Sign in with a restaurant email to confirm member redeem codes. Demo
+        buttons do not confirm live codes.
+      </p>
+      <form
+        className="mt-6 space-y-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setErr("");
+          setBusy(true);
+          try {
+            const { createBrowserClient } = await import("@/lib/supabase");
+            const sb = createBrowserClient();
+            if (!sb) {
+              setErr("Supabase is not connected.");
+              return;
+            }
+            const { error } = await sb.auth.signInWithPassword({
+              email,
+              password,
+            });
+            if (error) {
+              setErr(error.message);
+              return;
+            }
+            await afterAuth();
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="block text-sm">
+          Restaurant
+          <select
+            className="gp-input mt-1"
+            value={restaurantId}
+            onChange={(e) => setRestaurantId(e.target.value)}
+          >
+            {RESTAURANTS.filter((r) => r.approved).map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          Staff email
+          <input
+            required
+            type="email"
+            className="gp-input mt-1"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm">
+          Password
+          <input
+            required
+            type="password"
+            className="gp-input mt-1"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
+        {err && <p className="text-sm text-red-300">{err}</p>}
+        <button type="submit" className="gp-btn gp-btn-primary w-full" disabled={busy}>
+          {busy ? "Signing in…" : "Sign in to confirm redemptions"}
+        </button>
+        <button
+          type="button"
+          className="gp-btn gp-btn-secondary w-full"
+          disabled={busy}
+          onClick={async () => {
+            setErr("");
+            if (password.length < 8) {
+              setErr("Password must be 8+ characters to create a staff login.");
+              return;
+            }
+            setBusy(true);
+            try {
+              const { createBrowserClient } = await import("@/lib/supabase");
+              const sb = createBrowserClient();
+              const reg = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email,
+                  password,
+                  role: "restaurant",
+                }),
+              });
+              const data = await reg.json();
+              if (!reg.ok && !/already/i.test(String(data.error ?? ""))) {
+                setErr(data.error ?? "Could not create staff login.");
+                return;
+              }
+              const { error } = await sb!.auth.signInWithPassword({
+                email,
+                password,
+              });
+              if (error) {
+                setErr(error.message);
+                return;
+              }
+              await afterAuth();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Create staff login for this restaurant
+        </button>
+      </form>
+      <p className="mt-8 text-xs font-semibold uppercase tracking-wider text-muted">
+        Demo only (does not confirm live codes)
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {(
+          [
+            ["owner", "Owner (full access)"],
+            ["manager", "Manager (full access)"],
+            ["marketing", "Marketing (full access)"],
+            ["employee", "Employee (redeem scan only)"],
+          ] as [StaffRole, string][]
+        ).map(([role, label]) => (
+          <button
+            key={role}
+            type="button"
+            className="gp-btn gp-btn-secondary"
+            onClick={() => signInDemo("restaurant", role)}
+          >
+            Demo · {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ExpireFields({
   enabled,
   date,
@@ -215,34 +375,7 @@ export default function RestaurantDashboardPage() {
   }
 
   if (!user || user.role !== "restaurant") {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Partner dashboard</h1>
-        <p className="mt-2 text-muted">
-          Sign in as a restaurant partner to continue. Demo roles control which
-          tabs you can use.
-        </p>
-        <div className="mt-6 flex flex-col gap-2">
-          {(
-            [
-              ["owner", "Owner (full access)"],
-              ["manager", "Manager (full access)"],
-              ["marketing", "Marketing (full access)"],
-              ["employee", "Employee (redeem scan only)"],
-            ] as [StaffRole, string][]
-          ).map(([role, label]) => (
-            <button
-              key={role}
-              type="button"
-              className="gp-btn gp-btn-secondary"
-              onClick={() => signInDemo("restaurant", role)}
-            >
-              Demo · {label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
+    return <PartnerSignIn />;
   }
 
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [

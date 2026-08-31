@@ -14,14 +14,14 @@ function dealTypeLabel(type: DealType | string): string {
 export default function RedeemPage() {
   const params = useParams();
   const dealId = String(params.dealId);
-  const { user, createRedeemCode, recordRedemption, rewardPoints, partnerDeals } =
-    useStore();
+  const { user, rewardPoints, partnerDeals } = useStore();
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [staffOk, setStaffOk] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
   const [lastSavings, setLastSavings] = useState<number | null>(null);
+  const [liveErr, setLiveErr] = useState("");
 
   const resolved = useMemo(() => {
     const partner = partnerDeals.find((d) => d.id === dealId);
@@ -115,6 +115,7 @@ export default function RedeemPage() {
   }
 
   async function generate() {
+    setLiveErr("");
     const { authedFetch } = await import("@/lib/authed");
     const res = await authedFetch("/api/redeem/start", {
       method: "POST",
@@ -122,38 +123,13 @@ export default function RedeemPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      const r = createRedeemCode(dealId);
-      setCode(r.code);
-      setExpiresAt(r.expiresAt);
-      setSecondsLeft(60);
-      setStaffOk(false);
+      setLiveErr(data.error ?? "Could not issue a live code.");
       return;
     }
     setCode(data.code);
     setExpiresAt(new Date(data.expiresAt).getTime());
     setSecondsLeft(60);
     setStaffOk(false);
-  }
-
-  async function staffConfirm() {
-    if (!code) return;
-    const { authedFetch } = await import("@/lib/authed");
-    const res = await authedFetch("/api/redeem/confirm", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-    if (res.ok) {
-      setPointsEarned(10);
-      setLastSavings(savingsPreview);
-      setStaffOk(true);
-      setCode(null);
-      return;
-    }
-    const result = recordRedemption(dealId, code);
-    setPointsEarned(result.pointsEarned);
-    setLastSavings(result.savingsUsd ?? savingsPreview);
-    setStaffOk(true);
-    setCode(null);
   }
 
   return (
@@ -243,35 +219,33 @@ export default function RedeemPage() {
                 Expires in {secondsLeft}s
               </p>
               <p className="mt-4 text-xs text-muted">
-                Show this to staff. They scan or type the code in their
-                dashboard.
+                Show this to staff. They type it under Partner dashboard →
+                Redeem scan. This code dies in 60 seconds and can be used once.
                 {deal.type === "percent_off_total" && deal.value != null
                   ? ` Apply ${deal.value}% off the entire order on the POS.`
                   : ""}
               </p>
               <button
                 type="button"
-                onClick={staffConfirm}
-                className="gp-btn gp-btn-secondary mt-6 text-sm"
-              >
-                Staff confirmed on their dashboard ✓
-              </button>
-              <button
-                type="button"
                 onClick={generate}
-                className="mt-3 block w-full text-xs text-muted underline"
+                className="mt-6 block w-full text-xs text-muted underline"
               >
                 Refresh code
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={generate}
-              className="gp-btn gp-btn-primary mt-6"
-            >
-              Show redeem code
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={generate}
+                className="gp-btn gp-btn-primary mt-6"
+              >
+                Show redeem code
+              </button>
+              {liveErr && (
+                <p className="mt-3 text-sm text-red-300">{liveErr}</p>
+              )}
+            </>
           )}
         </div>
       )}
