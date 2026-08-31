@@ -4,6 +4,7 @@ import {
   dinerCapReached,
   upsertDirectoryMember,
 } from "@/lib/market";
+import { makeReferralCode } from "@/lib/pricing";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -52,6 +53,9 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ error: msg }, { status: 400 });
   }
+  const referralCode = makeReferralCode(
+    `${first_name} ${last_name}`.trim() || email,
+  );
   await sb
     .from("profiles")
     .update({
@@ -61,6 +65,7 @@ export async function POST(req: Request) {
       role,
       email_opt_in: Boolean(body?.email_opt_in),
       sms_opt_in: Boolean(body?.sms_opt_in),
+      referral_code: referralCode,
     })
     .eq("id", data.user.id);
 

@@ -33,6 +33,7 @@ export type MemberStats = {
   rewards_claimed: number;
   household: number;
   favorites: number;
+  referrals: number;
 };
 
 function ytdStartIso() {
@@ -76,6 +77,7 @@ export async function loadMemberStats(memberId: string): Promise<MemberStats> {
     rewards_claimed: p?.rewards_claimed ?? 0,
     household: Math.max(p?.family_seats ?? 1, seats.length || 1),
     favorites: favs.length,
+    referrals: p?.referral_count ?? 0,
   };
 }
 
@@ -98,6 +100,7 @@ export async function recomputeMember(memberId: string): Promise<string[]> {
     else if (r.type === "rewards_claimed") ok = stats.rewards_claimed >= r.min;
     else if (r.type === "household") ok = stats.household >= r.min;
     else if (r.type === "favorites") ok = stats.favorites >= r.min;
+    else if (r.type === "referrals") ok = stats.referrals >= r.min;
     if (ok) {
       have.add(b.id);
       newly.push(b.id);

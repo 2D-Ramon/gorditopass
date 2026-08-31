@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { userFromRequest } from "@/lib/market";
+import { ensureProfileReferralCode, userFromRequest } from "@/lib/market";
 import { memberSnapshot } from "@/lib/member-state";
 
 export async function GET(req: Request) {
@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   if (!profile) {
     return NextResponse.json({ user: null }, { status: 401 });
   }
-  const bundle = await memberSnapshot(profile);
+  const withCode = await ensureProfileReferralCode(profile);
+  const bundle = await memberSnapshot(withCode);
   return NextResponse.json(bundle);
 }

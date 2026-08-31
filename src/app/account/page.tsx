@@ -995,7 +995,8 @@ function AccountInner() {
               <strong className="text-brand">
                 +{REFERRAL.friendPoints} welcome points
               </strong>
-              .
+              . Your first successful invite unlocks the{" "}
+              <strong className="text-stone-200">Plus One</strong> badge.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <code className="rounded-md border border-brand/30 bg-brand/10 px-4 py-2 font-mono text-lg font-bold tracking-wider text-orange-200">

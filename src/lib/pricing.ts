@@ -142,7 +142,8 @@ export interface BadgeDef {
     | { type: "savings_ytd"; min: number }
     | { type: "rewards_claimed"; min: number }
     | { type: "household"; min: number }
-    | { type: "favorites"; min: number };
+    | { type: "favorites"; min: number }
+    | { type: "referrals"; min: number };
 }
 
 /** Business type options on partner apply (alphabetical, Other last) */
@@ -302,4 +303,20 @@ export const BADGES: BadgeDef[] = [
     emoji: "🗺️",
     rule: { type: "favorites", min: 3 },
   },
+  {
+    id: "plus_one",
+    name: "Plus One",
+    description: "A friend joins with your referral code",
+    emoji: "🤝",
+    rule: { type: "referrals", min: 1 },
+  },
 ];
+
+export function makeReferralCode(name: string): string {
+  const slug = name
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 5)
+    .toUpperCase();
+  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `GP-${slug || "FOOD"}${tail}`;
+}

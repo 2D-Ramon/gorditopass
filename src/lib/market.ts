@@ -1,6 +1,6 @@
 import { createOpsClient } from "./supabase";
 import type { CityId, MembershipPlanId, MockUser, StaffRole } from "./types";
-import { MEMBERSHIP_PLANS, PLATFORM } from "./pricing";
+import { MEMBERSHIP_PLANS, PLATFORM, makeReferralCode } from "./pricing";
 export async function userFromRequest(req: Request): Promise<ProfileRow | null> {
   const header = req.headers.get("authorization") || "";
   const token = header.toLowerCase().startsWith("bearer ")
@@ -43,6 +43,9 @@ export type ProfileRow = {
   badges?: string[] | null;
   completed_passports?: string[] | null;
   passport_points_claimed?: string[] | null;
+  referral_code?: string | null;
+  referral_count?: number | null;
+  referred_by_code?: string | null;
 };
 
 export function profileToUser(p: ProfileRow): MockUser {
@@ -76,6 +79,9 @@ export function profileToUser(p: ProfileRow): MockUser {
     badges: p.badges ?? [],
     completedPassports: p.completed_passports ?? [],
     passportPointsClaimed: p.passport_points_claimed ?? [],
+    referralCode: p.referral_code ?? undefined,
+    referralCount: p.referral_count ?? 0,
+    referredByCode: p.referred_by_code ?? undefined,
   };
 }
 
@@ -83,6 +89,26 @@ export async function loadProfile(id: string): Promise<ProfileRow | null> {
   const sb = createOpsClient();
   const { data } = await sb.from("profiles").select("*").eq("id", id).maybeSingle();
   return data as ProfileRow | null;
+}
+
+export async function ensureProfileReferralCode(
+  profile: ProfileRow,
+): Promise<ProfileRow> {
+  if (profile.referral_code) return profile;
+  const sb = createOpsClient();
+  const seed =
+    [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+    profile.email;
+  let code = makeReferralCode(seed);
+  for (let i = 0; i < 6; i++) {
+    const { error } = await sb
+      .from("profiles")
+      .update({ referral_code: code })
+      .eq("id", profile.id);
+    if (!error) return { ...profile, referral_code: code };
+    code = makeReferralCode(seed);
+  }
+  return profile;
 }
 
 export async function loadProfileByEmail(email: string): Promise<ProfileRow | null> {

@@ -43,6 +43,7 @@ import {
   POINT_ACTIONS,
   REWARDS,
   STAFF_MEMBERSHIP_REFERRAL,
+  makeReferralCode,
   type PointActionId,
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
@@ -702,15 +703,6 @@ function calcDealSavings(
   return { savingsUsd: 5, revenueUsd: 10 };
 }
 
-function makeReferralCode(name: string): string {
-  const slug = name
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 5)
-    .toUpperCase();
-  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `GP-${slug || "FOOD"}${tail}`;
-}
-
 function estimateSavings(
   dealId: string,
   partnerDeals: PartnerDealDraft[],
@@ -1143,8 +1135,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       code = makeReferralCode(u.name || u.email || "FOOD");
       return { ...u, referralCode: code };
     });
+    void (async () => {
+      const { authedFetch } = await import("./authed");
+      const res = await authedFetch("/api/me/referral", { method: "POST" });
+      if (res.ok) {
+        const data = (await res.json()) as LiveMemberBundle & {
+          referralCode?: string;
+        };
+        if (data.user) applyLiveBundle(data);
+        else if (data.referralCode) {
+          setUser((u) =>
+            u ? { ...u, referralCode: data.referralCode } : u,
+          );
+        }
+      }
+    })();
     return code;
-  }, []);
+  }, [applyLiveBundle]);
 
   const setReferredByCode = useCallback(
     (code: string) => {
@@ -1348,11 +1355,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setAccounts((prev) =>
           prev.map((a) => {
             if ((a.referralCode ?? "").toUpperCase() === refCode) {
+              const nextCount = (a.referralCount ?? 0) + 1;
+              const badges = new Set(a.badges ?? []);
+              if (nextCount >= 1) badges.add("plus_one");
               return {
                 ...a,
                 rewardPoints: (a.rewardPoints ?? 0) + refPts,
                 rewardPointsLifetime: (a.rewardPointsLifetime ?? 0) + refPts,
-                referralCount: (a.referralCount ?? 0) + 1,
+                referralCount: nextCount,
+                badges: Array.from(badges),
               };
             }
             if (
@@ -1368,11 +1379,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // If the referrer is currently signed in (same browser, switched), credit live user
         setUser((u) => {
           if (!u || (u.referralCode ?? "").toUpperCase() !== refCode) return u;
+          const nextCount = (u.referralCount ?? 0) + 1;
+          const badges = new Set(u.badges ?? []);
+          if (nextCount >= 1) badges.add("plus_one");
           return {
             ...u,
             rewardPoints: (u.rewardPoints ?? 0) + refPts,
             rewardPointsLifetime: (u.rewardPointsLifetime ?? 0) + refPts,
-            referralCount: (u.referralCount ?? 0) + 1,
+            referralCount: nextCount,
+            badges: Array.from(badges),
           };
         });
       }
@@ -1727,6 +1742,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           rewards_claimed: u.rewardsClaimed ?? 0,
           household: u.familySeats ?? 1,
           favorites: favList.length,
+          referrals: u.referralCount ?? 0,
         };
         const have = new Set(u.badges ?? []);
         const newly: string[] = [];
@@ -1744,6 +1760,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ok = stats.rewards_claimed >= r.min;
           else if (r.type === "household") ok = stats.household >= r.min;
           else if (r.type === "favorites") ok = stats.favorites >= r.min;
+          else if (r.type === "referrals") ok = stats.referrals >= r.min;
           if (ok) {
             have.add(b.id);
             newly.push(b.id);

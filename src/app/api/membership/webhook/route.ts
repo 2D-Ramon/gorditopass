@@ -109,6 +109,39 @@ export async function POST(req: Request) {
           POINT_ACTIONS.join_member.points,
           POINT_ACTIONS.join_member.label,
         );
+        const refCode = String(pending.referral_code ?? "")
+          .trim()
+          .toUpperCase();
+        if (refCode) {
+          const { data: referrer } = await sb
+            .from("profiles")
+            .select("id, referral_count")
+            .ilike("referral_code", refCode)
+            .maybeSingle();
+          if (referrer?.id && referrer.id !== pending.profile_id) {
+            await addPoints(
+              pending.profile_id,
+              POINT_ACTIONS.referral_friend.points,
+              POINT_ACTIONS.referral_friend.label,
+            );
+            await addPoints(
+              referrer.id,
+              POINT_ACTIONS.referral_referrer.points,
+              POINT_ACTIONS.referral_referrer.label,
+            );
+            await sb
+              .from("profiles")
+              .update({
+                referral_count: (referrer.referral_count ?? 0) + 1,
+              })
+              .eq("id", referrer.id);
+            await sb
+              .from("profiles")
+              .update({ referred_by_code: refCode })
+              .eq("id", pending.profile_id);
+            await recomputeMember(referrer.id);
+          }
+        }
         await recomputeMember(pending.profile_id);
         await sb
           .from("pending_memberships")
