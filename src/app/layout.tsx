@@ -28,8 +28,13 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} h-full`}>
       <body className="gp-gradient flex min-h-full flex-col antialiased">
         <Providers>
+          <a href="#main" className="gp-skip">
+            Skip to content
+          </a>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main id="main" className="flex-1">
+            {children}
+          </main>
           <Footer />
         </Providers>
       </body>

@@ -48,7 +48,7 @@ export const PLATFORM = {
   tagline: "Local plates. Member deals. More flavor for less.",
   mission:
     "Exclusive member savings at local spots you love—browse free, redeem deals, track what you save, and discover what’s cooking in your city.",
-  supportEmail: "hello@gorditopass.local",
+  supportEmail: "tudyvaldez@gmail.com",
   firstCity: "Dallas",
   earlyCapDiners: 50,
   earlyCapBusinesses: 50,

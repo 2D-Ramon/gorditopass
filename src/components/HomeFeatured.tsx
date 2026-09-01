@@ -116,6 +116,7 @@ export function HomeFeatured() {
       <div
         ref={viewportRef}
         className="cursor-grab overflow-hidden active:cursor-grabbing"
+        aria-label="Featured restaurants"
         onMouseEnter={() => {
           if (!dragRef.current.active) pausedRef.current = true;
         }}
@@ -136,6 +137,7 @@ export function HomeFeatured() {
             <div
               key={`${r.id}-${i}`}
               className="w-[min(280px,78vw)] shrink-0 select-none"
+              aria-hidden={i >= featured.length}
             >
               <RestaurantCard restaurant={r} highlightPromo />
             </div>

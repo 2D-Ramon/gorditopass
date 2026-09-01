@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
 
 type Mode = "password" | "magic";
@@ -28,6 +29,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [localDemo, setLocalDemo] = useState(false);
+  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   function goAccount() {
     router.push("/account");
@@ -157,7 +160,7 @@ export default function LoginPage() {
               setErr(res.error ?? "Failed");
               return;
             }
-            setMsg("Magic link “sent” (demo) — you’re signed in.");
+            setMsg("Check your email for a sign-in link.");
             goAccount();
           }}
         >
@@ -172,7 +175,7 @@ export default function LoginPage() {
             />
           </label>
           <p className="text-xs text-muted">
-            Live app: we email a one-time link. Demo signs you in immediately.
+            We’ll email a one-time sign-in link. Check spam if it doesn’t arrive.
           </p>
           {err && <p className="text-sm text-red-300">{err}</p>}
           {msg && <p className="text-sm text-success">{msg}</p>}
@@ -182,9 +185,22 @@ export default function LoginPage() {
         </form>
       )}
 
+      <p className="mt-8 text-sm text-muted">
+        Can’t get in?{" "}
+        <Link href="/contact" className="text-brand underline">
+          Contact support
+        </Link>{" "}
+        or see the{" "}
+        <Link href="/faq" className="text-brand underline">
+          FAQ
+        </Link>
+        .
+      </p>
+
+      {localDemo && (
       <div className="mt-10 border-t border-border pt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-          Quick demo roles
+          Local demo roles
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <button
@@ -226,6 +242,7 @@ export default function LoginPage() {
           </p>
         )}
       </div>
+      )}
 
       <p className="mt-8 text-sm text-muted">
         <Link href="/membership" className="text-brand underline">

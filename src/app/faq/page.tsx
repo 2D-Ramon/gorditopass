@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: "How do I redeem a deal?",
-    a: "Open the deal, show a rotating QR/code. Staff confirms in their dashboard. Codes expire quickly so screenshots don’t work for long.",
+    a: "Open the restaurant page, tap Redeem, and show the code to staff. They confirm on their phone. Codes rotate so a screenshot will not work for long. If staff cannot confirm, contact us from this site — do not share your password.",
   },
   {
     q: "Can % off cover the whole table?",
@@ -80,14 +80,27 @@ export default function FaqPage() {
         </Link>
         .
       </p>
-      <dl className="mt-8 space-y-4">
+      <div className="mt-8 space-y-3">
         {FAQS.map((f) => (
-          <div key={f.q} className="gp-card gp-card-static p-5">
-            <dt className="font-semibold tracking-tight">{f.q}</dt>
-            <dd className="mt-2 text-sm leading-relaxed text-muted">{f.a}</dd>
-          </div>
+          <details key={f.q} className="gp-card gp-card-static p-5">
+            <summary className="cursor-pointer font-semibold tracking-tight">
+              {f.q}
+            </summary>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{f.a}</p>
+          </details>
         ))}
-      </dl>
+      </div>
+
+      <div className="gp-card gp-card-static mt-10 p-6">
+        <p className="font-semibold tracking-tight">Still stuck?</p>
+        <p className="mt-1.5 text-sm text-muted">
+          Redeem problems, billing, or a restaurant listing — send a note and
+          we’ll help.
+        </p>
+        <Link href="/contact" className="gp-btn gp-btn-primary mt-4 text-sm">
+          Contact us
+        </Link>
+      </div>
     </div>
   );
 }

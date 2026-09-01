@@ -13,6 +13,7 @@ import {
   REWARDS,
 } from "@/lib/pricing";
 import { PASSPORTS, passportProgress } from "@/lib/passports";
+import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
 
@@ -139,27 +140,34 @@ function AccountInner() {
           <Link href="/login" className="gp-btn gp-btn-primary">
             Sign in / create account
           </Link>
-          <button
-            type="button"
-            className="gp-btn gp-btn-secondary"
-            onClick={() => signInDemo("diner")}
-          >
-            Quick demo diner
-          </button>
-          <button
-            type="button"
-            className="gp-btn gp-btn-secondary"
-            onClick={() => signInDemo("restaurant", "owner")}
-          >
-            Quick demo restaurant (owner)
-          </button>
-          <button
-            type="button"
-            className="gp-btn gp-btn-secondary"
-            onClick={() => signInDemo("admin")}
-          >
-            Quick demo admin
-          </button>
+          <Link href="/contact" className="gp-btn gp-btn-secondary">
+            Need help?
+          </Link>
+          {isLocalDemoHost() ? (
+            <>
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary"
+                onClick={() => signInDemo("diner")}
+              >
+                Quick demo diner
+              </button>
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary"
+                onClick={() => signInDemo("restaurant", "owner")}
+              >
+                Quick demo restaurant (owner)
+              </button>
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary"
+                onClick={() => signInDemo("admin")}
+              >
+                Quick demo admin
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
     );

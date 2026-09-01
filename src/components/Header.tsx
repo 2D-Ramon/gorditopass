@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/BrandMark";
 import { CITIES } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
+import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
 import type { CityId } from "@/lib/types";
 
 const dinerLinks = [
   { href: "/explore", label: "Explore" },
   { href: "/events", label: "Events" },
-  { href: "/jobs", label: "Jobs" },
   { href: "/feed", label: "City feed" },
   { href: "/membership", label: "Membership" },
 ];
@@ -20,8 +21,10 @@ const businessLinks = [{ href: "/for-restaurants", label: "For restaurants" }];
 
 export function Header() {
   const pathname = usePathname();
-  const { user, cartCount, signInDemo, signOut, city, setCity } = useStore();
+  const { user, cartCount, signOut, city, setCity } = useStore();
   const [open, setOpen] = useState(false);
+  const [localDemo, setLocalDemo] = useState(false);
+  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -33,9 +36,7 @@ export function Header() {
           href="/"
           className="flex shrink-0 items-center gap-2.5 font-bold tracking-tight"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-hot text-base shadow-md shadow-orange-500/20 ring-1 ring-white/10">
-            🍽️
-          </span>
+          <BrandMark />
           <span className="text-[0.95rem]">
             {PLATFORM.name}
             <span className="ml-1.5 hidden rounded-md bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange-300/90 sm:inline">
@@ -49,6 +50,7 @@ export function Header() {
             <Link
               key={l.href}
               href={l.href}
+              aria-current={isActive(l.href) ? "page" : undefined}
               className={`rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
                 isActive(l.href)
                   ? "bg-white/8 text-white"
@@ -63,6 +65,7 @@ export function Header() {
             <Link
               key={l.href}
               href={l.href}
+              aria-current={isActive(l.href) ? "page" : undefined}
               className={`rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
                 isActive(l.href)
                   ? "bg-white/8 text-white"
@@ -97,7 +100,17 @@ export function Header() {
             className="gp-btn gp-btn-ghost relative text-sm"
             aria-label="Cart"
           >
-            🛒
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M6 6h15l-1.5 9h-12z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <path d="M6 6 5 3H2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <circle cx="9" cy="20" r="1.4" fill="currentColor" />
+              <circle cx="18" cy="20" r="1.4" fill="currentColor" />
+            </svg>
             {cartCount > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
                 {cartCount}
@@ -167,9 +180,16 @@ export function Header() {
             type="button"
             className="gp-btn gp-btn-ghost lg:hidden"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Menu"
+            aria-expanded={open}
+            aria-label={open ? "Close menu" : "Open menu"}
           >
-            ☰
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              {open ? (
+                <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              ) : (
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              )}
+            </svg>
           </button>
         </div>
       </div>
@@ -227,17 +247,28 @@ export function Header() {
             </Link>
           </div>
           {!user && (
-            <button
-              type="button"
-              onClick={() => {
-                signInDemo("diner");
-                setOpen(false);
-              }}
-              className="gp-btn gp-btn-primary mt-4 w-full"
-            >
-              Demo sign in
-            </button>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="gp-btn gp-btn-secondary text-center text-sm"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/membership"
+                onClick={() => setOpen(false)}
+                className="gp-btn gp-btn-primary text-center text-sm"
+              >
+                Join
+              </Link>
+            </div>
           )}
+          {localDemo && !user ? (
+            <p className="mt-3 text-center text-[11px] text-muted">
+              Local only: demo shortcuts live on the sign-in page.
+            </p>
+          ) : null}
         </div>
       )}
     </header>

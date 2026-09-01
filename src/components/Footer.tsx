@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
 import { PLATFORM } from "@/lib/pricing";
 
 export function Footer() {
@@ -6,9 +7,20 @@ export function Footer() {
     <footer className="mt-auto border-t border-border bg-elevated/80">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-base font-bold tracking-tight">{PLATFORM.name}</p>
+          <p className="flex items-center gap-2 text-base font-bold tracking-tight">
+            <BrandMark size="sm" />
+            {PLATFORM.name}
+          </p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {PLATFORM.tagline}
+          </p>
+          <p className="mt-3 text-sm">
+            <a
+              href={`mailto:${PLATFORM.supportEmail}`}
+              className="text-stone-300 hover:text-brand"
+            >
+              {PLATFORM.supportEmail}
+            </a>
           </p>
         </div>
         <div>
@@ -28,6 +40,11 @@ export function Footer() {
             <li>
               <Link href="/events" className="text-stone-300 hover:text-brand">
                 Events
+              </Link>
+            </li>
+            <li>
+              <Link href="/how-it-works" className="text-stone-300 hover:text-brand">
+                How it works
               </Link>
             </li>
             <li>
@@ -79,11 +96,11 @@ export function Footer() {
           </ul>
         </div>
         <div>
-          <p className="gp-section-label">Company</p>
+          <p className="gp-section-label">Help</p>
           <ul className="mt-3 space-y-2.5 text-sm">
             <li>
-              <Link href="/about" className="text-stone-300 hover:text-brand">
-                About
+              <Link href="/faq" className="text-stone-300 hover:text-brand">
+                FAQ
               </Link>
             </li>
             <li>
@@ -92,13 +109,8 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/faq" className="text-stone-300 hover:text-brand">
-                FAQ
-              </Link>
-            </li>
-            <li>
-              <Link href="/admin" className="text-stone-300 hover:text-brand">
-                Admin
+              <Link href="/about" className="text-stone-300 hover:text-brand">
+                About
               </Link>
             </li>
             <li>
@@ -131,8 +143,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} {PLATFORM.name} · Working name · Placeholder
-        brand · MVP demo
+        © {new Date().getFullYear()} {PLATFORM.name} · Dallas early access
       </div>
     </footer>
   );

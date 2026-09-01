@@ -96,6 +96,58 @@ body {
   filter: brightness(1.06);
 }
 
+.gp-btn:focus-visible,
+.gp-input:focus-visible,
+.gp-city-select:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.gp-skip {
+  position: absolute;
+  left: 1rem;
+  top: -3.5rem;
+  z-index: 80;
+  border-radius: 0.5rem;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.55rem 0.9rem;
+  transition: top 0.15s ease;
+}
+
+.gp-skip:focus {
+  top: 0.75rem;
+}
+
+.gp-mark {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  background: linear-gradient(145deg, #fb923c 0%, #ea580c 55%, #c2410c 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 8px 18px rgba(234, 88, 12, 0.28);
+}
+
+.gp-mark-sm {
+  height: 1.75rem;
+  width: 1.75rem;
+  font-size: 0.9rem;
+  border-radius: 0.4rem;
+}
+
 .gp-btn:active {
   transform: scale(0.98);
 }
