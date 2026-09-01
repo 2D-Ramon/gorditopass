@@ -47,7 +47,7 @@ function minStartDate(): string {
 }
 
 export default function ApplyPage() {
-  const { submitRestaurantApplication, restaurantApplications } = useStore();
+  const { submitRestaurantApplication } = useStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [city, setCity] = useState("Dallas");
@@ -150,8 +150,8 @@ export default function ApplyPage() {
             Application received
           </p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Admin will approve listings before they go live. You can also open
-            the partner dashboard with demo restaurant sign-in.
+            We’ll review before you go live. After approval, open the partner
+            dashboard and create a login with this same email.
           </p>
         </div>
       ) : (
@@ -678,12 +678,7 @@ export default function ApplyPage() {
         </form>
       )}
 
-      {restaurantApplications.length > 0 && (
-        <p className="mt-6 text-xs text-muted">
-          Local demo queue: {restaurantApplications.length} application(s)
-          stored in this browser.
-        </p>
-      )}
+
     </div>
   );
 }

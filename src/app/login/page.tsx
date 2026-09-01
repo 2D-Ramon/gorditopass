@@ -237,8 +237,7 @@ export default function LoginPage() {
         {accounts.length > 0 && (
           <p className="mt-4 text-xs text-muted">
             {accounts.length} saved account(s) in this browser. Household seats
-            from membership signup can sign in with their email +{" "}
-            <code className="text-stone-300">demo1234</code>.
+            sign in with their own email and password.
           </p>
         )}
       </div>

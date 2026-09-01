@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { CITIES } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
-import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
 import type { CityId } from "@/lib/types";
 
@@ -23,8 +22,6 @@ export function Header() {
   const pathname = usePathname();
   const { user, cartCount, signOut, city, setCity } = useStore();
   const [open, setOpen] = useState(false);
-  const [localDemo, setLocalDemo] = useState(false);
-  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -264,11 +261,7 @@ export function Header() {
               </Link>
             </div>
           )}
-          {localDemo && !user ? (
-            <p className="mt-3 text-center text-[11px] text-muted">
-              Local only: demo shortcuts live on the sign-in page.
-            </p>
-          ) : null}
+
         </div>
       )}
     </header>

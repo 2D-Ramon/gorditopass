@@ -98,7 +98,7 @@ export default function CheckoutPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-4xl">✅</p>
-        <h1 className="mt-4 text-2xl font-bold">Order placed (demo)</h1>
+        <h1 className="mt-4 text-2xl font-bold">Order placed</h1>
         <p className="mt-2 text-muted">
           Order <strong>{order.orderId}</strong> · $
           {order.total.toFixed(2)}
@@ -109,7 +109,7 @@ export default function CheckoutPage() {
           </p>
         )}
         <p className="mt-2 text-sm text-muted">
-          Stripe / your processor will power real charges. Pickup for now;
+          Online ordering is a preview (no card charge). Pickup for now;
           delivery later.
         </p>
         <Link href="/explore" className="mt-6 inline-block gp-btn gp-btn-primary">
@@ -281,7 +281,8 @@ export default function CheckoutPage() {
             <strong>${grandTotal.toFixed(2)}</strong>
           </div>
           <p className="mt-2 text-xs text-muted">
-            Card: demo only — no real charge. Future: Stripe test mode.
+            Online food checkout is a preview — no card charge here.
+            Membership uses Stripe on the membership page.
           </p>
         </div>
 

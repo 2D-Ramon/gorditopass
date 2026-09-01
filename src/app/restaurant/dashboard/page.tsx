@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RESTAURANTS } from "@/lib/data";
 import { useLiveCatalog } from "@/lib/live-catalog";
+import { isLocalDemoHost } from "@/lib/public-site";
 import {
   MEMBERSHIP_PLANS,
   MENU_CATEGORIES,
@@ -29,16 +29,24 @@ function PartnerSignIn() {
   const { signInDemo } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [restaurantId, setRestaurantId] = useState(RESTAURANTS[0]?.id ?? "mi-tierra");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [localDemo, setLocalDemo] = useState(false);
+  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   async function afterAuth() {
     const { authedFetch } = await import("@/lib/authed");
-    await authedFetch("/api/partner/bind", {
+    const bind = await authedFetch("/api/partner/bind", {
       method: "POST",
-      body: JSON.stringify({ restaurantId, staffRole: "owner" }),
+      body: JSON.stringify({ staffRole: "owner" }),
     });
+    const data = await bind.json().catch(() => ({}));
+    if (!bind.ok) {
+      throw new Error(
+        data.error ??
+          "No approved restaurant for this email. Apply first, then use the same email.",
+      );
+    }
     window.location.reload();
   }
 
@@ -46,8 +54,8 @@ function PartnerSignIn() {
     <div className="mx-auto max-w-lg px-4 py-16">
       <h1 className="text-2xl font-bold">Partner dashboard</h1>
       <p className="mt-2 text-muted">
-        Sign in with a restaurant email to confirm member redeem codes. Demo
-        buttons do not confirm live codes.
+        Use the same email as your restaurant application. After we approve
+        you, this login confirms member redemptions.
       </p>
       <form
         className="mt-6 space-y-3"
@@ -59,7 +67,7 @@ function PartnerSignIn() {
             const { createBrowserClient } = await import("@/lib/supabase");
             const sb = createBrowserClient();
             if (!sb) {
-              setErr("Supabase is not connected.");
+              setErr("Sign-in is not connected.");
               return;
             }
             const { error } = await sb.auth.signInWithPassword({
@@ -71,25 +79,13 @@ function PartnerSignIn() {
               return;
             }
             await afterAuth();
+          } catch (ex) {
+            setErr(ex instanceof Error ? ex.message : "Could not open dashboard.");
           } finally {
             setBusy(false);
           }
         }}
       >
-        <label className="block text-sm">
-          Restaurant
-          <select
-            className="gp-input mt-1"
-            value={restaurantId}
-            onChange={(e) => setRestaurantId(e.target.value)}
-          >
-            {RESTAURANTS.filter((r) => r.approved).map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="block text-sm">
           Staff email
           <input
@@ -128,6 +124,10 @@ function PartnerSignIn() {
             try {
               const { createBrowserClient } = await import("@/lib/supabase");
               const sb = createBrowserClient();
+              if (!sb) {
+                setErr("Sign-in is not connected.");
+                return;
+              }
               const reg = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -142,7 +142,7 @@ function PartnerSignIn() {
                 setErr(data.error ?? "Could not create staff login.");
                 return;
               }
-              const { error } = await sb!.auth.signInWithPassword({
+              const { error } = await sb.auth.signInWithPassword({
                 email,
                 password,
               });
@@ -151,36 +151,49 @@ function PartnerSignIn() {
                 return;
               }
               await afterAuth();
+            } catch (ex) {
+              setErr(ex instanceof Error ? ex.message : "Could not create login.");
             } finally {
               setBusy(false);
             }
           }}
         >
-          Create staff login for this restaurant
+          Create staff login
         </button>
       </form>
-      <p className="mt-8 text-xs font-semibold uppercase tracking-wider text-muted">
-        Demo only (does not confirm live codes)
+      <p className="mt-6 text-sm text-muted">
+        New here?{" "}
+        <Link href="/apply" className="text-brand underline">
+          Apply to join
+        </Link>
+        , wait for approval, then create this login with the same email.
       </p>
-      <div className="mt-3 flex flex-col gap-2">
-        {(
-          [
-            ["owner", "Owner (full access)"],
-            ["manager", "Manager (full access)"],
-            ["marketing", "Marketing (full access)"],
-            ["employee", "Employee (redeem scan only)"],
-          ] as [StaffRole, string][]
-        ).map(([role, label]) => (
-          <button
-            key={role}
-            type="button"
-            className="gp-btn gp-btn-secondary"
-            onClick={() => signInDemo("restaurant", role)}
-          >
-            Demo · {label}
-          </button>
-        ))}
-      </div>
+      {localDemo && (
+        <div className="mt-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+            Local demo only
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {(
+              [
+                ["owner", "Owner (full access)"],
+                ["manager", "Manager (full access)"],
+                ["marketing", "Marketing (full access)"],
+                ["employee", "Employee (redeem scan only)"],
+              ] as [StaffRole, string][]
+            ).map(([role, label]) => (
+              <button
+                key={role}
+                type="button"
+                className="gp-btn gp-btn-secondary"
+                onClick={() => signInDemo("restaurant", role)}
+              >
+                Demo · {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -234,7 +247,6 @@ async function readImages(
 export default function RestaurantDashboardPage() {
   const {
     user,
-    signInDemo,
     redemptions,
     partnerDeals,
     partnerMenuItems,
@@ -263,10 +275,7 @@ export default function RestaurantDashboardPage() {
     partnerRedemptionCount,
   } = useStore();
   const { restaurants: liveRestaurants } = useLiveCatalog();
-  const restaurant =
-    liveRestaurants.find((r) => r.id === user?.restaurantId) ??
-    RESTAURANTS.find((r) => r.id === user?.restaurantId) ??
-    RESTAURANTS[0];
+  const restaurant = liveRestaurants.find((r) => r.id === user?.restaurantId);
   const [dbDeals, setDbDeals] = useState<PartnerDealDraft[] | null>(null);
   const [dbMenu, setDbMenu] = useState<PartnerMenuItem[] | null>(null);
   const [dbEvents, setDbEvents] = useState<PartnerEvent[] | null>(null);
@@ -302,7 +311,7 @@ export default function RestaurantDashboardPage() {
   const [evDesc, setEvDesc] = useState("");
   const [evDate, setEvDate] = useState("");
   const [evTime, setEvTime] = useState("");
-  const [evAddress, setEvAddress] = useState(restaurant.address);
+  const [evAddress, setEvAddress] = useState(restaurant?.address ?? "");
   const [evTicketUrl, setEvTicketUrl] = useState("");
   const [evTicketPrice, setEvTicketPrice] = useState("0");
   const [evEmoji, setEvEmoji] = useState("🎉");
@@ -333,7 +342,7 @@ export default function RestaurantDashboardPage() {
   const canManage =
     user?.role === "restaurant" &&
     canManagePartnerContent(user.staffRole ?? "owner");
-  const liveStory = getRestaurantStory(restaurant.id);
+  const liveStory = getRestaurantStory(restaurant?.id ?? "");
   const [storyDraft, setStoryDraft] = useState(liveStory);
 
   useEffect(() => {
@@ -443,24 +452,24 @@ export default function RestaurantDashboardPage() {
     () =>
       redemptions.filter(
         (r) =>
-          r.restaurantId === restaurant.id ||
+          r.restaurantId === restaurant?.id ||
           partnerDeals.some((d) => d.id === r.dealId) ||
-          restaurant.deals.some((d) => d.id === r.dealId),
+          (restaurant?.deals ?? []).some((d) => d.id === r.dealId),
       ),
     [redemptions, partnerDeals, restaurant],
   );
 
   const myDeals = (dbDeals ?? partnerDeals).filter(
-    (d) => d.restaurantId === restaurant.id,
+    (d) => d.restaurantId === restaurant?.id,
   );
   const myMenu = (dbMenu ?? partnerMenuItems).filter(
-    (m) => m.restaurantId === restaurant.id,
+    (m) => m.restaurantId === restaurant?.id,
   );
   const myEvents = (dbEvents ?? partnerEvents).filter(
-    (e) => e.restaurantId === restaurant.id,
+    (e) => e.restaurantId === restaurant?.id,
   );
   const myJobs = (dbJobs ?? partnerJobs).filter(
-    (j) => j.restaurantId === restaurant.id,
+    (j) => j.restaurantId === restaurant?.id,
   );
 
   function toast(msg: string) {
@@ -487,8 +496,33 @@ export default function RestaurantDashboardPage() {
     return null;
   }
 
+  const myStaffReferrals = useMemo(
+    () =>
+      staffMembershipReferrals.filter(
+        (r) =>
+          r.staffUserId === user?.id ||
+          r.staffEmail.toLowerCase() === (user?.email ?? "").toLowerCase(),
+      ),
+    [staffMembershipReferrals, user?.id, user?.email],
+  );
+
   if (!user || user.role !== "restaurant") {
     return <PartnerSignIn />;
+  }
+
+  if (!restaurant) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <h1 className="gp-page-title">Partner dashboard</h1>
+        <p className="mt-3 text-sm text-muted">
+          No approved restaurant is linked to this login yet. Apply, wait for
+          approval, then sign in with the same email.
+        </p>
+        <Link href="/apply" className="gp-btn gp-btn-primary mt-6">
+          Restaurant apply
+        </Link>
+      </div>
+    );
   }
 
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [
@@ -510,15 +544,6 @@ export default function RestaurantDashboardPage() {
         ? tab
         : "scan";
 
-  const myStaffReferrals = useMemo(
-    () =>
-      staffMembershipReferrals.filter(
-        (r) =>
-          r.staffUserId === user?.id ||
-          r.staffEmail.toLowerCase() === (user?.email ?? "").toLowerCase(),
-      ),
-    [staffMembershipReferrals, user?.id, user?.email],
-  );
   const thisMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const monthPending = myStaffReferrals.filter(
     (r) => r.monthKey === thisMonthKey && r.checkStatus === "pending",
@@ -757,7 +782,7 @@ export default function RestaurantDashboardPage() {
                 className="gp-btn gp-btn-secondary mt-4 text-sm"
                 onClick={() => {
                   markStaffReferralChecksPaid(thisMonthKey, user.id);
-                  toast(`Check marked paid for ${thisMonthKey} (demo).`);
+                  toast(`Check marked paid for ${thisMonthKey}.`);
                 }}
               >
                 Mark ${monthPendingTotal.toFixed(2)} check as paid

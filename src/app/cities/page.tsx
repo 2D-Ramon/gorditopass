@@ -22,7 +22,7 @@ export default function CitiesPage() {
                 {c.name}, {c.state}
               </p>
               <p className="text-sm text-muted">
-                {c.live ? "Live for MVP demo" : "Coming later"}
+                {c.live ? "Live — early access" : "Coming later"}
               </p>
             </div>
             {c.live ? (

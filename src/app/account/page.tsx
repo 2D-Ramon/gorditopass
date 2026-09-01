@@ -480,21 +480,10 @@ function AccountInner() {
               </p>
             )}
             {isRestaurant && (
-              <label className="block">
-                <span className="text-muted">Staff role (demo)</span>
-                <select
-                  className="gp-input mt-1"
-                  value={user.staffRole ?? "owner"}
-                  onChange={(e) =>
-                    updateProfile({ staffRole: e.target.value as StaffRole })
-                  }
-                >
-                  <option value="employee">Employee</option>
-                  <option value="manager">Manager</option>
-                  <option value="marketing">Marketing</option>
-                  <option value="owner">Owner</option>
-                </select>
-              </label>
+              <p>
+                <span className="text-muted">Staff role:</span>{" "}
+                {user.staffRole ?? "owner"}
+              </p>
             )}
             {isDiner && (
               <>
@@ -1204,8 +1193,7 @@ function AccountInner() {
           <div className="gp-card gp-card-static p-5">
             <p className="gp-section-label">Seats on this plan</p>
             <p className="mt-1 text-sm text-muted">
-              Each seat is a separate login. Demo password:{" "}
-              <code className="text-stone-300">demo1234</code>
+              Each seat is a separate login with its own email and password.
             </p>
             {householdMembers.length === 0 ? (
               <p className="mt-4 text-sm text-muted">

@@ -287,8 +287,8 @@ function MembershipInner() {
           {step === "done" && "You're in!"}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          Stripe test mode will plug in next — this demo activates membership
-          locally.
+          Choose a plan, then checkout. You’ll get a password for this account
+          before payment.
         </p>
 
         {user?.isMember && step === "plan" && (
@@ -308,11 +308,11 @@ function MembershipInner() {
         {step === "done" && (
           <div className="mt-6 rounded-lg border border-success/30 bg-success/10 p-4">
             <p className="font-semibold text-success">
-              Membership activated (demo)
+              Membership activated
             </p>
             <p className="mt-1 text-sm text-muted">
               {plan.name} · {seats} seat{seats > 1 ? "s" : ""} · $
-              {total.toFixed(2)} (mock charge)
+              {total.toFixed(2)}
             </p>
             <p className="mt-2 text-sm text-stone-300">
               Created {seats} account{seats > 1 ? "s" : ""}:

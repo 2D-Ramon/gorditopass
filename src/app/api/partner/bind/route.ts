@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getRestaurant } from "@/lib/data";
 import { userFromRequest } from "@/lib/market";
 import { randomStaffPin, SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
@@ -13,48 +12,53 @@ export async function POST(req: Request) {
     restaurantId?: string;
     staffRole?: string;
   } | null;
-  const restaurantId = String(body?.restaurantId ?? "").trim();
-  const role = (body?.staffRole as string) || "owner";
+  const requestedId = String(body?.restaurantId ?? "").trim();
+  const role =
+    (body?.staffRole as string) || profile.staff_role || "owner";
+  const email = profile.email.toLowerCase();
   const sb = createOpsClient();
-  const { data: existing } = await sb
-    .from("listings")
-    .select("id")
-    .eq("id", restaurantId)
-    .maybeSingle();
-  const seed = getRestaurant(restaurantId);
-  if (!existing && !seed) {
-    return NextResponse.json({ error: "Unknown restaurant." }, { status: 400 });
+
+  async function listingExists(id: string) {
+    if (!id) return "";
+    const { data } = await sb.from("listings").select("id").eq("id", id).maybeSingle();
+    return data?.id ?? "";
   }
-  if (seed) {
-  await sb.from("listings").upsert(
-    {
-      id: seed.id,
-      name: seed.name,
-      slug: seed.slug,
-      city: seed.city,
-      neighborhood: seed.neighborhood,
-      cuisine: seed.cuisine,
-      tagline: seed.tagline,
-      story: seed.story,
-      hours: seed.hours,
-      address: seed.address,
-      lat: seed.lat,
-      lng: seed.lng,
-      emoji: seed.emoji,
-      accent: seed.accent,
-      approved: true,
-      banned: false,
-      owner_email: role === "owner" ? profile.email : undefined,
-    },
-    { onConflict: "id" },
-  );
+
+  let listingId = await listingExists(requestedId || profile.restaurant_id || "");
+  if (!listingId) {
+    const { data: owned } = await sb
+      .from("listings")
+      .select("id")
+      .eq("owner_email", email)
+      .maybeSingle();
+    listingId = owned?.id ?? "";
   }
-  const listingId = existing?.id || seed!.id;
+  if (!listingId) {
+    const { data: staff } = await sb
+      .from("listing_staff")
+      .select("restaurant_id")
+      .eq("email", email)
+      .eq("active", true)
+      .maybeSingle();
+    listingId = staff?.restaurant_id ?? "";
+  }
+  if (!listingId) {
+    return NextResponse.json(
+      {
+        error:
+          "No approved restaurant is linked to this email. Apply first, wait for approval, then sign in with the same email.",
+      },
+      { status: 400 },
+    );
+  }
+
   await sb.from("listing_staff").upsert(
     {
       restaurant_id: listingId,
-      email: profile.email,
-      name: [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email,
+      email,
+      name:
+        [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+        email,
       staff_role: role,
       active: true,
     },

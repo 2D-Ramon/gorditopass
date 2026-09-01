@@ -121,7 +121,6 @@ export default function FeedPage() {
   const {
     city,
     user,
-    signInDemo,
     submitPlateReview,
     moderatedFeedPosts,
     hydrateFromServer,
@@ -386,20 +385,9 @@ export default function FeedPage() {
             <Link href="/membership" className="gp-btn gp-btn-primary text-sm">
               Get membership
             </Link>
-            <button
-              type="button"
-              className="gp-btn gp-btn-secondary text-sm"
-              onClick={() => signInDemo("diner")}
-            >
-              Demo diner (then join)
-            </button>
-            <button
-              type="button"
-              className="gp-btn gp-btn-ghost text-sm"
-              onClick={() => signInDemo("restaurant")}
-            >
-              Demo restaurant
-            </button>
+            <Link href="/login" className="gp-btn gp-btn-secondary text-sm">
+              Sign in
+            </Link>
           </div>
         </div>
       ) : (

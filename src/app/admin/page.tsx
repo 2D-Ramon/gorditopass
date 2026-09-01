@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
 import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { PLATFORM } from "@/lib/pricing";
@@ -109,6 +110,7 @@ export default function AdminPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginErr, setLoginErr] = useState("");
+  const [localDemo, setLocalDemo] = useState(false);
   const [queue, setQueue] = useState<{
     applications: Record<string, unknown>[];
     deals: Record<string, unknown>[];
@@ -127,6 +129,8 @@ export default function AdminPage() {
         if (d) setQueue(d);
       });
   }
+
+  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   useEffect(() => {
     void fetch("/api/ops/status")
@@ -358,13 +362,15 @@ export default function AdminPage() {
             Sign in
           </button>
         </form>
-        <button
-          type="button"
-          className="gp-btn gp-btn-secondary mt-6 w-full"
-          onClick={() => signInDemo("admin")}
-        >
-          Demo admin sign-in
-        </button>
+        {localDemo && (
+          <button
+            type="button"
+            className="gp-btn gp-btn-secondary mt-6 w-full"
+            onClick={() => signInDemo("admin")}
+          >
+            Local demo admin
+          </button>
+        )}
       </div>
     );
   }
