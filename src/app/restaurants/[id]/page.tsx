@@ -113,6 +113,7 @@ export default function RestaurantDetailPage() {
       priceUsd: m.priceUsd,
       category: m.category,
       imageEmoji: m.imageEmoji,
+      imageUrl: m.imageUrl,
     }));
     const partner: Row[] = partnerMenuItems
       .filter(
@@ -305,6 +306,14 @@ export default function RestaurantDetailPage() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {liveDeals.seed.map((deal) => (
             <div key={deal.id} className="gp-card p-5">
+              {deal.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={deal.imageUrl}
+                  alt=""
+                  className="mb-3 h-32 w-full rounded-lg object-cover ring-1 ring-border"
+                />
+              )}
               <p className="gp-badge">{deal.type.replace(/_/g, " ")}</p>
               <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
               <p className="text-sm text-muted">{deal.description}</p>

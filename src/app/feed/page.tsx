@@ -171,6 +171,8 @@ export default function FeedPage() {
   const [pollOptB, setPollOptB] = useState("");
   const [pollOptC, setPollOptC] = useState("");
   const [pollOptD, setPollOptD] = useState("");
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaError, setMediaError] = useState("");
 
   const photoRef = useRef<HTMLInputElement>(null);
   const gifUploadRef = useRef<HTMLInputElement>(null);
@@ -204,18 +206,28 @@ export default function FeedPage() {
     setCuisine(r?.cuisine ?? "");
   }
 
-  function addFiles(files: FileList | null, kind: FeedMedia["kind"]) {
+  async function addFiles(files: FileList | null, kind: FeedMedia["kind"]) {
     if (!files?.length) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setMedia((m) => [
-          ...m,
-          { kind, value: String(reader.result), name: file.name },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setMediaBusy(true);
+    setMediaError("");
+    try {
+      const { uploadFiles } = await import("@/lib/upload-client");
+      const uploadKind =
+        kind === "gif" ? "gif" : kind === "video" ? "video" : "feed";
+      const uploaded = await uploadFiles(files, uploadKind);
+      setMedia((m) => [
+        ...m,
+        ...uploaded.map((u) => ({
+          kind,
+          value: u.url,
+          name: u.fileName,
+        })),
+      ]);
+    } catch (err) {
+      setMediaError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setMediaBusy(false);
+    }
   }
 
   function buildReviewBody() {
@@ -236,6 +248,7 @@ export default function FeedPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mediaBusy) return;
     setFormError("");
 
     if (mode === "template" && !restaurantId) {
@@ -298,6 +311,7 @@ export default function FeedPage() {
           restaurantId: restaurantId || undefined,
           restaurantName: selectedRestaurant?.name,
           plates: restaurantId ? plates : undefined,
+          media: media.length ? media : undefined,
         }),
       });
       if (live.ok) {
@@ -677,7 +691,7 @@ export default function FeedPage() {
                 const kind: FeedMedia["kind"] = f.type.startsWith("video/")
                   ? "video"
                   : "photo";
-                addFiles(files, kind);
+                void addFiles(files, kind);
                 e.target.value = "";
               }}
             />
@@ -687,7 +701,7 @@ export default function FeedPage() {
               accept="image/gif,.gif"
               className="hidden"
               onChange={(e) => {
-                addFiles(e.target.files, "gif");
+                void addFiles(e.target.files, "gif");
                 e.target.value = "";
               }}
             />
@@ -720,11 +734,15 @@ export default function FeedPage() {
             </button>
             <button
               type="submit"
+              disabled={mediaBusy}
               className="gp-btn gp-btn-primary ml-auto text-sm"
             >
-              Post review
+              {mediaBusy ? "Compressing…" : "Post review"}
             </button>
           </div>
+          {mediaError && (
+            <p className="text-xs text-red-300">{mediaError}</p>
+          )}
 
           {showGifs && (
             <div className="rounded-md border border-border bg-background p-3">

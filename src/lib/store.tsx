@@ -311,7 +311,7 @@ interface StoreValue {
     memberNames: string[],
   ) => { ok: boolean; error?: string };
   joinGroupChat: (chatId: string) => { ok: boolean; error?: string };
-  sendChatMessage: (chatId: string, body: string) => void;
+  sendChatMessage: (chatId: string, body: string, imageUrl?: string) => void;
   reactToChatMessage: (
     chatId: string,
     messageId: string,
@@ -2874,8 +2874,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const sendChatMessage = useCallback(
-    (chatId: string, body: string) => {
-      if (!user || !body.trim()) return;
+    (chatId: string, body: string, imageUrl?: string) => {
+      if (!user || (!body.trim() && !imageUrl)) return;
       const msg = {
         id: `msg-${Date.now()}`,
         chatId,
@@ -2883,6 +2883,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         authorName: user.name,
         authorAvatar: user.avatarDataUrl,
         body: body.trim(),
+        imageUrl,
         at: new Date().toISOString(),
         reactions: {},
       };

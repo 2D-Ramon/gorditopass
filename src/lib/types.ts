@@ -59,6 +59,8 @@ export interface Deal {
   memberOnly: boolean;
   excludesAlcohol: boolean;
   active: boolean;
+  /** R2 (or compressed demo) URL */
+  imageUrl?: string;
 }
 
 export interface MenuItem {
@@ -68,6 +70,8 @@ export interface MenuItem {
   priceUsd: number;
   category: string;
   imageEmoji?: string;
+  /** R2 (or compressed demo) URL */
+  imageUrl?: string;
 }
 
 export interface Restaurant {
@@ -336,7 +340,7 @@ export interface ApplicationUpload {
   fileName: string;
   sizeBytes?: number;
   mimeType?: string;
-  /** Demo-only preview (data URL) so admin can open images in queue */
+  /** Public R2 URL or compressed data URL for admin preview */
   dataUrl?: string;
 }
 
@@ -474,6 +478,7 @@ export interface PartnerEvent {
   /** Ticket purchase / reserve URL (or demo path) */
   ticketUrl?: string;
   ticketPriceUsd?: number;
+  /** Public image URLs (R2) or compressed data URLs in local demo */
   imageDataUrls?: string[];
   status?: ContentStatus;
   createdAt?: string;
@@ -566,6 +571,7 @@ export interface ChatMessage {
   authorAvatar?: string;
   body: string;
   at: string;
+  imageUrl?: string;
   reactions?: ReactionMap;
 }
 

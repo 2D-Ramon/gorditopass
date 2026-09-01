@@ -96,10 +96,31 @@ export default function ApplyPage() {
     );
   }
 
-  function addUpload(label: string, file: File | undefined) {
+  async function addUpload(label: string, file: File | undefined) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+    const isPhoto =
+      file.type.startsWith("image/") && file.type !== "image/gif"
+        ? "apply"
+        : file.type === "image/gif"
+          ? "gif"
+          : "apply";
+    try {
+      const { uploadFiles } = await import("@/lib/upload-client");
+      const [uploaded] = await uploadFiles([file], isPhoto);
+      setUploads((prev) => {
+        const without = prev.filter((u) => u.label !== label);
+        return [
+          ...without,
+          {
+            label,
+            fileName: uploaded?.fileName || file.name,
+            sizeBytes: uploaded?.bytes ?? file.size,
+            mimeType: uploaded?.contentType || file.type,
+            dataUrl: uploaded?.url,
+          },
+        ];
+      });
+    } catch {
       setUploads((prev) => {
         const without = prev.filter((u) => u.label !== label);
         return [
@@ -109,12 +130,10 @@ export default function ApplyPage() {
             fileName: file.name,
             sizeBytes: file.size,
             mimeType: file.type,
-            dataUrl: String(reader.result),
           },
         ];
       });
-    };
-    reader.readAsDataURL(file);
+    }
   }
 
   return (
@@ -617,7 +636,8 @@ export default function ApplyPage() {
           <div className="rounded-lg border border-border bg-elevated/50 p-4">
             <p className="text-sm font-semibold">Uploads</p>
             <p className="mt-1 text-xs text-muted">
-              Demo stores file names only (not uploaded to a server).
+              Photos are compressed and stored on Cloudflare R2. Documents (PDF)
+              upload as-is, up to 8 MB.
             </p>
             <div className="mt-3 space-y-3">
               {UPLOAD_LABELS.map((label) => (
@@ -631,7 +651,7 @@ export default function ApplyPage() {
                         : "image/*,.pdf,.doc,.docx"
                     }
                     className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-200"
-                    onChange={(e) => addUpload(label, e.target.files?.[0])}
+                    onChange={(e) => void addUpload(label, e.target.files?.[0])}
                   />
                   {uploads.find((u) => u.label === label) && (
                     <span className="mt-0.5 block text-xs text-success">

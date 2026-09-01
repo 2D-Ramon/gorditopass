@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { REACTION_EMOJIS } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
@@ -41,6 +41,9 @@ function ChatInner() {
   const [groupPick, setGroupPick] = useState<string[]>([]);
   const [invitePick, setInvitePick] = useState<string[]>([]);
   const [flash, setFlash] = useState("");
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const photoRef = useRef<HTMLInputElement>(null);
 
   // Open shared group link: /chat?group=chat-g-…
   useEffect(() => {
@@ -420,7 +423,15 @@ function ChatInner() {
                             {m.authorName}
                           </Link>
                         )}
-                        <p className="leading-relaxed">{m.body}</p>
+                        {m.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.imageUrl}
+                            alt=""
+                            className="mb-2 max-h-56 w-full rounded-lg object-cover"
+                          />
+                        )}
+                        {m.body && <p className="leading-relaxed">{m.body}</p>}
                         <p className="mt-0.5 text-[10px] text-muted">
                           {new Date(m.at).toLocaleString()}
                         </p>
@@ -472,23 +483,76 @@ function ChatInner() {
                 })}
               </div>
               <form
-                className="flex gap-2 border-t border-border p-3"
+                className="border-t border-border p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!draft.trim()) return;
-                  sendChatMessage(active.id, draft);
+                  if (!draft.trim() && !pendingImage) return;
+                  sendChatMessage(active.id, draft, pendingImage ?? undefined);
                   setDraft("");
+                  setPendingImage(null);
                 }}
               >
-                <input
-                  className="gp-input flex-1 text-sm"
-                  placeholder="Message…"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                />
-                <button type="submit" className="gp-btn gp-btn-primary text-sm">
-                  Send
-                </button>
+                {pendingImage && (
+                  <div className="relative mb-2 inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pendingImage}
+                      alt=""
+                      className="h-16 w-16 rounded-md object-cover ring-1 ring-border"
+                    />
+                    <button
+                      type="button"
+                      className="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-[10px]"
+                      onClick={() => setPendingImage(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    ref={photoRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      setPhotoBusy(true);
+                      void import("@/lib/upload-client")
+                        .then(({ uploadImageUrls }) =>
+                          uploadImageUrls([file], "chat"),
+                        )
+                        .then(([url]) => {
+                          if (url) setPendingImage(url);
+                        })
+                        .catch((err: unknown) => {
+                          setFlash(
+                            err instanceof Error ? err.message : "Photo failed.",
+                          );
+                        })
+                        .finally(() => setPhotoBusy(false));
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-ghost text-sm"
+                    disabled={photoBusy}
+                    onClick={() => photoRef.current?.click()}
+                  >
+                    {photoBusy ? "…" : "📷"}
+                  </button>
+                  <input
+                    className="gp-input flex-1 text-sm"
+                    placeholder="Message…"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                  <button type="submit" className="gp-btn gp-btn-primary text-sm">
+                    Send
+                  </button>
+                </div>
               </form>
             </>
           ) : (

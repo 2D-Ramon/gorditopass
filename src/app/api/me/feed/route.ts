@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     restaurantId?: string;
     restaurantName?: string;
     plates?: number;
+    media?: { kind?: string; value?: string; name?: string }[];
   } | null;
   const title = String(body?.title ?? "").trim();
   const text = String(body?.body ?? "").trim();
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
   }
   const sb = createOpsClient();
-  const { error } = await sb.from("city_posts").insert({
+  const post = {
     member_id: profile.id,
     city: body?.city || profile.city || "dallas",
     title,
@@ -31,7 +32,14 @@ export async function POST(req: Request) {
     restaurant_id: body?.restaurantId || null,
     restaurant_name: body?.restaurantName || null,
     plates: body?.plates ? Math.min(5, Math.max(1, Math.round(body.plates))) : null,
-  });
+    media: Array.isArray(body?.media) ? body.media.slice(0, 8) : [],
+  };
+  let { error } = await sb.from("city_posts").insert(post);
+  if (error && /media/i.test(error.message)) {
+    const { media: _media, ...without } = post;
+    void _media;
+    ({ error } = await sb.from("city_posts").insert(without));
+  }
   if (error) {
     return NextResponse.json(
       { error: "Could not publish. Run member_activity.sql in Supabase." },

@@ -46,6 +46,7 @@ export type ProfileRow = {
   referral_code?: string | null;
   referral_count?: number | null;
   referred_by_code?: string | null;
+  avatar_url?: string | null;
 };
 
 export function profileToUser(p: ProfileRow): MockUser {
@@ -82,6 +83,7 @@ export function profileToUser(p: ProfileRow): MockUser {
     referralCode: p.referral_code ?? undefined,
     referralCount: p.referral_count ?? 0,
     referredByCode: p.referred_by_code ?? undefined,
+    avatarDataUrl: p.avatar_url ?? undefined,
   };
 }
 

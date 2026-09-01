@@ -274,10 +274,19 @@ function AccountInner() {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () =>
-                updateProfile({ avatarDataUrl: String(reader.result) });
-              reader.readAsDataURL(file);
+              void (async () => {
+                const { uploadImageUrls } = await import("@/lib/upload-client");
+                const [url] = await uploadImageUrls([file], "avatar");
+                if (!url) return;
+                updateProfile({ avatarDataUrl: url });
+                const { authedFetch } = await import("@/lib/authed");
+                await authedFetch("/api/me", {
+                  method: "PATCH",
+                  body: JSON.stringify({ avatarUrl: url }),
+                });
+              })().catch(() => {
+                /* keep local profile if live save fails */
+              });
             }}
           />
           <div>

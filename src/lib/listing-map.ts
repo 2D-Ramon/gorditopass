@@ -30,6 +30,7 @@ export type LiveListingRow = {
     active?: boolean;
     hidden?: boolean;
     status?: string | null;
+    image_urls?: string[] | null;
   }[];
   menu?: {
     id: string;
@@ -40,6 +41,7 @@ export type LiveListingRow = {
     active?: boolean;
     hidden?: boolean;
     status?: string | null;
+    image_urls?: string[] | null;
   }[];
 };
 
@@ -73,6 +75,7 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
       memberOnly: d.member_only !== false,
       excludesAlcohol: d.excludes_alcohol !== false,
       active: true,
+      imageUrl: d.image_urls?.[0],
     }));
   const menu: MenuItem[] = (row.menu ?? [])
     .filter(
@@ -87,6 +90,7 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
       description: m.description ?? "",
       priceUsd: Number(m.price_usd ?? 0),
       category: m.category ?? "Mains",
+      imageUrl: m.image_urls?.[0],
     }));
   return {
     id: row.id,

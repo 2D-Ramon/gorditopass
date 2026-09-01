@@ -104,6 +104,7 @@ export interface OpsAdminPublic {
 
 export interface OpsStatus {
   supabase: boolean;
+  r2: boolean;
   hasOpsSecret: boolean;
   unlocked: boolean;
   needsAdminTable: boolean;

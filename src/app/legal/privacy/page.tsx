@@ -21,8 +21,10 @@ export default function PrivacyPage() {
           <h2 className="font-semibold text-white">Where it lives</h2>
           <p className="mt-2">
             Account and membership data is stored in our database (Supabase).
-            Card numbers are handled by Stripe — we do not store full card data.
-            Some demo features may still use your browser until fully migrated.
+            Photos (menus, feed, chat, profiles) are compressed and stored on
+            Cloudflare R2. Card numbers are handled by Stripe — we do not store
+            full card data. Some demo features may still use your browser until
+            fully migrated.
           </p>
         </section>
         <section>

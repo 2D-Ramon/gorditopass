@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { userFromRequest } from "@/lib/market";
+import { sanitizeImageUrls } from "@/lib/media";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function GET(req: Request) {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   if (profile.staff_role === "employee") {
     return NextResponse.json({ error: "Employees cannot manage events." }, { status: 403 });
   }
-  const body = (await req.json().catch(() => null)) as Record<string, string> | null;
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const title = String(body?.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "Title required." }, { status: 400 });
   const sb = createOpsClient();
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     .select("name")
     .eq("id", profile.restaurant_id)
     .maybeSingle();
-  const { error } = await sb.from("listing_events").insert({
+  const row = {
     id,
     restaurant_id: profile.restaurant_id,
     restaurant_name: listing?.name ?? "",
@@ -42,14 +43,21 @@ export async function POST(req: Request) {
     description: String(body?.description ?? "").trim(),
     event_date: body?.date || null,
     event_time: body?.time || null,
-    city: body?.city || profile.city || "dallas",
-    emoji: body?.emoji || "🎉",
+    city: String(body?.city ?? "") || profile.city || "dallas",
+    emoji: String(body?.emoji ?? "") || "🎉",
     address: body?.address || null,
     ticket_url: body?.ticketUrl || null,
     ticket_price_usd: body?.ticketPriceUsd ? Number(body.ticketPriceUsd) : null,
+    image_urls: sanitizeImageUrls(body?.imageUrls ?? body?.imageDataUrls),
     status: "pending",
     hidden: false,
-  });
+  };
+  let { error } = await sb.from("listing_events").insert(row);
+  if (error && /image_urls/i.test(error.message)) {
+    const { image_urls: _urls, ...without } = row;
+    void _urls;
+    ({ error } = await sb.from("listing_events").insert(without));
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, id, status: "pending" });
 }

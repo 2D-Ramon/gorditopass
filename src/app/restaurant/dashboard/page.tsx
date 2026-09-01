@@ -10,6 +10,7 @@ import {
   STAFF_MEMBERSHIP_REFERRAL,
 } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
+import { parseImageUrls } from "@/lib/media";
 import {
   canManagePartnerContent,
   type CityId,
@@ -221,18 +222,13 @@ function ExpireFields({
   );
 }
 
-function readImages(files: FileList | null): Promise<string[]> {
-  if (!files?.length) return Promise.resolve([]);
-  return Promise.all(
-    Array.from(files).map(
-      (file) =>
-        new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.readAsDataURL(file);
-        }),
-    ),
-  );
+async function readImages(
+  files: FileList | null,
+  kind: "deal" | "menu" | "event",
+): Promise<string[]> {
+  if (!files?.length) return [];
+  const { uploadImageUrls } = await import("@/lib/upload-client");
+  return uploadImageUrls(files, kind);
 }
 
 export default function RestaurantDashboardPage() {
@@ -312,6 +308,7 @@ export default function RestaurantDashboardPage() {
   const [evEmoji, setEvEmoji] = useState("🎉");
   const [evExpireOn, setEvExpireOn] = useState(false);
   const [evExpiresAt, setEvExpiresAt] = useState("");
+  const [evImages, setEvImages] = useState<string[]>([]);
 
   // Job form
   const [jobTitle, setJobTitle] = useState("");
@@ -370,6 +367,7 @@ export default function RestaurantDashboardPage() {
               active: row.active !== false,
               status: (row.status as PartnerDealDraft["status"]) || "pending",
               createdAt: String(row.created_at ?? ""),
+              imageDataUrls: parseImageUrls(row),
             })),
           );
         });
@@ -388,6 +386,7 @@ export default function RestaurantDashboardPage() {
               status: (row.status as PartnerMenuItem["status"]) || "pending",
               createdAt: String(row.created_at ?? ""),
               active: row.active !== false,
+              imageDataUrls: parseImageUrls(row),
             })),
           );
         });
@@ -411,6 +410,7 @@ export default function RestaurantDashboardPage() {
               ticketPriceUsd: Number(row.ticket_price_usd ?? 0),
               status: (row.status as PartnerEvent["status"]) || "pending",
               createdAt: String(row.created_at ?? ""),
+              imageDataUrls: parseImageUrls(row),
             })),
           );
         });
@@ -937,6 +937,7 @@ export default function RestaurantDashboardPage() {
                     ? Number(dealValue) || null
                     : null,
                 regularPrice: Number(regularPrice) || 0,
+                imageUrls: dealImages,
               };
               if (editId && tab === "deal") {
                 updatePartnerDeal(editId, {
@@ -979,6 +980,7 @@ export default function RestaurantDashboardPage() {
                             (row.status as PartnerDealDraft["status"]) ||
                             "pending",
                           createdAt: String(row.created_at ?? ""),
+                          imageDataUrls: parseImageUrls(row),
                         })),
                       );
                     }
@@ -1096,14 +1098,21 @@ export default function RestaurantDashboardPage() {
             />
             <label className="block text-sm">
               Photos
+              <span className="block text-xs font-normal text-muted">
+                Compressed automatically (WebP, ~1200px).
+              </span>
               <input
                 type="file"
                 accept="image/*"
                 multiple
                 className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-200"
                 onChange={async (e) => {
-                  const imgs = await readImages(e.target.files);
-                  setDealImages((prev) => [...prev, ...imgs]);
+                  try {
+                    const imgs = await readImages(e.target.files, "deal");
+                    setDealImages((prev) => [...prev, ...imgs]);
+                  } catch (err) {
+                    toast(err instanceof Error ? err.message : "Photo upload failed.");
+                  }
                   e.target.value = "";
                 }}
               />
@@ -1238,6 +1247,7 @@ export default function RestaurantDashboardPage() {
                     description: menuDesc.trim(),
                     priceUsd: Number(menuPrice) || 0,
                     category: menuCat.trim() || "Mains",
+                    imageUrls: menuImages,
                   }),
                 });
                 if (live.ok) {
@@ -1316,14 +1326,21 @@ export default function RestaurantDashboardPage() {
             </div>
             <label className="block text-sm">
               Photos
+              <span className="block text-xs font-normal text-muted">
+                Compressed automatically (WebP, ~1200px).
+              </span>
               <input
                 type="file"
                 accept="image/*"
                 multiple
                 className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-200"
                 onChange={async (e) => {
-                  const imgs = await readImages(e.target.files);
-                  setMenuImages((prev) => [...prev, ...imgs]);
+                  try {
+                    const imgs = await readImages(e.target.files, "menu");
+                    setMenuImages((prev) => [...prev, ...imgs]);
+                  } catch (err) {
+                    toast(err instanceof Error ? err.message : "Photo upload failed.");
+                  }
                   e.target.value = "";
                 }}
               />
@@ -1436,6 +1453,7 @@ export default function RestaurantDashboardPage() {
                   ticketUrl: evTicketUrl.trim() || undefined,
                   ticketPriceUsd: Number(evTicketPrice) || 0,
                   emoji: evEmoji || "🎉",
+                  imageDataUrls: evImages.length ? evImages : undefined,
                   ...expire,
                 });
                 setEditId(null);
@@ -1454,6 +1472,7 @@ export default function RestaurantDashboardPage() {
                     address: evAddress,
                     ticketUrl: evTicketUrl.trim(),
                     ticketPriceUsd: Number(evTicketPrice) || 0,
+                    imageUrls: evImages,
                   }),
                 });
                 if (live.ok) {
@@ -1473,6 +1492,7 @@ export default function RestaurantDashboardPage() {
                     evTicketUrl.trim() ||
                     `https://example.com/tickets/${restaurant.id}`,
                   ticketPriceUsd: Number(evTicketPrice) || 0,
+                  imageDataUrls: evImages.length ? evImages : undefined,
                   ...expire,
                 });
                 toast(
@@ -1490,6 +1510,7 @@ export default function RestaurantDashboardPage() {
               setEvTime("");
               setEvExpireOn(false);
               setEvExpiresAt("");
+              setEvImages([]);
             }}
           >
             <label className="block text-sm">
@@ -1567,6 +1588,40 @@ export default function RestaurantDashboardPage() {
                 />
               </label>
             </div>
+            <label className="block text-sm">
+              Photos
+              <span className="block text-xs font-normal text-muted">
+                Compressed automatically (WebP, ~1280px).
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-200"
+                onChange={async (e) => {
+                  try {
+                    const imgs = await readImages(e.target.files, "event");
+                    setEvImages((prev) => [...prev, ...imgs]);
+                  } catch (err) {
+                    toast(err instanceof Error ? err.message : "Photo upload failed.");
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {evImages.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {evImages.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    className="h-14 w-14 rounded-md object-cover ring-1 ring-border"
+                  />
+                ))}
+              </div>
+            )}
             <ExpireFields
               enabled={evExpireOn}
               date={evExpiresAt}
@@ -1613,6 +1668,7 @@ export default function RestaurantDashboardPage() {
                     setEvEmoji(ev.emoji);
                     setEvExpireOn(Boolean(ev.expireEnabled));
                     setEvExpiresAt(ev.expiresAt ?? "");
+                    setEvImages(ev.imageDataUrls ?? []);
                   }}
                 >
                   Edit

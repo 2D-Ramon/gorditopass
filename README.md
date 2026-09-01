@@ -47,6 +47,28 @@ You will get a URL like `https://gorditopass.vercel.app`.
 
 Demo state persists in **browser localStorage** (`gorditopass-mvp-v1`).
 
+## Photo storage (Cloudflare R2)
+
+Menus, feed, chat, avatars, and apply photos are **compressed to WebP** then stored on **Cloudflare R2** (start on the free 10 GB plan — not the $25 website plan).
+
+1. Cloudflare dashboard → **R2 Object Storage** → create bucket `gorditopass-photos`
+2. Enable a **public** development URL or attach a custom domain (`https://images.yourdomain.com`)
+3. **Manage R2 API tokens** → create a token with Object Read & Write
+4. Copy values into `web/.env.local` (see `.env.example`):
+
+```
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=gorditopass-photos
+R2_PUBLIC_BASE_URL=https://pub-xxxxx.r2.dev
+```
+
+5. In Supabase SQL Editor run `supabase/photos.sql`
+6. Also add the same env vars in **Vercel → Settings → Environment Variables**
+
+Until R2 keys are set, the app still compresses photos and keeps a small local preview so the demo works. Documents on apply (PDF) need R2 to actually store the file.
+
 ### Demo roles
 
 | Role | How |

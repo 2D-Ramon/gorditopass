@@ -167,6 +167,7 @@ function ConnectPanel({
         <h2 className="font-semibold">Connection</h2>
         <ul className="mt-3 space-y-2 text-sm">
           <StatusRow ok={status.supabase} label="Supabase URL + service key" />
+          <StatusRow ok={status.r2} label="Cloudflare R2 photo storage" />
           <StatusRow ok={status.hasOpsSecret} label="OPS_ADMIN_SECRET" />
           <StatusRow ok={status.unlocked} label="This browser unlocked" />
           <StatusRow ok={!status.needsAdminTable} label="Admins table in Supabase" />
@@ -241,6 +242,17 @@ function ConnectPanel({
             <code className="text-stone-300">supabase/market.sql</code> then{" "}
             <code className="text-stone-300">supabase/member_activity.sql</code>{" "}
             (badges, reviews, favorites, feed, seats) → Run.
+          </li>
+          <li>
+            SQL Editor → paste{" "}
+            <code className="text-stone-300">supabase/photos.sql</code> (R2
+            photo URL columns).
+          </li>
+          <li>
+            Cloudflare → R2: create a free bucket, API token, and public URL.
+            Put keys in <code className="text-stone-300">web/.env.local</code>{" "}
+            (see <code className="text-stone-300">.env.example</code>). Photos
+            stay on the free 10 GB tier until you outgrow it.
           </li>
           <li>
             Restart the app, come back here, unlock with{" "}
