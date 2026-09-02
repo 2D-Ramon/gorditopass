@@ -197,6 +197,25 @@ export default function LoginPage() {
         .
       </p>
 
+      <div className="mt-6 rounded-lg border border-border bg-elevated/50 p-4 text-sm">
+        <p className="font-medium text-stone-200">Staff and admin</p>
+        <p className="mt-1 text-muted">
+          Admins and restaurant partners use a separate sign-in from diner
+          membership.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/admin" className="gp-btn gp-btn-secondary text-sm">
+            Admin sign in
+          </Link>
+          <Link
+            href="/restaurant/dashboard"
+            className="gp-btn gp-btn-ghost text-sm"
+          >
+            Partner dashboard
+          </Link>
+        </div>
+      </div>
+
       {localDemo && (
       <div className="mt-10 border-t border-border pt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">

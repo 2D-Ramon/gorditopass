@@ -99,6 +99,16 @@ export function Footer() {
           <p className="gp-section-label">Help</p>
           <ul className="mt-3 space-y-2.5 text-sm">
             <li>
+              <Link href="/login" className="text-stone-300 hover:text-brand">
+                Sign in
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin" className="text-stone-300 hover:text-brand">
+                Admin sign in
+              </Link>
+            </li>
+            <li>
               <Link href="/faq" className="text-stone-300 hover:text-brand">
                 FAQ
               </Link>

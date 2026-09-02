@@ -116,6 +116,27 @@ export function Header() {
           </Link>
 
           {user ? (
+            <Link
+              href="/account"
+              className="max-w-[5.75rem] truncate text-[13px] font-medium text-orange-200/90 hover:text-orange-100 sm:max-w-[10rem]"
+            >
+              {user.name}
+              {user.isMember && (
+                <span className="ml-1 hidden gp-badge !normal-case sm:inline">
+                  Member
+                </span>
+              )}
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="gp-btn gp-btn-secondary text-sm !px-2.5 !py-1.5 sm:!px-3"
+            >
+              Sign in
+            </Link>
+          )}
+
+          {user ? (
             <div className="hidden items-center gap-2 md:flex">
               {user.role === "restaurant" && (
                 <Link
@@ -134,15 +155,6 @@ export function Header() {
                 </Link>
               )}
               <Link
-                href="/account"
-                className="text-[13px] font-medium text-orange-200/90 hover:text-orange-100"
-              >
-                {user.name}
-                {user.isMember && (
-                  <span className="ml-1 gp-badge !normal-case">Member</span>
-                )}
-              </Link>
-              <Link
                 href="/login"
                 className="text-[11px] text-muted hover:text-white"
               >
@@ -157,20 +169,12 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <div className="hidden gap-2 sm:flex">
-              <Link
-                href="/login"
-                className="gp-btn gp-btn-secondary text-sm !px-3 !py-1.5"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/membership"
-                className="gp-btn gp-btn-primary text-sm !px-3 !py-1.5"
-              >
-                Join
-              </Link>
-            </div>
+            <Link
+              href="/membership"
+              className="gp-btn gp-btn-primary hidden text-sm !px-3 !py-1.5 sm:inline-flex"
+            >
+              Join
+            </Link>
           )}
 
           <button
@@ -193,6 +197,84 @@ export function Header() {
 
       {open && (
         <div className="border-t border-border bg-elevated px-4 py-4 lg:hidden">
+          {user ? (
+            <div className="mb-4 space-y-2 border-b border-border pb-4">
+              <p className="text-sm text-stone-300">
+                Signed in as{" "}
+                <span className="font-medium text-white">{user.name}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/account"
+                  onClick={() => setOpen(false)}
+                  className="gp-btn gp-btn-primary text-center text-sm"
+                >
+                  Account
+                </Link>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-sm"
+                  onClick={() => {
+                    signOut();
+                    setOpen(false);
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {user.role === "restaurant" && (
+                  <Link
+                    href="/restaurant/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="rounded-md px-2 py-2 text-sm hover:bg-card"
+                  >
+                    Partner dashboard
+                  </Link>
+                )}
+                <Link
+                  href="/admin"
+                  onClick={() => setOpen(false)}
+                  className="rounded-md px-2 py-2 text-sm hover:bg-card"
+                >
+                  {user.role === "admin" ? "Admin" : "Admin sign in"}
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="rounded-md px-2 py-2 text-sm hover:bg-card"
+                >
+                  Switch account
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 space-y-2 border-b border-border pb-4">
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="gp-btn gp-btn-secondary text-center text-sm"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/membership"
+                  onClick={() => setOpen(false)}
+                  className="gp-btn gp-btn-primary text-center text-sm"
+                >
+                  Join
+                </Link>
+              </div>
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-2 py-2 text-sm hover:bg-card"
+              >
+                Admin sign in
+              </Link>
+            </div>
+          )}
           <label className="mb-3 block text-sm">
             <span className="gp-section-label mb-1.5 block">City</span>
             <span className="gp-city-select-wrap block w-full">
@@ -243,25 +325,6 @@ export function Header() {
               Partner dashboard
             </Link>
           </div>
-          {!user && (
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="gp-btn gp-btn-secondary text-center text-sm"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/membership"
-                onClick={() => setOpen(false)}
-                className="gp-btn gp-btn-primary text-center text-sm"
-              >
-                Join
-              </Link>
-            </div>
-          )}
-
         </div>
       )}
     </header>

@@ -19,6 +19,7 @@ export default function RestaurantDetailPage() {
   const [liveReviews, setLiveReviews] = useState<Review[]>([]);
   const {
     user,
+    cart,
     addToCart,
     favorites,
     toggleFavorite,
@@ -37,6 +38,13 @@ export default function RestaurantDetailPage() {
   const [rateText, setRateText] = useState("");
   const [rateDone, setRateDone] = useState(false);
   const [rateTick, setRateTick] = useState(0);
+  const [addedId, setAddedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!addedId) return;
+    const t = window.setTimeout(() => setAddedId(null), 1600);
+    return () => window.clearTimeout(t);
+  }, [addedId]);
 
   useEffect(() => {
     let stop = false;
@@ -426,16 +434,17 @@ export default function RestaurantDetailPage() {
                       <button
                         type="button"
                         className="gp-btn gp-btn-primary text-sm !py-2"
-                        onClick={() =>
+                        onClick={() => {
                           addToCart({
                             menuItemId: item.id,
                             restaurantId: restaurant.id,
                             name: item.name,
                             priceUsd: item.priceUsd,
-                          })
-                        }
+                          });
+                          setAddedId(item.id);
+                        }}
                       >
-                        Add
+                        {addedId === item.id ? "Added" : "Add"}
                       </button>
                     </div>
                   </div>
@@ -444,12 +453,14 @@ export default function RestaurantDetailPage() {
             </div>
           ))}
         </div>
-        <Link
-          href="/cart"
-          className="mt-4 inline-block text-sm text-brand hover:underline"
-        >
-          View cart →
-        </Link>
+        {cart.some((l) => l.restaurantId === restaurant.id) && (
+          <Link
+            href="/cart"
+            className="mt-4 inline-block text-sm text-brand hover:underline"
+          >
+            View cart →
+          </Link>
+        )}
       </section>
 
       <section className="mt-10">

@@ -46,7 +46,7 @@ export default function MembershipPage() {
 
 function MembershipInner() {
   const search = useSearchParams();
-  const { user, activateMembership, setReferredByCode } = useStore();
+  const { user, activateMembership, setReferredByCode, clearCart } = useStore();
   const [planId, setPlanId] = useState<MembershipPlanId>("monthly");
   const [seats, setSeats] = useState(1);
   const [step, setStep] = useState<Step>("plan");
@@ -69,6 +69,10 @@ function MembershipInner() {
       setReferredByCode(upper);
     }
   }, [search, setReferredByCode]);
+
+  useEffect(() => {
+    if (search.get("paid") === "1") clearCart();
+  }, [search, clearCart]);
 
   const total = pricePerPerson(planId, seats);
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === planId)!;
@@ -192,6 +196,7 @@ function MembershipInner() {
         });
         const payJson = await pay.json();
         if (pay.ok && payJson.url) {
+          clearCart();
           window.location.href = payJson.url;
           return;
         }

@@ -56,12 +56,29 @@ import {
 } from "./contentModeration";
 import { MEMBERSHIP_PLANS } from "./pricing";
 
-const STORAGE_KEY = "gorditopass-mvp-v13";
+const STORAGE_KEY = "gorditopass-mvp-v14";
+const LEGACY_STORAGE_KEYS = [
+  "gorditopass-mvp-v13",
+  "gorditopass-mvp-v12",
+  "gorditopass-mvp-v11",
+  "gorditopass-mvp-v10",
+  "gorditopass-mvp-v9",
+  "gorditopass-mvp-v8",
+  "gorditopass-mvp-v7",
+  "gorditopass-mvp-v6",
+  "gorditopass-mvp-v5",
+  "gorditopass-mvp-v4",
+  "gorditopass-mvp-v3",
+  "gorditopass-mvp-v2",
+  "gorditopass-mvp-v1",
+];
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 
 interface Persisted {
   user: MockUser | null;
   cart: CartLine[];
+  /** User id that owns `cart`, or "guest". Cleared when identity changes. */
+  cartOwnerId?: string;
   favorites: string[];
   following: string[];
   /** Member user ids this account follows (movements) */
@@ -404,10 +421,32 @@ const defaultUser = (
   referralCount: 0,
 });
 
+function cartOwnerKey(user: MockUser | null): string {
+  return user?.id ?? "guest";
+}
+
+function sanitizeCart(cart: unknown): CartLine[] {
+  if (!Array.isArray(cart)) return [];
+  return cart.filter((line): line is CartLine => {
+    if (!line || typeof line !== "object") return false;
+    const l = line as CartLine;
+    return (
+      typeof l.menuItemId === "string" &&
+      typeof l.restaurantId === "string" &&
+      typeof l.name === "string" &&
+      typeof l.priceUsd === "number" &&
+      Number.isFinite(l.priceUsd) &&
+      typeof l.qty === "number" &&
+      l.qty > 0
+    );
+  });
+}
+
 function emptyPersisted(): Persisted {
   return {
     user: null,
     cart: [],
+    cartOwnerId: "guest",
     favorites: [],
     following: [],
     memberFollowing: [],
@@ -565,25 +604,48 @@ function upsertAccountFromUser(
 function load(): Persisted {
   if (typeof window === "undefined") return emptyPersisted();
   try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) ??
-      localStorage.getItem("gorditopass-mvp-v12") ??
-      localStorage.getItem("gorditopass-mvp-v11") ??
-      localStorage.getItem("gorditopass-mvp-v10") ??
-      localStorage.getItem("gorditopass-mvp-v9") ??
-      localStorage.getItem("gorditopass-mvp-v8") ??
-      localStorage.getItem("gorditopass-mvp-v7") ??
-      localStorage.getItem("gorditopass-mvp-v6") ??
-      localStorage.getItem("gorditopass-mvp-v5") ??
-      localStorage.getItem("gorditopass-mvp-v4") ??
-      localStorage.getItem("gorditopass-mvp-v3") ??
-      localStorage.getItem("gorditopass-mvp-v2") ??
-      localStorage.getItem("gorditopass-mvp-v1");
+    const currentRaw = localStorage.getItem(STORAGE_KEY);
+    let raw = currentRaw;
+    if (!raw) {
+      for (const key of LEGACY_STORAGE_KEYS) {
+        raw = localStorage.getItem(key);
+        if (raw) break;
+      }
+    }
     if (!raw) return emptyPersisted();
     const parsed = JSON.parse(raw) as Partial<Persisted>;
+    const user = parsed.user
+      ? {
+          ...parsed.user,
+          rewardPoints: parsed.user.rewardPoints ?? 0,
+          rewardPointsLifetime: parsed.user.rewardPointsLifetime ?? 0,
+          rewardsClaimed: parsed.user.rewardsClaimed ?? 0,
+          badges: parsed.user.badges ?? [],
+          householdMembers: parsed.user.householdMembers ?? [],
+          awardedBonuses: parsed.user.awardedBonuses ?? [],
+          feedPostCount: parsed.user.feedPostCount ?? 0,
+          completedPassports: parsed.user.completedPassports ?? [],
+          passportSnapshots: parsed.user.passportSnapshots ?? {},
+          passportPointsClaimed: parsed.user.passportPointsClaimed ?? [],
+        }
+      : null;
+    const owner = cartOwnerKey(user);
+    // Do not migrate food carts from older keys — a leftover guest/demo
+    // order was following new memberships on the same phone.
+    let nextCart: CartLine[] = [];
+    if (currentRaw) {
+      if (parsed.cartOwnerId === owner) {
+        nextCart = sanitizeCart(parsed.cart);
+      } else if (!parsed.cartOwnerId && !user) {
+        nextCart = sanitizeCart(parsed.cart);
+      }
+    }
     return {
       ...emptyPersisted(),
       ...parsed,
+      user,
+      cart: nextCart,
+      cartOwnerId: owner,
       notifications: parsed.notifications ?? [],
       accounts: parsed.accounts ?? [],
       autoApproveSettings: parsed.autoApproveSettings ?? [],
@@ -635,21 +697,6 @@ function load(): Persisted {
           status: a.status ?? "pending",
         }),
       ),
-      user: parsed.user
-        ? {
-            ...parsed.user,
-            rewardPoints: parsed.user.rewardPoints ?? 0,
-            rewardPointsLifetime: parsed.user.rewardPointsLifetime ?? 0,
-            rewardsClaimed: parsed.user.rewardsClaimed ?? 0,
-            badges: parsed.user.badges ?? [],
-            householdMembers: parsed.user.householdMembers ?? [],
-            awardedBonuses: parsed.user.awardedBonuses ?? [],
-            feedPostCount: parsed.user.feedPostCount ?? 0,
-            completedPassports: parsed.user.completedPassports ?? [],
-            passportSnapshots: parsed.user.passportSnapshots ?? {},
-            passportPointsClaimed: parsed.user.passportPointsClaimed ?? [],
-          }
-        : null,
     };
   } catch {
     return emptyPersisted();
@@ -767,6 +814,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [user, setUser] = useState<MockUser | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartOwnerId, setCartOwnerId] = useState("guest");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [memberFollowing, setMemberFollowing] = useState<string[]>([]);
@@ -809,6 +857,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const data = load();
     setUser(data.user);
     setCart(data.cart);
+    setCartOwnerId(data.cartOwnerId ?? cartOwnerKey(data.user));
     setFavorites(data.favorites);
     setFollowing(data.following);
     setMemberFollowing(data.memberFollowing ?? []);
@@ -839,6 +888,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const payload: Persisted = {
       user,
       cart,
+      cartOwnerId,
       favorites,
       following,
       memberFollowing,
@@ -866,6 +916,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     hydrated,
     user,
     cart,
+    cartOwnerId,
     favorites,
     following,
     memberFollowing,
@@ -888,6 +939,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     chats,
     eventRsvps,
   ]);
+
+  // Food cart is per identity. Signing in, switching accounts, or joining
+  // membership must not keep someone else's leftover order.
+  useEffect(() => {
+    if (!hydrated) return;
+    const nextOwner = cartOwnerKey(user);
+    if (nextOwner === cartOwnerId) return;
+    setCart([]);
+    setCartOwnerId(nextOwner);
+  }, [hydrated, user, cartOwnerId]);
 
   // Keep logged-in user mirrored into accounts list
   useEffect(() => {
@@ -946,6 +1007,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     setUser(null);
     setCart([]);
+    setCartOwnerId("guest");
     void fetch("/api/ops/session", { method: "DELETE" });
     void import("./supabase").then(({ createBrowserClient }) => {
       void createBrowserClient()?.auth.signOut();
@@ -1943,6 +2005,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addToCart = useCallback(
     (line: Omit<CartLine, "qty">, qty = 1) => {
+      setCartOwnerId(cartOwnerKey(user));
       setCart((prev) => {
         const sameRestaurant =
           prev.length === 0 || prev[0].restaurantId === line.restaurantId;
@@ -1958,7 +2021,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return [...base, { ...line, qty }];
       });
     },
-    [],
+    [user],
   );
 
   const updateQty = useCallback((menuItemId: string, qty: number) => {
@@ -2420,9 +2483,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const resetDemoData = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem("gorditopass-mvp-v11");
+    for (const key of LEGACY_STORAGE_KEYS) {
+      localStorage.removeItem(key);
+    }
     setUser(null);
     setCart([]);
+    setCartOwnerId("guest");
     setFavorites([]);
     setFollowing([]);
     setMemberFollowing([]);
