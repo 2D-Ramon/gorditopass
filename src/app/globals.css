@@ -207,7 +207,6 @@ button:focus-visible {
 /* Header city select — orange outline + orange chevron, white city name */
 .gp-city-select-wrap {
   position: relative;
-  display: inline-flex;
   align-items: center;
 }
 

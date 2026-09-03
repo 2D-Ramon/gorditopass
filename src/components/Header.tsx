@@ -75,7 +75,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <label className="gp-city-select-wrap hidden sm:inline-flex">
+          <label className="gp-city-select-wrap hidden lg:inline-flex">
             <span className="sr-only">City</span>
             <select
               className="gp-city-select"
@@ -116,28 +116,16 @@ export function Header() {
           </Link>
 
           {user ? (
-            <Link
-              href="/account"
-              className="max-w-[5.75rem] truncate text-[13px] font-medium text-orange-200/90 hover:text-orange-100 sm:max-w-[10rem]"
-            >
-              {user.name}
-              {user.isMember && (
-                <span className="ml-1 hidden gp-badge !normal-case sm:inline">
-                  Member
-                </span>
-              )}
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="gp-btn gp-btn-secondary text-sm !px-2.5 !py-1.5 sm:!px-3"
-            >
-              Sign in
-            </Link>
-          )}
-
-          {user ? (
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden items-center gap-2 lg:flex">
+              <Link
+                href="/account"
+                className="max-w-[10rem] truncate text-[13px] font-medium text-orange-200/90 hover:text-orange-100"
+              >
+                {user.name}
+                {user.isMember && (
+                  <span className="ml-1 gp-badge !normal-case">Member</span>
+                )}
+              </Link>
               {user.role === "restaurant" && (
                 <Link
                   href="/restaurant/dashboard"
@@ -169,17 +157,25 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <Link
-              href="/membership"
-              className="gp-btn gp-btn-primary hidden text-sm !px-3 !py-1.5 sm:inline-flex"
-            >
-              Join
-            </Link>
+            <div className="hidden items-center gap-2 lg:flex">
+              <Link
+                href="/login"
+                className="gp-btn gp-btn-secondary text-sm !px-3 !py-1.5"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/membership"
+                className="gp-btn gp-btn-primary text-sm !px-3 !py-1.5"
+              >
+                Join
+              </Link>
+            </div>
           )}
 
           <button
             type="button"
-            className="gp-btn gp-btn-ghost lg:hidden"
+            className="gp-btn gp-btn-ghost lg:!hidden"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label={open ? "Close menu" : "Open menu"}
