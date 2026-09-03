@@ -228,13 +228,15 @@ export function Header() {
                     Partner dashboard
                   </Link>
                 )}
-                <Link
-                  href="/admin"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-2 py-2 text-sm hover:bg-card"
-                >
-                  {user.role === "admin" ? "Admin" : "Admin sign in"}
-                </Link>
+                {user.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="rounded-md px-2 py-2 text-sm hover:bg-card"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
@@ -262,13 +264,6 @@ export function Header() {
                   Join
                 </Link>
               </div>
-              <Link
-                href="/admin"
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-2 py-2 text-sm hover:bg-card"
-              >
-                Admin sign in
-              </Link>
             </div>
           )}
           <label className="mb-3 block text-sm">
