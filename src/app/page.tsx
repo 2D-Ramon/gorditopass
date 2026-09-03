@@ -24,7 +24,7 @@ export default function HomePage() {
                 Explore Dallas
               </Link>
               <Link href="/membership" className="gp-btn gp-btn-secondary">
-                Membership from $7/mo
+                As low as $5/mo
               </Link>
             </div>
             <div className="mt-4 flex flex-wrap gap-4 text-sm">

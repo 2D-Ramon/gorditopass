@@ -74,8 +74,8 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-1.5">
-          <label className="gp-city-select-wrap hidden lg:inline-flex">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <label className="gp-city-select-wrap inline-flex min-w-0 max-w-[8.25rem] sm:max-w-none">
             <span className="sr-only">City</span>
             <select
               className="gp-city-select"

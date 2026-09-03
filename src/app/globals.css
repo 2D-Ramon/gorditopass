@@ -219,13 +219,23 @@ button:focus-visible {
   border: 1.5px solid var(--brand);
   border-radius: 0.5rem;
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  padding: 0.45rem 2rem 0.45rem 0.7rem;
+  padding: 0.35rem 1.55rem 0.35rem 0.5rem;
   outline: none;
   cursor: pointer;
   box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.12);
-  min-width: 7.5rem;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .gp-city-select {
+    font-size: 0.75rem;
+    padding: 0.45rem 2rem 0.45rem 0.7rem;
+    min-width: 7.5rem;
+    width: auto;
+  }
 }
 
 .gp-city-select-wrap::after {
