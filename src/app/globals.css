@@ -370,3 +370,20 @@ a:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
+
+@media print {
+  .no-print,
+  header,
+  footer,
+  .gp-skip {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .print-tent {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

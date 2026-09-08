@@ -23,6 +23,11 @@ export async function GET(_req: Request, ctx: Ctx) {
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
+  const reviewIds = (reviews ?? []).map((r) => r.id);
+  const { data: replies } = reviewIds.length
+    ? await sb.from("plate_review_replies").select("*").in("review_id", reviewIds)
+    : { data: [] as { review_id: string; body: string }[] };
+  const replyMap = new Map((replies ?? []).map((r) => [r.review_id, r.body]));
   return NextResponse.json({
     restaurant: { ...listing, deals: deals ?? [], menu: menu ?? [] },
     reviews: (reviews ?? []).map((r) => ({
@@ -38,6 +43,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       dealId: r.deal_id,
       dealTitle: r.deal_title,
       cuisine: r.cuisine,
+      ownerReply: replyMap.get(r.id) ?? "",
     })),
   });
 }

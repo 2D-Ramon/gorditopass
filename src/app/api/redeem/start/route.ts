@@ -97,8 +97,11 @@ export async function POST(req: Request) {
     }
   }
 
-  if (deal.active === false) {
-    return NextResponse.json({ error: "This deal is not live." }, { status: 404 });
+  if (deal.active === false || deal.sold_out === true) {
+    return NextResponse.json(
+      { error: "This deal is paused or sold out tonight." },
+      { status: 404 },
+    );
   }
 
   await sb

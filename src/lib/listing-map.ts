@@ -18,6 +18,7 @@ export type LiveListingRow = {
   accent?: string | null;
   approved?: boolean;
   banned?: boolean;
+  open_status?: string | null;
   deals?: {
     id: string;
     restaurant_id: string;
@@ -31,6 +32,7 @@ export type LiveListingRow = {
     hidden?: boolean;
     status?: string | null;
     image_urls?: string[] | null;
+    sold_out?: boolean | null;
   }[];
   menu?: {
     id: string;
@@ -42,6 +44,7 @@ export type LiveListingRow = {
     hidden?: boolean;
     status?: string | null;
     image_urls?: string[] | null;
+    sold_out?: boolean | null;
   }[];
 };
 
@@ -76,6 +79,7 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
       excludesAlcohol: d.excludes_alcohol !== false,
       active: true,
       imageUrl: d.image_urls?.[0],
+      soldOut: d.sold_out === true,
     }));
   const menu: MenuItem[] = (row.menu ?? [])
     .filter(
@@ -91,6 +95,7 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
       priceUsd: Number(m.price_usd ?? 0),
       category: m.category ?? "Mains",
       imageUrl: m.image_urls?.[0],
+      soldOut: m.sold_out === true,
     }));
   return {
     id: row.id,
@@ -114,6 +119,10 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
     acceptsReservations: seed?.acceptsReservations ?? false,
     acceptsOnlineOrders: seed?.acceptsOnlineOrders ?? true,
     approved: row.approved !== false && row.banned !== true,
+    openStatus:
+      row.open_status === "open" || row.open_status === "closed"
+        ? row.open_status
+        : "hours",
   };
 }
 

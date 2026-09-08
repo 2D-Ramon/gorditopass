@@ -61,6 +61,7 @@ export interface Deal {
   active: boolean;
   /** R2 (or compressed demo) URL */
   imageUrl?: string;
+  soldOut?: boolean;
 }
 
 export interface MenuItem {
@@ -72,6 +73,7 @@ export interface MenuItem {
   imageEmoji?: string;
   /** R2 (or compressed demo) URL */
   imageUrl?: string;
+  soldOut?: boolean;
 }
 
 export interface Restaurant {
@@ -96,6 +98,7 @@ export interface Restaurant {
   acceptsReservations: boolean;
   acceptsOnlineOrders: boolean;
   approved: boolean;
+  openStatus?: "open" | "closed" | "hours";
 }
 
 export interface Review {
@@ -111,6 +114,7 @@ export interface Review {
   dealTitle?: string;
   cuisine?: string;
   fromFeed?: boolean;
+  ownerReply?: string;
 }
 
 export type FeedMediaKind = "photo" | "video" | "gif" | "emoji";

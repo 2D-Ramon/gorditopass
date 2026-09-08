@@ -97,11 +97,40 @@ export async function POST(req: Request) {
       : POINT_ACTIONS.redeem.label;
   await addPoints(row.member_id, pts, note);
   const newBadges = await unlockRedeemBadges(row.member_id);
+  const [{ data: member }, { data: listing }] = await Promise.all([
+    sb
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", row.member_id)
+      .maybeSingle(),
+    sb
+      .from("listings")
+      .select("id, name, address, google_maps_url")
+      .eq("id", row.restaurant_id)
+      .maybeSingle(),
+  ]);
+  const firstName =
+    (member?.first_name || "").trim() ||
+    (member?.email || "Member").split("@")[0];
+  const maps =
+    listing?.google_maps_url ||
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${listing?.name ?? ""} ${listing?.address ?? ""}`.trim(),
+    )}`;
+  const site =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://gorditopass.vercel.app";
   return NextResponse.json({
     ok: true,
     dealId: row.deal_id,
     memberId: row.member_id,
     points: pts,
     newBadges,
+    reviewPrompt: {
+      firstName,
+      dealTitle: row.deal_title || "tonight's deal",
+      rateUrl: `${site}/restaurants/${row.restaurant_id}#rate`,
+      googleUrl: maps,
+    },
   });
 }

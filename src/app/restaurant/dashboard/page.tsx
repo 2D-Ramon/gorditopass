@@ -22,8 +22,20 @@ import {
   type JobPosting,
   type StaffRole,
 } from "@/lib/types";
+import {
+  PartnerDesk,
+  type PartnerDeskTab,
+} from "@/components/partner/PartnerDesk";
 
-type Tab = "scan" | "enroll" | "story" | "deal" | "menu" | "event" | "job";
+type Tab =
+  | PartnerDeskTab
+  | "scan"
+  | "enroll"
+  | "story"
+  | "deal"
+  | "menu"
+  | "event"
+  | "job";
 
 function PartnerSignIn() {
   const { signInDemo } = useStore();
@@ -280,9 +292,43 @@ export default function RestaurantDashboardPage() {
   const [dbMenu, setDbMenu] = useState<PartnerMenuItem[] | null>(null);
   const [dbEvents, setDbEvents] = useState<PartnerEvent[] | null>(null);
   const [dbJobs, setDbJobs] = useState<JobPosting[] | null>(null);
-  const [tab, setTab] = useState<Tab>("scan");
+  const [tab, setTab] = useState<Tab>("home");
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (
+      t === "home" ||
+      t === "members" ||
+      t === "scan" ||
+      t === "log" ||
+      t === "inbox" ||
+      t === "reviews" ||
+      t === "hours" ||
+      t === "enroll" ||
+      t === "story" ||
+      t === "deal" ||
+      t === "menu" ||
+      t === "event" ||
+      t === "job"
+    ) {
+      setTab(t);
+    }
+  }, []);
+
+  function goTab(id: Tab) {
+    setTab(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", id);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  }
   const [scanCode, setScanCode] = useState("");
   const [scanMsg, setScanMsg] = useState("");
+  const [reviewPrompt, setReviewPrompt] = useState<{
+    firstName: string;
+    dealTitle: string;
+    rateUrl: string;
+    googleUrl: string;
+  } | null>(null);
   const [staffPin, setStaffPin] = useState("");
   const [flash, setFlash] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -526,7 +572,13 @@ export default function RestaurantDashboardPage() {
   }
 
   const allTabs: { id: Tab; label: string; managersOnly: boolean }[] = [
+    { id: "home", label: "This week", managersOnly: true },
+    { id: "members", label: "My members", managersOnly: true },
     { id: "scan", label: "Redeem scan", managersOnly: false },
+    { id: "log", label: "Scan log", managersOnly: true },
+    { id: "inbox", label: "Inbox", managersOnly: true },
+    { id: "reviews", label: "Reviews", managersOnly: true },
+    { id: "hours", label: "Hours & tent", managersOnly: true },
     { id: "enroll", label: "Enroll customer", managersOnly: false },
     { id: "story", label: "Our story", managersOnly: true },
     { id: "deal", label: "Promotions", managersOnly: true },
@@ -556,15 +608,15 @@ export default function RestaurantDashboardPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="gp-page-title">Partner dashboard</h1>
-      <p className="gp-page-sub">
+      <h1 className="gp-page-title no-print">Partner dashboard</h1>
+      <p className="gp-page-sub no-print">
         Bound to <strong className="text-stone-300">{restaurant.name}</strong>
         . Signed in as{" "}
         <strong className="text-stone-300">{user.staffRole ?? "owner"}</strong>
         {!canManage && " — redeem scan only"}.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 no-print">
         <div className="gp-card gp-card-static p-3 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
             Rev · week
@@ -599,7 +651,7 @@ export default function RestaurantDashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 p-4 text-sm">
+      <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 p-4 text-sm no-print">
         <p className="font-semibold text-orange-200">
           Staff membership referrals · ${STAFF_MEMBERSHIP_REFERRAL.amountUsd}{" "}
           each
@@ -626,12 +678,12 @@ export default function RestaurantDashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-1.5">
+      <div className="mt-6 flex flex-wrap gap-1.5 no-print">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => goTab(t.id)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
               activeTab === t.id
                 ? "bg-brand/15 text-orange-200 ring-1 ring-brand/30"
@@ -644,11 +696,26 @@ export default function RestaurantDashboardPage() {
       </div>
 
       {!canManage && (
-        <p className="mt-3 text-xs text-muted">
+        <p className="mt-3 text-xs text-muted no-print">
           Content tabs (our story, deals, menu, events, jobs) are limited to
           owner, manager, and marketing. Employees can redeem only.
         </p>
       )}
+
+      {(activeTab === "home" ||
+        activeTab === "members" ||
+        activeTab === "log" ||
+        activeTab === "inbox" ||
+        activeTab === "reviews" ||
+        activeTab === "hours") &&
+        canManage && (
+          <PartnerDesk
+            tab={activeTab}
+            restaurantId={restaurant.id}
+            restaurantName={restaurant.name}
+            address={restaurant.address}
+          />
+        )}
 
       {activeTab === "enroll" && (
         <section className="mt-6 space-y-4">
@@ -906,9 +973,12 @@ export default function RestaurantDashboardPage() {
                 const data = await res.json();
                 if (res.ok) {
                   setScanMsg(`Code ${scanCode} accepted. Honor deal on POS.`);
+                  if (data.reviewPrompt) setReviewPrompt(data.reviewPrompt);
+                  else setReviewPrompt(null);
                   setScanCode("");
                 } else {
                   setScanMsg(data.error ?? "Could not confirm code.");
+                  setReviewPrompt(null);
                 }
               }}
             >
@@ -916,6 +986,57 @@ export default function RestaurantDashboardPage() {
             </button>
           </div>
           {scanMsg && <p className="mt-2 text-sm text-brand-mint">{scanMsg}</p>}
+          {reviewPrompt && (
+            <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 p-3 text-sm">
+              <p className="font-semibold text-orange-200">Review prompt</p>
+              <p className="mt-1 text-stone-300">
+                Ask {reviewPrompt.firstName} to rate the plate on GorditoPass
+                ({reviewPrompt.dealTitle}). If they liked it, they can also
+                leave a Google review.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a
+                  href={reviewPrompt.rateUrl}
+                  className="gp-btn gp-btn-secondary !py-1 text-xs"
+                >
+                  Gordito rating
+                </a>
+                <a
+                  href={reviewPrompt.googleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gp-btn gp-btn-secondary !py-1 text-xs"
+                >
+                  Google review
+                </a>
+              </div>
+            </div>
+          )}
+          <form
+            className="mt-4 space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const { authedFetch } = await import("@/lib/authed");
+              const res = await authedFetch("/api/partner/reports", {
+                method: "POST",
+                body: JSON.stringify({
+                  code: scanCode,
+                  note: "Flagged from redeem scan.",
+                  memberName: reviewPrompt?.firstName,
+                }),
+              });
+              const data = await res.json();
+              setScanMsg(
+                res.ok
+                  ? "Report sent to GorditoPass."
+                  : data.error ?? "Could not report.",
+              );
+            }}
+          >
+            <button type="submit" className="text-xs text-muted underline">
+              Report this redeem as suspicious
+            </button>
+          </form>
           <div className="mt-6 border-t border-border pt-4">
             <h3 className="text-sm font-semibold">Redemption report</h3>
             <p className="text-2xl font-bold text-brand-gold">

@@ -39,6 +39,8 @@ export default function RestaurantDetailPage() {
   const [rateDone, setRateDone] = useState(false);
   const [rateTick, setRateTick] = useState(0);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [noteMsg, setNoteMsg] = useState("");
 
   useEffect(() => {
     if (!addedId) return;
@@ -113,6 +115,7 @@ export default function RestaurantDetailPage() {
       imageEmoji?: string;
       imageUrl?: string;
       partner?: boolean;
+      soldOut?: boolean;
     };
     const seed: Row[] = restaurant.menu.map((m) => ({
       id: m.id,
@@ -122,6 +125,7 @@ export default function RestaurantDetailPage() {
       category: m.category,
       imageEmoji: m.imageEmoji,
       imageUrl: m.imageUrl,
+      soldOut: m.soldOut,
     }));
     const partner: Row[] = partnerMenuItems
       .filter(
@@ -185,6 +189,12 @@ export default function RestaurantDetailPage() {
           <p className="text-sm text-muted">
             {restaurant.hours} · {restaurant.address}
           </p>
+          {restaurant.openStatus === "closed" && (
+            <p className="text-sm font-semibold text-brand">Closed right now.</p>
+          )}
+          {restaurant.openStatus === "open" && (
+            <p className="text-sm text-success">Open now.</p>
+          )}
           <div className="flex flex-wrap gap-2">
             {user ? (
               <>
@@ -325,8 +335,15 @@ export default function RestaurantDetailPage() {
               <p className="gp-badge">{deal.type.replace(/_/g, " ")}</p>
               <h3 className="mt-2 text-lg font-semibold">{deal.title}</h3>
               <p className="text-sm text-muted">{deal.description}</p>
+              {deal.soldOut && (
+                <p className="mt-1 text-xs font-semibold text-brand">
+                  Sold out / paused tonight
+                </p>
+              )}
               <div className="mt-4">
-                {user?.isMember ? (
+                {deal.soldOut ? (
+                  <span className="text-sm text-muted">Not redeemable right now.</span>
+                ) : user?.isMember ? (
                   <Link
                     href={`/redeem/${deal.id}`}
                     className="gp-btn gp-btn-primary text-sm"
@@ -423,6 +440,11 @@ export default function RestaurantDetailPage() {
                               partner
                             </span>
                           )}
+                          {item.soldOut && (
+                            <span className="ml-2 text-[10px] font-semibold text-brand">
+                              sold out
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-muted">{item.description}</p>
                       </div>
@@ -431,6 +453,9 @@ export default function RestaurantDetailPage() {
                       <span className="font-semibold">
                         ${item.priceUsd.toFixed(2)}
                       </span>
+                      {item.soldOut ? (
+                        <span className="text-sm text-muted">86&apos;d</span>
+                      ) : (
                       <button
                         type="button"
                         className="gp-btn gp-btn-primary text-sm !py-2"
@@ -446,6 +471,7 @@ export default function RestaurantDetailPage() {
                       >
                         {addedId === item.id ? "Added" : "Add"}
                       </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -463,7 +489,46 @@ export default function RestaurantDetailPage() {
         )}
       </section>
 
-      <section className="mt-10">
+      {user?.role === "diner" && (
+        <section className="mt-10 gp-card gp-card-static p-5">
+          <h2 className="text-lg font-semibold">Message the restaurant</h2>
+          <p className="text-sm text-muted">
+            Goes to their partner inbox — not a text message.
+          </p>
+          <form
+            className="mt-3 space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const { authedFetch } = await import("@/lib/authed");
+              const res = await authedFetch("/api/me/message", {
+                method: "POST",
+                body: JSON.stringify({
+                  restaurantId: restaurant.id,
+                  body: note,
+                }),
+              });
+              const data = await res.json();
+              setNoteMsg(
+                res.ok ? "Sent to the restaurant." : data.error ?? "Could not send.",
+              );
+              if (res.ok) setNote("");
+            }}
+          >
+            <textarea
+              className="gp-input min-h-[4rem]"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Hours, allergy, party size…"
+            />
+            <button type="submit" className="gp-btn gp-btn-secondary text-sm">
+              Send
+            </button>
+            {noteMsg && <p className="text-sm text-muted">{noteMsg}</p>}
+          </form>
+        </section>
+      )}
+
+      <section id="rate" className="mt-10 scroll-mt-24">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
           Plate rate
         </p>
@@ -484,6 +549,11 @@ export default function RestaurantDetailPage() {
                 </div>
               </div>
               <p className="mt-2 text-sm text-stone-300">{r.text}</p>
+              {r.ownerReply && (
+                <p className="mt-2 text-sm text-brand-mint">
+                  Restaurant: {r.ownerReply}
+                </p>
+              )}
               {(r.menuItemName || r.dealTitle) && (
                 <p className="mt-1 text-xs text-muted">
                   {r.menuItemName && <>Item: {r.menuItemName}</>}
