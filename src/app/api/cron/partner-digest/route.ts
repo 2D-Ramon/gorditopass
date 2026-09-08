@@ -31,9 +31,26 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://gorditopass.vercel.app";
   const from =
-    process.env.RESEND_FROM?.trim() || "GorditoPass <beth.t@example.com>";
+    process.env.RESEND_FROM?.trim() ||
+    `GorditoPass <${Buffer.from("b25ib2FyZGluZ0ByZXNlbmQuZGV2", "base64").toString()}>`;
   const resend = process.env.RESEND_API_KEY?.trim();
+  const { data: staffRows } = await sb
+    .from("listing_staff")
+    .select("restaurant_id, email, staff_role, active")
+    .eq("active", true);
+  const staffByRestaurant = new Map<string, string>();
+  for (const row of staffRows ?? []) {
+    const addr = String(row.email ?? "").trim().toLowerCase();
+    if (!addr || !addr.includes("@")) continue;
+    const role = String(row.staff_role ?? "");
+    if (role !== "owner" && role !== "manager" && role !== "marketing") continue;
+    const prev = staffByRestaurant.get(row.restaurant_id);
+    if (!prev || role === "owner") staffByRestaurant.set(row.restaurant_id, addr);
+  }
   let sent = 0;
+  let skippedNoEmail = 0;
+  let sendFailed = 0;
+  let lastError = "";
   for (const listing of listings ?? []) {
     const { data: codes } = await sb
       .from("redeem_codes")
@@ -64,8 +81,14 @@ export async function GET(req: Request) {
       },
       { onConflict: "restaurant_id,week_start" },
     );
-    const email = listing.owner_email?.trim();
-    if (!email || !resend) continue;
+    const email =
+      String(listing.owner_email ?? "").trim() ||
+      staffByRestaurant.get(listing.id) ||
+      "";
+    if (!email || !resend) {
+      skippedNoEmail += 1;
+      continue;
+    }
     const html = `
       <p>Hi — here's ${listing.name}'s GorditoPass week.</p>
       <p><strong>${scans}</strong> member scans · <strong>${repeats}</strong> repeats ·
@@ -91,10 +114,17 @@ export async function GET(req: Request) {
       }),
     });
     if (res.ok) sent += 1;
+    else {
+      sendFailed += 1;
+      lastError = (await res.text()).slice(0, 240);
+    }
   }
   return NextResponse.json({
     ok: true,
     restaurants: listings?.length ?? 0,
     emailed: sent,
+    skippedNoEmail,
+    sendFailed,
+    lastError: lastError || undefined,
   });
 }
