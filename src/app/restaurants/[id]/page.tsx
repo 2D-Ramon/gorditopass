@@ -6,17 +6,20 @@ import { useEffect, useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel, getRestaurant } from "@/lib/data";
 import { useLiveCatalog } from "@/lib/live-catalog";
+import { mapListing, type LiveListingRow } from "@/lib/listing-map";
 import { MENU_CATEGORIES } from "@/lib/pricing";
 import { isPartnerContentLive, useStore } from "@/lib/store";
-import type { Review } from "@/lib/types";
+import type { Restaurant, Review } from "@/lib/types";
 
 export default function RestaurantDetailPage() {
   const params = useParams();
   const id = String(params.id);
-  const { restaurants } = useLiveCatalog();
-  const restaurant =
-    restaurants.find((r) => r.id === id || r.slug === id) ?? getRestaurant(id);
+  const { restaurants, ready } = useLiveCatalog();
+  const [fetched, setFetched] = useState<Restaurant | null>(null);
   const [liveReviews, setLiveReviews] = useState<Review[]>([]);
+  const catalogRestaurant =
+    restaurants.find((r) => r.id === id || r.slug === id) ?? getRestaurant(id);
+  const restaurant = catalogRestaurant ?? fetched;
   const {
     user,
     cart,
@@ -52,9 +55,15 @@ export default function RestaurantDetailPage() {
     let stop = false;
     void fetch(`/api/listings/${id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { reviews?: Review[] } | null) => {
-        if (!stop && data?.reviews) setLiveReviews(data.reviews);
-      })
+      .then(
+        (data: { restaurant?: LiveListingRow | null; reviews?: Review[] } | null) => {
+          if (stop || !data) return;
+          if (data.reviews) setLiveReviews(data.reviews);
+          if (data.restaurant?.id) {
+            setFetched(mapListing(data.restaurant));
+          }
+        },
+      )
       .catch(() => {});
     return () => {
       stop = true;
@@ -78,26 +87,8 @@ export default function RestaurantDetailPage() {
     ];
   }, [restaurant, getReviewsForRestaurant, rateTick, liveReviews]);
 
-  if (!restaurant) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Restaurant not found</h1>
-        <Link href="/explore" className="mt-4 inline-block text-brand">
-          Back to explore
-        </Link>
-      </div>
-    );
-  }
-
-  const isFav = favorites.includes(restaurant.id);
-  const isFollowing = following.includes(restaurant.id);
-  const story = getRestaurantStory(restaurant.id).trim();
-  // Only diner members rate plates — restaurants never rate
-  const canRate = Boolean(
-    user?.role === "diner" && user.isMember,
-  );
-
   const liveDeals = useMemo(() => {
+    if (!restaurant) return { seed: [] as Restaurant["deals"], partner: [] };
     const seed = restaurant.deals.filter((d) => d.active);
     const partner = partnerDeals.filter(
       (d) => d.restaurantId === restaurant.id && isPartnerContentLive(d),
@@ -117,6 +108,7 @@ export default function RestaurantDetailPage() {
       partner?: boolean;
       soldOut?: boolean;
     };
+    if (!restaurant) return [] as { category: string; items: Row[] }[];
     const seed: Row[] = restaurant.menu.map((m) => ({
       id: m.id,
       name: m.name,
@@ -153,6 +145,24 @@ export default function RestaurantDetailPage() {
       .filter((c) => (cats.get(c) ?? []).length > 0)
       .map((c) => ({ category: c, items: cats.get(c)! }));
   }, [restaurant, partnerMenuItems]);
+
+  if (!restaurant) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold">
+          {ready ? "Restaurant not found" : "Loading…"}
+        </h1>
+        <Link href="/explore" className="mt-4 inline-block text-brand">
+          Back to explore
+        </Link>
+      </div>
+    );
+  }
+
+  const isFav = favorites.includes(restaurant.id);
+  const isFollowing = following.includes(restaurant.id);
+  const story = getRestaurantStory(restaurant.id).trim();
+  const canRate = Boolean(user?.role === "diner" && user.isMember);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
