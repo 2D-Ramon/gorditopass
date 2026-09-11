@@ -504,7 +504,7 @@ export function PartnerDesk({
                   One row per day or set of days. Example: Mon–Thu and
                   Fri–Sat can be different.
                 </p>
-                {hourRows.map((row, i) => (
+                {hourRows.map((row) => (
                   <div key={row.id} className="flex flex-wrap items-center gap-2">
                     <input
                       className="gp-input min-w-[8rem] flex-1"
