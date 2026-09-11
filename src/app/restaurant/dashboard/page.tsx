@@ -46,12 +46,16 @@ function PartnerSignIn() {
   const [localDemo, setLocalDemo] = useState(false);
   useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
-  async function afterAuth() {
+  async function afterAuth(accessToken?: string | null) {
     const { authedFetch } = await import("@/lib/authed");
-    const bind = await authedFetch("/api/partner/bind", {
-      method: "POST",
-      body: JSON.stringify({ staffRole: "owner" }),
-    });
+    const bind = await authedFetch(
+      "/api/partner/bind",
+      {
+        method: "POST",
+        body: JSON.stringify({ staffRole: "owner" }),
+      },
+      accessToken,
+    );
     const data = await bind.json().catch(() => ({}));
     if (!bind.ok) {
       throw new Error(
@@ -82,15 +86,15 @@ function PartnerSignIn() {
               setErr("Sign-in is not connected.");
               return;
             }
-            const { error } = await sb.auth.signInWithPassword({
-              email,
+            const { data, error } = await sb.auth.signInWithPassword({
+              email: email.trim().toLowerCase(),
               password,
             });
             if (error) {
               setErr(error.message);
               return;
             }
-            await afterAuth();
+            await afterAuth(data.session?.access_token);
           } catch (ex) {
             setErr(ex instanceof Error ? ex.message : "Could not open dashboard.");
           } finally {
@@ -144,7 +148,7 @@ function PartnerSignIn() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  email,
+                  email: email.trim().toLowerCase(),
                   password,
                   role: "restaurant",
                 }),
@@ -154,15 +158,19 @@ function PartnerSignIn() {
                 setErr(data.error ?? "Could not create staff login.");
                 return;
               }
-              const { error } = await sb.auth.signInWithPassword({
-                email,
+              const { data: signed, error } = await sb.auth.signInWithPassword({
+                email: email.trim().toLowerCase(),
                 password,
               });
               if (error) {
-                setErr(error.message);
+                setErr(
+                  /invalid/i.test(error.message)
+                    ? "That email already has a login. Use Sign in with the password you created, or pick a new password only if this is the first time."
+                    : error.message,
+                );
                 return;
               }
-              await afterAuth();
+              await afterAuth(signed.session?.access_token);
             } catch (ex) {
               setErr(ex instanceof Error ? ex.message : "Could not create login.");
             } finally {

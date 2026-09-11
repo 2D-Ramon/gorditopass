@@ -10,8 +10,22 @@ export async function userFromRequest(req: Request): Promise<ProfileRow | null> 
   const sb = createOpsClient();
   const { data, error } = await sb.auth.getUser(token);
   if (error || !data.user) return null;
-  const profile = await loadProfile(data.user.id);
-  if (profile?.banned) return null;
+  let profile = await loadProfile(data.user.id);
+  if (!profile) {
+    const email = String(data.user.email ?? "").trim().toLowerCase();
+    const role =
+      data.user.user_metadata?.role === "restaurant" ? "restaurant" : "diner";
+    await sb.from("profiles").upsert({
+      id: data.user.id,
+      email,
+      role,
+      first_name: data.user.user_metadata?.first_name ?? null,
+      last_name: data.user.user_metadata?.last_name ?? null,
+      phone: data.user.user_metadata?.phone ?? null,
+    });
+    profile = await loadProfile(data.user.id);
+  }
+  if (!profile || profile.banned) return null;
   return profile;
 }
 

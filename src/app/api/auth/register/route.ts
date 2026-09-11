@@ -56,18 +56,20 @@ export async function POST(req: Request) {
   const referralCode = makeReferralCode(
     `${first_name} ${last_name}`.trim() || email,
   );
-  await sb
-    .from("profiles")
-    .update({
-      first_name: first_name || null,
-      last_name: last_name || null,
-      phone: phone || null,
-      role,
-      email_opt_in: Boolean(body?.email_opt_in),
-      sms_opt_in: Boolean(body?.sms_opt_in),
-      referral_code: referralCode,
-    })
-    .eq("id", data.user.id);
+  const { error: profileErr } = await sb.from("profiles").upsert({
+    id: data.user.id,
+    email,
+    first_name: first_name || null,
+    last_name: last_name || null,
+    phone: phone || null,
+    role,
+    email_opt_in: Boolean(body?.email_opt_in),
+    sms_opt_in: Boolean(body?.sms_opt_in),
+    referral_code: referralCode,
+  });
+  if (profileErr) {
+    return NextResponse.json({ error: profileErr.message }, { status: 500 });
+  }
 
   if (role === "diner") {
     await upsertDirectoryMember({
