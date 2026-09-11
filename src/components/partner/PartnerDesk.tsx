@@ -14,6 +14,38 @@ type Extra = {
   menuLive: { id: string; name: string; soldOut: boolean }[];
 };
 
+type HourRow = { id: string; days: string; time: string };
+
+function newHourRow(): HourRow {
+  return {
+    id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    days: "",
+    time: "",
+  };
+}
+
+function parseHourRows(raw: string): HourRow[] {
+  const parts = raw
+    .split(/\s*[·|]\s*|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!parts.length) return [newHourRow()];
+  return parts.map((p) => {
+    const m = p.match(/^(.+?)\s+(\d[\d:\s]*\s*(?:am|pm|AM|PM).+)$/i);
+    if (m) return { ...newHourRow(), days: m[1].trim(), time: m[2].trim() };
+    const sp = p.match(/^(.+?)\s{2,}(.+)$/);
+    if (sp) return { ...newHourRow(), days: sp[1].trim(), time: sp[2].trim() };
+    return { ...newHourRow(), days: p, time: "" };
+  });
+}
+
+function formatHourRows(rows: HourRow[]): string {
+  return rows
+    .map((r) => [r.days.trim(), r.time.trim()].filter(Boolean).join(" "))
+    .filter(Boolean)
+    .join(" · ");
+}
+
 type InboxMsg = {
   id: string;
   from_role: string;
@@ -60,9 +92,8 @@ export function PartnerDesk({
   const [reply, setReply] = useState<Record<string, string>>({});
   const [reportNote, setReportNote] = useState("");
   const [reportCode, setReportCode] = useState("");
-  const [hours, setHours] = useState("");
+  const [hourRows, setHourRows] = useState<HourRow[]>([newHourRow()]);
   const [openStatus, setOpenStatus] = useState("hours");
-  const [tickets, setTickets] = useState("");
   const [maps, setMaps] = useState("");
 
   const load = useCallback(async () => {
@@ -74,11 +105,8 @@ export function PartnerDesk({
       return;
     }
     setData(json);
-    setHours(json.hours ?? "");
+    setHourRows(parseHourRows(json.hours ?? ""));
     setOpenStatus(json.openStatus ?? "hours");
-    setTickets(
-      json.typicalWeeklyTickets == null ? "" : String(json.typicalWeeklyTickets),
-    );
     setMaps(json.googleMapsUrl ?? "");
   }, []);
 
@@ -266,11 +294,6 @@ export function PartnerDesk({
       {tab === "members" && (
         <section className="gp-card gp-card-static p-5">
           <h2 className="font-semibold">My members</h2>
-          <p className="mt-1 text-sm text-muted">
-            People who redeemed a deal here. First name and last initial only —
-            no phone, email, or send-message control. Reaching them by text is
-            a later paid add-on.
-          </p>
           <p className="mt-2 text-sm">
             Regulars (2+ visits, last 21 days):{" "}
             <strong>
@@ -456,9 +479,8 @@ export function PartnerDesk({
               onSubmit={async (e) => {
                 e.preventDefault();
                 await post("/api/partner/hours", {
-                  hours,
+                  hours: formatHourRows(hourRows),
                   openStatus,
-                  typicalWeeklyTickets: tickets ? Number(tickets) : null,
                   googleMapsUrl: maps,
                 });
                 void load();
@@ -476,25 +498,59 @@ export function PartnerDesk({
                   <option value="closed">Closed now</option>
                 </select>
               </label>
-              <label className="block text-sm">
-                Hours
-                <input
-                  className="gp-input mt-1"
-                  value={hours}
-                  onChange={(e) => setHours(e.target.value)}
-                  placeholder="Tue–Sun 11am–9pm"
-                />
-              </label>
-              <label className="block text-sm">
-                Typical tickets per week (optional)
-                <input
-                  className="gp-input mt-1 max-w-[10rem]"
-                  type="number"
-                  min={0}
-                  value={tickets}
-                  onChange={(e) => setTickets(e.target.value)}
-                />
-              </label>
+              <div className="space-y-2">
+                <p className="text-sm">Hours</p>
+                <p className="text-xs text-muted">
+                  One row per day or set of days. Example: Mon–Thu and
+                  Fri–Sat can be different.
+                </p>
+                {hourRows.map((row, i) => (
+                  <div key={row.id} className="flex flex-wrap items-center gap-2">
+                    <input
+                      className="gp-input min-w-[8rem] flex-1"
+                      placeholder="Mon–Thu"
+                      value={row.days}
+                      onChange={(e) =>
+                        setHourRows((prev) =>
+                          prev.map((r) =>
+                            r.id === row.id ? { ...r, days: e.target.value } : r,
+                          ),
+                        )
+                      }
+                    />
+                    <input
+                      className="gp-input min-w-[8rem] flex-1"
+                      placeholder="11am–9pm"
+                      value={row.time}
+                      onChange={(e) =>
+                        setHourRows((prev) =>
+                          prev.map((r) =>
+                            r.id === row.id ? { ...r, time: e.target.value } : r,
+                          ),
+                        )
+                      }
+                    />
+                    {hourRows.length > 1 && (
+                      <button
+                        type="button"
+                        className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                        onClick={() =>
+                          setHourRows((prev) => prev.filter((r) => r.id !== row.id))
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-xs"
+                  onClick={() => setHourRows((prev) => [...prev, newHourRow()])}
+                >
+                  Add another day / set
+                </button>
+              </div>
               <label className="block text-sm">
                 Google Maps URL (for review prompt)
                 <input
@@ -508,50 +564,6 @@ export function PartnerDesk({
                 Save hours
               </button>
             </form>
-          </section>
-
-          <section className="gp-card gp-card-static p-5 no-print">
-            <h2 className="font-semibold">Sold out / pause tonight</h2>
-            <ul className="mt-3 space-y-2 text-sm">
-              {(data.dealsLive ?? []).map((d) => (
-                <li key={d.id} className="flex items-center justify-between gap-3">
-                  <span>Deal · {d.title}</span>
-                  <button
-                    type="button"
-                    className="gp-btn gp-btn-secondary !py-1 text-xs"
-                    onClick={async () => {
-                      await post("/api/partner/sold-out", {
-                        kind: "deal",
-                        id: d.id,
-                        soldOut: !d.soldOut,
-                      });
-                      void load();
-                    }}
-                  >
-                    {d.soldOut ? "Back on" : "86 / pause"}
-                  </button>
-                </li>
-              ))}
-              {(data.menuLive ?? []).map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-3">
-                  <span>Menu · {m.name}</span>
-                  <button
-                    type="button"
-                    className="gp-btn gp-btn-secondary !py-1 text-xs"
-                    onClick={async () => {
-                      await post("/api/partner/sold-out", {
-                        kind: "menu",
-                        id: m.id,
-                        soldOut: !m.soldOut,
-                      });
-                      void load();
-                    }}
-                  >
-                    {m.soldOut ? "Back on" : "86"}
-                  </button>
-                </li>
-              ))}
-            </ul>
           </section>
 
           <section className="gp-card gp-card-static p-5 print-tent print:border-0 print:shadow-none">
