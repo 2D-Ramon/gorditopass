@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { jsonError, withOps } from "../../../_util";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -22,12 +23,22 @@ export async function POST(_req: Request, ctx: Ctx) {
     .maybeSingle();
   if (error || !app) return jsonError("Application not found.", 404);
   const listingId = slugify(app.name) || `biz-${id.slice(0, 8)}`;
-  await gate.supabase.from("listings").upsert({
+  const payload = (app.payload ?? {}) as Record<string, unknown>;
+  const cuisine = String(
+    payload.cuisine ||
+      payload.primaryCuisine ||
+      (Array.isArray(payload.concepts) &&
+        (payload.concepts[0] as { cuisineOrTheme?: string } | undefined)
+          ?.cuisineOrTheme) ||
+      "other",
+  );
+  const { error: listingErr } = await gate.supabase.from("listings").upsert({
     id: listingId,
     name: app.name,
     slug: listingId,
-    city: app.city || "dallas",
+    city: asCity(String(app.city || payload.city || "dallas")),
     address: app.address,
+    cuisine,
     approved: true,
     banned: false,
     owner_email: app.email,
@@ -36,10 +47,12 @@ export async function POST(_req: Request, ctx: Ctx) {
     emoji: "🍽️",
     accent: "#f97316",
   });
-  await gate.supabase
+  if (listingErr) return jsonError(listingErr.message, 500);
+  const { error: appErr } = await gate.supabase
     .from("partner_applications")
     .update({ status: "approved", listing_id: listingId })
     .eq("id", id);
+  if (appErr) return jsonError(appErr.message, 500);
   await gate.supabase
     .from("business_accounts")
     .update({ status: "live" })

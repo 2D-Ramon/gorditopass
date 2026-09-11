@@ -48,15 +48,12 @@ export type LiveListingRow = {
   }[];
 };
 
-function asCity(v: string | null | undefined): CityId {
-  if (
-    v === "dallas" ||
-    v === "kansas-city" ||
-    v === "tulsa" ||
-    v === "okc"
-  ) {
-    return v;
-  }
+export function asCity(v: string | null | undefined): CityId {
+  const s = (v ?? "").toLowerCase().trim();
+  if (s === "kansas-city" || s.includes("kansas")) return "kansas-city";
+  if (s === "tulsa") return "tulsa";
+  if (s === "okc" || s.includes("oklahoma")) return "okc";
+  if (s === "dallas" || s.includes("dallas")) return "dallas";
   return "dallas";
 }
 

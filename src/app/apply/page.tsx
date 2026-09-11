@@ -263,6 +263,9 @@ export default function ApplyPage() {
                 contactName,
                 position,
                 address,
+                cuisine: primaryCuisine,
+                primaryCuisine,
+                concepts: multiConcept ? concepts : undefined,
               }),
             });
             if (!live.ok) {

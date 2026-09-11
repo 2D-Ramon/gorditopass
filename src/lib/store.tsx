@@ -1765,10 +1765,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const isRestaurantApproved = useCallback(
     (restaurantId: string) => {
-      const base = RESTAURANTS.find((r) => r.id === restaurantId)?.approved;
       const override = restaurantApprovalOverrides[restaurantId];
       if (override !== undefined) return override;
-      return base ?? false;
+      const seed = RESTAURANTS.find((r) => r.id === restaurantId);
+      if (seed) return seed.approved;
+      // Partners created from applications are not in the demo seed list.
+      return true;
     },
     [restaurantApprovalOverrides],
   );

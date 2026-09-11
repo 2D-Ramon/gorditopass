@@ -612,7 +612,7 @@ export default function AdminPage() {
                         ))}
                       </ul>
                     )}
-                    {status === "pending" && (
+                    {(status === "pending" || status === "approved") && (
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
@@ -629,8 +629,11 @@ export default function AdminPage() {
                             setApplicationStatus(id, "approved");
                           }}
                         >
-                          Approve
+                          {status === "approved"
+                            ? "Publish to Explore"
+                            : "Approve"}
                         </button>
+                        {status === "pending" && (
                         <button
                           type="button"
                           className="gp-btn gp-btn-secondary text-xs !py-1.5"
@@ -652,6 +655,7 @@ export default function AdminPage() {
                         >
                           Reject
                         </button>
+                        )}
                       </div>
                     )}
                   </li>
