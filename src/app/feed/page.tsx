@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   FEED_POSTS,
-  RESTAURANTS,
   cuisineLabel,
 } from "@/lib/data";
+import { useLiveCatalog } from "@/lib/live-catalog";
 import { PRESET_GIFS } from "@/lib/presetGifs";
 import { REACTION_EMOJIS } from "@/lib/pricing";
 import { canPostInFeed, useStore } from "@/lib/store";
@@ -125,6 +125,7 @@ export default function FeedPage() {
     moderatedFeedPosts,
     hydrateFromServer,
   } = useStore();
+  const { restaurants: catalog } = useLiveCatalog();
   const hiddenIds = new Set(
     moderatedFeedPosts.filter((p) => p.hidden).map((p) => p.id),
   );
@@ -178,13 +179,13 @@ export default function FeedPage() {
   const allowed = canPostInFeed(user);
 
   const cityRestaurants = useMemo(
-    () => RESTAURANTS.filter((r) => r.approved && r.city === city),
-    [city],
+    () => catalog.filter((r) => r.approved && r.city === city),
+    [catalog, city],
   );
 
   const selectedRestaurant = useMemo(
-    () => RESTAURANTS.find((r) => r.id === restaurantId),
-    [restaurantId],
+    () => catalog.find((r) => r.id === restaurantId),
+    [catalog, restaurantId],
   );
 
   const activeDeals = selectedRestaurant?.deals.filter((d) => d.active) ?? [];
@@ -201,7 +202,7 @@ export default function FeedPage() {
     setRestaurantId(id);
     setMenuItemId("");
     setDealId("");
-    const r = RESTAURANTS.find((x) => x.id === id);
+    const r = catalog.find((x) => x.id === id);
     setCuisine(r?.cuisine ?? "");
   }
 
@@ -533,7 +534,7 @@ export default function FeedPage() {
                 onChange={(e) => onBusinessChange(e.target.value)}
               >
                 <option value="">None</option>
-                {RESTAURANTS.filter((r) => r.approved && r.city === city).map(
+                {cityRestaurants.map(
                   (r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
@@ -1065,7 +1066,7 @@ export default function FeedPage() {
         ))}
         {localPosts.length === 0 && (
           <p className="text-center text-muted">
-            No posts in this city yet. Dallas has starter threads.
+            No posts in this city yet. Be the first.
           </p>
         )}
       </div>

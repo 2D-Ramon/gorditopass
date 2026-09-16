@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { asCity } from "@/lib/listing-map";
+import { asCity, CITY_CENTERS } from "@/lib/listing-map";
 import { jsonError, withOps } from "../../../_util";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -32,11 +32,13 @@ export async function POST(_req: Request, ctx: Ctx) {
           ?.cuisineOrTheme) ||
       "other",
   );
+  const city = asCity(String(app.city || payload.city || "dallas"));
+  const center = CITY_CENTERS[city];
   const { error: listingErr } = await gate.supabase.from("listings").upsert({
     id: listingId,
     name: app.name,
     slug: listingId,
-    city: asCity(String(app.city || payload.city || "dallas")),
+    city,
     address: app.address,
     cuisine,
     approved: true,
@@ -46,6 +48,8 @@ export async function POST(_req: Request, ctx: Ctx) {
     story: "",
     emoji: "🍽️",
     accent: "#f97316",
+    lat: center.lat,
+    lng: center.lng,
   });
   if (listingErr) return jsonError(listingErr.message, 500);
   const { error: appErr } = await gate.supabase

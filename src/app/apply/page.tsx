@@ -1,24 +1,36 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { APPLY_CUISINE_OPTIONS } from "@/lib/data";
+import { APPLY_CUISINE_OPTIONS, CITIES } from "@/lib/data";
 import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type {
   ApplicationConcept,
   BusinessTypeId,
+  CityId,
   Cuisine,
   OwnershipTypeId,
 } from "@/lib/types";
 
-const UPLOAD_LABELS = [
-  "Food photos",
-  "Logo",
-  "Menu",
-  "Local health department food service license",
-  "EIN",
-  "State sales tax permit",
-  "Owner/manager food handler certification",
+const UPLOADS = [
+  { label: "Logo", required: true, accept: "image/*" },
+  { label: "Menu", required: true, accept: "image/*,.pdf,.doc,.docx" },
+  {
+    label: "Local health department food service license",
+    required: false,
+    accept: "image/*,.pdf,.doc,.docx",
+  },
+  { label: "EIN", required: false, accept: "image/*,.pdf,.doc,.docx" },
+  {
+    label: "State sales tax permit",
+    required: false,
+    accept: "image/*,.pdf,.doc,.docx",
+  },
+  {
+    label: "Owner/manager food handler certification",
+    required: false,
+    accept: "image/*,.pdf,.doc,.docx",
+  },
 ] as const;
 
 const POSITIONS = [
@@ -50,18 +62,17 @@ export default function ApplyPage() {
   const { submitRestaurantApplication } = useStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [city, setCity] = useState("Dallas");
+  const [city, setCity] = useState<CityId>("dallas");
   const [promo, setPromo] = useState("");
   const [contactName, setContactName] = useState("");
-  const [position, setPosition] = useState("owner");
+  const [position, setPosition] = useState("");
   const [hasAuthority, setHasAuthority] = useState(false);
   const [address, setAddress] = useState("");
   const [plannedStartDate, setPlannedStartDate] = useState(minStartDate());
-  const [businessType, setBusinessType] = useState<BusinessTypeId>("restaurant");
+  const [businessType, setBusinessType] = useState<BusinessTypeId | "">("");
   const [businessTypeOther, setBusinessTypeOther] = useState("");
-  const [primaryCuisine, setPrimaryCuisine] = useState<Cuisine>("american");
-  const [ownershipType, setOwnershipType] =
-    useState<OwnershipTypeId>("independently_owned");
+  const [primaryCuisine, setPrimaryCuisine] = useState<Cuisine | "">("");
+  const [ownershipType, setOwnershipType] = useState<OwnershipTypeId | "">("");
   const [ownershipTypeOther, setOwnershipTypeOther] = useState("");
   const [totalLocations, setTotalLocations] = useState(1);
   const [multiConcept, setMultiConcept] = useState(false);
@@ -81,6 +92,12 @@ export default function ApplyPage() {
   const [error, setError] = useState("");
 
   const minDate = useMemo(() => minStartDate(), []);
+
+  function hasUpload(label: string) {
+    return uploads.some(
+      (u) => u.label === label && Boolean(u.fileName || u.dataUrl),
+    );
+  }
 
   const conceptLocationSum = useMemo(
     () => concepts.reduce((s, c) => s + (Number(c.locationCount) || 0), 0),
@@ -160,18 +177,12 @@ export default function ApplyPage() {
           onSubmit={async (e) => {
             e.preventDefault();
             setError("");
-            if (!hasAuthority) {
-              setError(
-                "Contact must have authority to make these decisions (or provide owner permission later).",
-              );
+            if (!name.trim()) {
+              setError("Business name is required.");
               return;
             }
-            if (plannedStartDate < minDate) {
-              setError("Planned start date must be at least 2 weeks from today.");
-              return;
-            }
-            if (businessType === "other" && !businessTypeOther.trim()) {
-              setError("Please describe your business type (Other).");
+            if (!ownershipType) {
+              setError("Select an ownership structure.");
               return;
             }
             if (ownershipType === "other" && !ownershipTypeOther.trim()) {
@@ -180,6 +191,52 @@ export default function ApplyPage() {
             }
             if (totalLocations < 1) {
               setError("Enter at least 1 location.");
+              return;
+            }
+            if (!multiConcept && !businessType) {
+              setError("Select a business type.");
+              return;
+            }
+            if (!multiConcept && !primaryCuisine) {
+              setError("Select a cuisine.");
+              return;
+            }
+            if (businessType === "other" && !businessTypeOther.trim()) {
+              setError("Please describe your business type (Other).");
+              return;
+            }
+            if (!email.trim()) {
+              setError("Business email is required.");
+              return;
+            }
+            if (!contactName.trim()) {
+              setError("Contact name is required.");
+              return;
+            }
+            if (!position) {
+              setError("Select a position.");
+              return;
+            }
+            if (!address.trim()) {
+              setError("Address is required.");
+              return;
+            }
+            if (!hasUpload("Logo")) {
+              setError("Please upload your logo.");
+              return;
+            }
+            if (!hasUpload("Menu")) {
+              setError("Please upload your menu.");
+              return;
+            }
+            if (!hasAuthority) {
+              setError(
+                "Contact must have authority to make these decisions (or provide owner permission later).",
+              );
+              return;
+            }
+            if (plannedStartDate < minDate) {
+              setError("Planned start date must be at least 2 weeks from today.");
               return;
             }
             if (multiConcept) {
@@ -218,12 +275,14 @@ export default function ApplyPage() {
               hasAuthority,
               address,
               plannedStartDate,
-              businessType: multiConcept ? undefined : businessType,
+              businessType: multiConcept
+                ? undefined
+                : (businessType as BusinessTypeId),
               businessTypeOther:
                 !multiConcept && businessType === "other"
                   ? businessTypeOther.trim()
                   : undefined,
-              ownershipType,
+              ownershipType: ownershipType as OwnershipTypeId,
               ownershipTypeOther:
                 ownershipType === "other"
                   ? ownershipTypeOther.trim()
@@ -240,12 +299,12 @@ export default function ApplyPage() {
                     {
                       id: "primary",
                       conceptName: name.trim(),
-                      businessType,
+                      businessType: businessType as BusinessTypeId,
                       businessTypeOther:
                         businessType === "other"
                           ? businessTypeOther.trim()
                           : undefined,
-                      cuisineOrTheme: primaryCuisine,
+                      cuisineOrTheme: primaryCuisine || "other",
                       locationCount: totalLocations,
                       cities: city,
                     },
@@ -266,6 +325,7 @@ export default function ApplyPage() {
                 cuisine: primaryCuisine,
                 primaryCuisine,
                 concepts: multiConcept ? concepts : undefined,
+                uploads,
               }),
             });
             if (!live.ok) {
@@ -276,7 +336,7 @@ export default function ApplyPage() {
           }}
         >
           <label className="block text-sm font-medium">
-            Business name
+            Business name *
             <input
               required
               className="gp-input mt-1.5"
@@ -285,14 +345,18 @@ export default function ApplyPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Ownership structure
+            Ownership structure *
             <select
+              required
               className="gp-input mt-1.5"
               value={ownershipType}
               onChange={(e) =>
                 setOwnershipType(e.target.value as OwnershipTypeId)
               }
             >
+              <option value="" disabled>
+                Select ownership
+              </option>
               {OWNERSHIP_TYPES.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}
@@ -350,14 +414,18 @@ export default function ApplyPage() {
           {!multiConcept ? (
             <>
               <label className="block text-sm font-medium">
-                Business type
+                Business type *
                 <select
+                  required
                   className="gp-input mt-1.5"
                   value={businessType}
                   onChange={(e) =>
                     setBusinessType(e.target.value as BusinessTypeId)
                   }
                 >
+                  <option value="" disabled>
+                    Select business type
+                  </option>
                   {BUSINESS_TYPES.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.label}
@@ -387,6 +455,9 @@ export default function ApplyPage() {
                     setPrimaryCuisine(e.target.value as Cuisine)
                   }
                 >
+                  <option value="" disabled>
+                    Select cuisine
+                  </option>
                   {APPLY_CUISINE_OPTIONS.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.label}
@@ -539,7 +610,7 @@ export default function ApplyPage() {
                       onChange={(e) =>
                         updateConcept(c.id, { cities: e.target.value })
                       }
-                      placeholder="Dallas, Fort Worth"
+                      placeholder="Dallas, Tulsa"
                     />
                   </label>
                 </div>
@@ -548,7 +619,7 @@ export default function ApplyPage() {
           )}
 
           <label className="block text-sm font-medium">
-            Business email
+            Business email *
             <input
               required
               type="email"
@@ -558,7 +629,7 @@ export default function ApplyPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Contact name
+            Contact name *
             <input
               required
               className="gp-input mt-1.5"
@@ -568,12 +639,16 @@ export default function ApplyPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Position
+            Position *
             <select
+              required
               className="gp-input mt-1.5"
               value={position}
               onChange={(e) => setPosition(e.target.value)}
             >
+              <option value="" disabled>
+                Select position
+              </option>
               {POSITIONS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
@@ -595,7 +670,7 @@ export default function ApplyPage() {
             </span>
           </label>
           <label className="block text-sm font-medium">
-            Full Address
+            Full Address *
             <input
               required
               className="gp-input mt-1.5"
@@ -606,11 +681,18 @@ export default function ApplyPage() {
           </label>
           <label className="block text-sm font-medium">
             City
-            <input
+            <select
               className="gp-input mt-1.5"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
+              onChange={(e) => setCity(e.target.value as CityId)}
+            >
+              {CITIES.map((c) => (
+                <option key={c.id} value={c.id} disabled={!c.live}>
+                  {c.name}, {c.state}
+                  {!c.live ? " (coming later)" : ""}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block text-sm font-medium">
             Planned start date
@@ -634,31 +716,36 @@ export default function ApplyPage() {
               onChange={(e) => setPromo(e.target.value)}
               placeholder="e.g. Free fries with entrée, or 20% off member plates"
             />
+            <span className="mt-1 block text-xs font-normal text-muted">
+              We can discuss this to help with ideas.
+            </span>
           </label>
 
           <div className="rounded-lg border border-border bg-elevated/50 p-4">
             <p className="text-sm font-semibold">Uploads</p>
             <p className="mt-1 text-xs text-muted">
-              Photos are compressed and stored on Cloudflare R2. Documents (PDF)
-              upload as-is, up to 8 MB.
+              Logo and menu are required. Food photos can be added later from
+              the partner dashboard. Documents (PDF) upload as-is, up to 8 MB.
             </p>
             <div className="mt-3 space-y-3">
-              {UPLOAD_LABELS.map((label) => (
-                <label key={label} className="block text-sm">
-                  <span className="text-muted">{label}</span>
+              {UPLOADS.map((item) => (
+                <label key={item.label} className="block text-sm">
+                  <span className="text-muted">
+                    {item.label}
+                    {item.required ? " *" : ""}
+                  </span>
                   <input
                     type="file"
-                    accept={
-                      label.includes("photo") || label === "Logo"
-                        ? "image/*"
-                        : "image/*,.pdf,.doc,.docx"
-                    }
+                    required={item.required && !hasUpload(item.label)}
+                    accept={item.accept}
                     className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-brand/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-200"
-                    onChange={(e) => void addUpload(label, e.target.files?.[0])}
+                    onChange={(e) =>
+                      void addUpload(item.label, e.target.files?.[0])
+                    }
                   />
-                  {uploads.find((u) => u.label === label) && (
+                  {uploads.find((u) => u.label === item.label) && (
                     <span className="mt-0.5 block text-xs text-success">
-                      ✓ {uploads.find((u) => u.label === label)?.fileName}
+                      ✓ {uploads.find((u) => u.label === item.label)?.fileName}
                     </span>
                   )}
                 </label>

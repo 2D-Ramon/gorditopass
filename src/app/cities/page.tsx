@@ -22,11 +22,14 @@ export default function CitiesPage() {
                 {c.name}, {c.state}
               </p>
               <p className="text-sm text-muted">
-                {c.live ? "Live — early access" : "Coming later"}
+                {c.live ? "Live" : "Coming later"}
               </p>
             </div>
             {c.live ? (
-              <Link href="/explore" className="gp-btn gp-btn-primary text-sm">
+              <Link
+                href={`/explore?city=${c.id}`}
+                className="gp-btn gp-btn-primary text-sm"
+              >
                 Explore
               </Link>
             ) : (

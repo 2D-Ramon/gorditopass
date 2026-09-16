@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { userFromRequest } from "@/lib/market";
 import { sanitizeImageUrls } from "@/lib/media";
 import { createOpsClient } from "@/lib/supabase";
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   const id = `event-${profile.restaurant_id}-${Date.now()}`;
   const { data: listing } = await sb
     .from("listings")
-    .select("name")
+    .select("name, city")
     .eq("id", profile.restaurant_id)
     .maybeSingle();
   const row = {
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     description: String(body?.description ?? "").trim(),
     event_date: body?.date || null,
     event_time: body?.time || null,
-    city: String(body?.city ?? "") || profile.city || "dallas",
+    city: asCity(String(body?.city ?? listing?.city ?? profile.city ?? "dallas")),
     emoji: String(body?.emoji ?? "") || "🎉",
     address: body?.address || null,
     ticket_url: body?.ticketUrl || null,

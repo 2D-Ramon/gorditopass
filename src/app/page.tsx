@@ -8,7 +8,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:pt-16">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <p className="gp-badge mb-5">Dallas metro · early access</p>
+            <p className="gp-badge mb-5">Dallas · Tulsa · early access</p>
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
               Local food.{" "}
               <span className="bg-gradient-to-r from-brand via-brand-gold to-brand-hot bg-clip-text text-transparent">
@@ -21,7 +21,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/explore" className="gp-btn gp-btn-primary">
-                Explore Dallas
+                Explore restaurants
               </Link>
               <Link href="/membership" className="gp-btn gp-btn-secondary">
                 As low as $5/mo

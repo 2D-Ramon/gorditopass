@@ -2,10 +2,18 @@ import type { CityId, FeedPost, Restaurant, Review } from "./types";
 
 export const CITIES = [
   { id: "dallas" as const, name: "Dallas", state: "TX", live: true },
+  { id: "tulsa" as const, name: "Tulsa", state: "OK", live: true },
   { id: "kansas-city" as const, name: "Kansas City", state: "MO/KS", live: false },
-  { id: "tulsa" as const, name: "Tulsa", state: "OK", live: false },
   { id: "okc" as const, name: "Oklahoma City", state: "OK", live: false },
 ];
+
+export function liveCities() {
+  return CITIES.filter((c) => c.live);
+}
+
+export function cityLabel(id: string) {
+  return CITIES.find((c) => c.id === id)?.name ?? id;
+}
 
 export const RESTAURANTS: Restaurant[] = [
   {

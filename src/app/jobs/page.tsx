@@ -88,7 +88,7 @@ export default function JobsPage() {
         })}
         {jobs.length === 0 && (
           <p className="text-center text-muted">
-            No job postings in this city yet. Dallas has demo listings.
+            No job postings in this city yet.
           </p>
         )}
       </div>

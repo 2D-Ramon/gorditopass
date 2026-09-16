@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   const sb = createOpsClient();
   const post = {
     member_id: profile.id,
-    city: body?.city || profile.city || "dallas",
+    city: asCity(body?.city || profile.city || "dallas"),
     title,
     body: text,
     restaurant_id: body?.restaurantId || null,

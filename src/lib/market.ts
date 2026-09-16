@@ -1,5 +1,6 @@
+import { asCity } from "./listing-map";
 import { createOpsClient } from "./supabase";
-import type { CityId, MembershipPlanId, MockUser, StaffRole } from "./types";
+import type { MembershipPlanId, MockUser, StaffRole } from "./types";
 import { MEMBERSHIP_PLANS, PLATFORM, makeReferralCode } from "./pricing";
 export async function userFromRequest(req: Request): Promise<ProfileRow | null> {
   const header = req.headers.get("authorization") || "";
@@ -73,7 +74,7 @@ export function profileToUser(p: ProfileRow): MockUser {
     name,
     email: p.email,
     role: p.banned ? "diner" : p.role,
-    city: (p.city as CityId) || "dallas",
+    city: asCity(p.city),
     isMember: p.banned ? false : stillMember,
     planId: (p.plan_id as MembershipPlanId) || null,
     familySeats: p.family_seats || 1,
@@ -199,7 +200,7 @@ export async function upsertDirectoryMember(input: {
     first_name: input.first_name ?? null,
     last_name: input.last_name ?? null,
     phone: input.phone ?? null,
-    city: input.city ?? "dallas",
+    city: asCity(input.city ?? "dallas"),
     plan_id: input.plan_id ?? null,
     is_member: Boolean(input.is_member),
     status: input.status ?? (input.is_member ? "active" : "waitlist"),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
@@ -18,7 +19,7 @@ export async function GET() {
       title: j.title,
       description: j.description ?? "",
       type: j.job_type ?? "part-time",
-      city: j.city ?? "dallas",
+      city: asCity(j.city),
       postedAt: j.created_at,
       payRange: j.pay_range ?? "",
       applyUrl: j.apply_url ?? "",

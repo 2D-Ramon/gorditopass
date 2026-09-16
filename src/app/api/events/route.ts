@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
       description: e.description ?? "",
       date: e.event_date ?? "",
       time: e.event_time ?? "",
-      city: e.city ?? "dallas",
+      city: asCity(e.city),
       emoji: e.emoji ?? "🎉",
       address: e.address ?? "",
       ticketUrl: e.ticket_url ?? "",

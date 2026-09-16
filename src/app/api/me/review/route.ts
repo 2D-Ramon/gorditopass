@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
   if (body?.fromFeed) {
     await sb.from("city_posts").insert({
       member_id: profile.id,
-      city: profile.city || "dallas",
+      city: asCity(profile.city || "dallas"),
       title: `Rated ${restaurantId}`,
       body: String(body?.text ?? "").trim() || "Rated the plate.",
       restaurant_id: restaurantId,

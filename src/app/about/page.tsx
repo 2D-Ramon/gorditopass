@@ -13,8 +13,8 @@ export default function AboutPage() {
         locals through the door—and lets kitchens keep more of every dollar.
       </p>
       <p className="mt-4 text-muted">
-        First city: <strong>Dallas</strong>. Later: Kansas City, Tulsa, Oklahoma
-        City, and more.
+        Live now: <strong>Dallas</strong> and <strong>Tulsa</strong>. Later:
+        Kansas City, Oklahoma City, and more.
       </p>
       <p className="mt-4 text-sm text-muted">
         Contact:{" "}

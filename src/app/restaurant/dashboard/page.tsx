@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveCatalog } from "@/lib/live-catalog";
+import { asCity } from "@/lib/listing-map";
 import { isLocalDemoHost } from "@/lib/public-site";
 import {
   MEMBERSHIP_PLANS,
@@ -466,7 +467,7 @@ export default function RestaurantDashboardPage() {
               description: String(row.description ?? ""),
               date: String(row.event_date ?? ""),
               time: String(row.event_time ?? ""),
-              city: (row.city as CityId) || "dallas",
+              city: asCity(String(row.city ?? "dallas")),
               emoji: String(row.emoji ?? "🎉"),
               address: String(row.address ?? ""),
               ticketUrl: String(row.ticket_url ?? ""),
@@ -490,7 +491,7 @@ export default function RestaurantDashboardPage() {
               description: String(row.description ?? ""),
               type:
                 (row.job_type as JobPosting["type"]) || "part-time",
-              city: (row.city as CityId) || "dallas",
+              city: asCity(String(row.city ?? "dallas")),
               postedAt: String(row.created_at ?? ""),
               payRange: String(row.pay_range ?? ""),
               applyUrl: String(row.apply_url ?? ""),

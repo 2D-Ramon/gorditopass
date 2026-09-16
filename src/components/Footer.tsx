@@ -153,7 +153,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} {PLATFORM.name} · Dallas early access
+        © {new Date().getFullYear()} {PLATFORM.name} · Dallas · Tulsa
       </div>
     </footer>
   );

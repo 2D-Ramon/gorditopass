@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import {
   bizCapReached,
   countLiveListings,
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   if (!name || !email.includes("@")) {
     return NextResponse.json({ error: "Business name and email are required." }, { status: 400 });
   }
+  const city = asCity(String(body?.city ?? "dallas"));
   const sb = createOpsClient();
   const { data: app, error } = await sb
     .from("partner_applications")
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
       contact_name: String(body?.contactName ?? "").trim() || null,
       position: String(body?.position ?? "").trim() || null,
       address: String(body?.address ?? "").trim() || null,
-      city: String(body?.city ?? "dallas"),
+      city,
       promo: String(body?.promo ?? "").trim() || null,
       payload: body,
       status: "pending",
@@ -43,7 +45,7 @@ export async function POST(req: Request) {
   await sb.from("business_accounts").insert({
     name,
     status: "applied",
-    city: String(body?.city ?? "dallas"),
+    city,
     contact_name: String(body?.contactName ?? "").trim() || null,
     contact_email: email,
     address: String(body?.address ?? "").trim() || null,

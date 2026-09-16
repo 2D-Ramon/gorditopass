@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
-import { cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
+import { CITIES, cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
+import { asCity } from "@/lib/listing-map";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { OpsAdminPublic, OpsStatus } from "@/lib/ops-types";
-import type { RestaurantApplication } from "@/lib/types";
+import type { CityId, RestaurantApplication } from "@/lib/types";
 
 type AdminTab =
   | OpsTab
@@ -155,12 +156,22 @@ export default function AdminPage() {
         city: String(a.city ?? ""),
         promo: String(a.promo ?? ""),
         status: (String(a.status ?? "pending") as "pending" | "approved" | "rejected"),
-        uploads: [] as {
-          label: string;
-          fileName: string;
-          dataUrl?: string;
-          mimeType?: string;
-        }[],
+        uploads: (() => {
+          const payload = (a.payload ?? {}) as {
+            uploads?: {
+              label?: string;
+              fileName?: string;
+              dataUrl?: string;
+              mimeType?: string;
+            }[];
+          };
+          return (payload.uploads ?? []).map((u) => ({
+            label: String(u.label ?? ""),
+            fileName: String(u.fileName ?? "file"),
+            dataUrl: u.dataUrl,
+            mimeType: u.mimeType,
+          }));
+        })(),
         plannedStartDate: "",
         hasAuthority: undefined as boolean | undefined,
         businessType: undefined as RestaurantApplication["businessType"],
@@ -1088,6 +1099,7 @@ export default function AdminPage() {
                   name: String(l.name ?? ""),
                   emoji: String(l.emoji ?? "🍽️"),
                   cuisine: String(l.cuisine ?? ""),
+                  city: asCity(String(l.city ?? "dallas")),
                   approved: l.approved !== false && l.banned !== true,
                 }))
               : RESTAURANTS.map((r) => ({
@@ -1095,6 +1107,7 @@ export default function AdminPage() {
                   name: r.name,
                   emoji: r.emoji,
                   cuisine: r.cuisine,
+                  city: r.city,
                   approved: isRestaurantApproved(r.id),
                 }))
             ).map((r) => {
@@ -1108,29 +1121,52 @@ export default function AdminPage() {
                     {r.emoji} {r.name}
                     <span className="ml-2 text-xs text-muted">{r.cuisine}</span>
                   </span>
-                  <button
-                    type="button"
-                    className={`gp-btn text-xs !py-1.5 ${
-                      live ? "gp-btn-secondary" : "gp-btn-primary"
-                    }`}
-                    onClick={async () => {
-                      const res = await fetch(`/api/ops/listings/${r.id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          approved: !live,
-                          banned: live,
-                        }),
-                      });
-                      if (res.ok) {
+                  <span className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="gp-input !py-1.5 text-xs"
+                      value={r.city}
+                      onChange={async (e) => {
+                        const city = e.target.value as CityId;
+                        await fetch(`/api/ops/listings/${r.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ city }),
+                        });
                         refreshQueue();
-                        return;
-                      }
-                      setRestaurantApproved(r.id, !live);
-                    }}
-                  >
-                    {live ? "Unlist" : "List live"}
-                  </button>
+                      }}
+                      aria-label={`City for ${r.name}`}
+                    >
+                      {CITIES.map((c) => (
+                        <option key={c.id} value={c.id} disabled={!c.live}>
+                          {c.name}
+                          {!c.live ? " (soon)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className={`gp-btn text-xs !py-1.5 ${
+                        live ? "gp-btn-secondary" : "gp-btn-primary"
+                      }`}
+                      onClick={async () => {
+                        const res = await fetch(`/api/ops/listings/${r.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            approved: !live,
+                            banned: live,
+                          }),
+                        });
+                        if (res.ok) {
+                          refreshQueue();
+                          return;
+                        }
+                        setRestaurantApproved(r.id, !live);
+                      }}
+                    >
+                      {live ? "Unlist" : "List live"}
+                    </button>
+                  </span>
                 </li>
               );
             })}

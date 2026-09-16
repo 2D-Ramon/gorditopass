@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { jsonError, withOps } from "../_util";
 
 export async function GET() {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     first_name: emptyToNull(body?.first_name),
     last_name: emptyToNull(body?.last_name),
     phone: emptyToNull(body?.phone),
-    city: emptyToNull(body?.city) ?? "dallas",
+    city: asCity(String(body?.city ?? "dallas")),
     plan_id: emptyToNull(body?.plan_id),
     is_member: Boolean(body?.is_member),
     status: body?.status ?? (body?.is_member ? "active" : "waitlist"),

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ posts: [] });
   }
-  const city = new URL(req.url).searchParams.get("city") || "dallas";
+  const city = asCity(new URL(req.url).searchParams.get("city") || "dallas");
   const sb = createOpsClient();
   const { data, error } = await sb
     .from("city_posts")

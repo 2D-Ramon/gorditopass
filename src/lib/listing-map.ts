@@ -48,12 +48,36 @@ export type LiveListingRow = {
   }[];
 };
 
+export const CITY_CENTERS: Record<CityId, { lat: number; lng: number }> = {
+  dallas: { lat: 32.7767, lng: -96.797 },
+  tulsa: { lat: 36.154, lng: -95.9928 },
+  "kansas-city": { lat: 39.0997, lng: -94.5786 },
+  okc: { lat: 35.4676, lng: -97.5164 },
+};
+
+/** Map free-text city (apply form, CRM, listings) onto a CityId. */
 export function asCity(v: string | null | undefined): CityId {
   const s = (v ?? "").toLowerCase().trim();
+  if (!s) return "dallas";
+  // Tulsa before Oklahoma so "Tulsa, Oklahoma" does not become OKC.
+  if (s === "tulsa" || s.includes("tulsa")) return "tulsa";
   if (s === "kansas-city" || s.includes("kansas")) return "kansas-city";
-  if (s === "tulsa") return "tulsa";
-  if (s === "okc" || s.includes("oklahoma")) return "okc";
-  if (s === "dallas" || s.includes("dallas")) return "dallas";
+  if (
+    s === "okc" ||
+    s.includes("oklahoma city") ||
+    s === "oklahoma" ||
+    (s.includes("oklahoma") && !s.includes("tulsa"))
+  ) {
+    return "okc";
+  }
+  if (
+    s === "dallas" ||
+    s.includes("dallas") ||
+    s.includes("fort worth") ||
+    s.includes("dfw")
+  ) {
+    return "dallas";
+  }
   return "dallas";
 }
 
@@ -94,19 +118,20 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
       imageUrl: m.image_urls?.[0],
       soldOut: m.sold_out === true,
     }));
+  const city = asCity(row.city);
   return {
     id: row.id,
     name: row.name,
     slug: row.slug || row.id,
-    city: asCity(row.city),
+    city,
     neighborhood: row.neighborhood || seed?.neighborhood || "",
     cuisine: (row.cuisine as Cuisine) || seed?.cuisine || "other",
     tagline: row.tagline || seed?.tagline || "",
     story: (row.story && row.story.trim()) || seed?.story || "",
     hours: row.hours || seed?.hours || "",
     address: row.address || seed?.address || "",
-    lat: row.lat ?? seed?.lat ?? 32.78,
-    lng: row.lng ?? seed?.lng ?? -96.8,
+    lat: row.lat ?? seed?.lat ?? CITY_CENTERS[city].lat,
+    lng: row.lng ?? seed?.lng ?? CITY_CENTERS[city].lng,
     emoji: row.emoji || seed?.emoji || "🍽️",
     accent: row.accent || seed?.accent || "#f97316",
     plateRating: seed?.plateRating ?? 0,

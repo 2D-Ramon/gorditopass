@@ -103,6 +103,7 @@ interface Persisted {
   autoApproveSettings: RestaurantAutoApprove[];
   chats: ChatThread[];
   eventRsvps: EventRsvp[];
+  city?: CityId;
 }
 
 interface StoreValue {
@@ -879,7 +880,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAutoApproveSettings(data.autoApproveSettings ?? []);
     setChats(data.chats ?? []);
     setEventRsvps(data.eventRsvps ?? []);
-    if (data.user?.city) setCity(data.user.city);
+    if (data.city) setCity(data.city);
+    else if (data.user?.city) setCity(data.user.city);
     setHydrated(true);
   }, []);
 
@@ -910,6 +912,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       autoApproveSettings,
       chats,
       eventRsvps,
+      city,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -938,6 +941,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     autoApproveSettings,
     chats,
     eventRsvps,
+    city,
   ]);
 
   // Food cart is per identity. Signing in, switching accounts, or joining

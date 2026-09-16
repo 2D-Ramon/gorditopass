@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { userFromRequest } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
   const id = `job-${profile.restaurant_id}-${Date.now()}`;
   const { data: listing } = await sb
     .from("listings")
-    .select("name")
+    .select("name, city")
     .eq("id", profile.restaurant_id)
     .maybeSingle();
   const { error } = await sb.from("listing_jobs").insert({
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     title,
     description: String(body?.description ?? "").trim(),
     job_type: body?.type || "part-time",
-    city: body?.city || profile.city || "dallas",
+    city: asCity(body?.city || listing?.city || profile.city || "dallas"),
     pay_range: body?.payRange || null,
     apply_url: body?.applyUrl || null,
     status: "pending",

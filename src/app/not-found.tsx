@@ -10,7 +10,7 @@ export default function NotFound() {
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link href="/explore" className="gp-btn gp-btn-primary">
-          Explore Dallas
+          Explore restaurants
         </Link>
         <Link href="/faq" className="gp-btn gp-btn-secondary">
           Help / FAQ

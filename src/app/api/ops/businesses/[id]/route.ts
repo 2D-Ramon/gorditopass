@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asCity } from "@/lib/listing-map";
 import { jsonError, withOps } from "../../_util";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -30,6 +31,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       patch[key] =
         typeof v === "string" && v.trim() === "" ? null : v;
     }
+  }
+  if (typeof patch.city === "string") {
+    patch.city = asCity(patch.city);
   }
   if (typeof patch.name === "string" && !patch.name.trim()) {
     return jsonError("Business name is required.");

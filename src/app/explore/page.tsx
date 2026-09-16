@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RestaurantCard } from "@/components/RestaurantCard";
-import { cuisineLabel } from "@/lib/data";
+import { CITIES, cuisineLabel } from "@/lib/data";
+import { asCity, CITY_CENTERS } from "@/lib/listing-map";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import { useStore } from "@/lib/store";
 import type { Cuisine } from "@/lib/types";
@@ -26,10 +27,15 @@ const CUISINES: (Cuisine | "all")[] = [
 ];
 
 export default function ExplorePage() {
-  const { city, isRestaurantApproved } = useStore();
+  const { city, setCity, isRestaurantApproved } = useStore();
   const { restaurants } = useLiveCatalog();
   const [q, setQ] = useState("");
   const [cuisine, setCuisine] = useState<Cuisine | "all">("all");
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("city");
+    if (raw) setCity(asCity(raw));
+  }, [setCity]);
 
   const list = useMemo(() => {
     return restaurants.filter((r) => {
@@ -43,6 +49,8 @@ export default function ExplorePage() {
       return true;
     });
   }, [city, cuisine, q, isRestaurantApproved, restaurants]);
+  const cityMeta = CITIES.find((c) => c.id === city);
+  const center = CITY_CENTERS[city];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -78,10 +86,10 @@ export default function ExplorePage() {
         <p className="mb-3 text-sm font-medium text-muted">Map</p>
         {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
           <iframe
-            title="Dallas map"
+            title={`${cityMeta?.name ?? "City"} map`}
             className="h-56 w-full rounded-lg border-0 ring-1 ring-border"
             loading="lazy"
-            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=32.7767,-96.7970&zoom=11`}
+            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${center.lat},${center.lng}&zoom=11`}
           />
         ) : (
         <div className="relative h-48 overflow-hidden rounded-lg bg-background ring-1 ring-border">
@@ -123,7 +131,9 @@ export default function ExplorePage() {
       </div>
       {list.length === 0 && (
         <p className="mt-8 text-center text-muted">
-          No matches in this city yet. Dallas is live for the demo.
+          {cityMeta?.live
+            ? `No matches in ${cityMeta.name} yet. Approved restaurants in this city show up here.`
+            : `${cityMeta?.name ?? "This city"} is coming later.`}
         </p>
       )}
     </div>

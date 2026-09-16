@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CITIES } from "@/lib/data";
 import type {
   BusinessAccount,
   BusinessStatus,
@@ -14,6 +15,7 @@ import type {
   OpsPermission,
   OpsStatus,
 } from "@/lib/ops-types";
+import type { CityId } from "@/lib/types";
 
 export type OpsTab = "connect" | "crm" | "members" | "campaigns" | "admins";
 
@@ -674,11 +676,18 @@ function CrmPanel() {
             </label>
             <label className="block text-sm">
               City
-              <input
+              <select
                 className="gp-input mt-1"
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
+              >
+                {CITIES.map((c) => (
+                  <option key={c.id} value={c.id} disabled={!c.live}>
+                    {c.name}
+                    {!c.live ? " (soon)" : ""}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <label className="block text-sm">
@@ -956,6 +965,23 @@ function MembersPanel() {
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
           />
+        </label>
+        <label className="block text-sm">
+          City
+          <select
+            className="gp-input mt-1"
+            value={form.city}
+            onChange={(e) =>
+              setForm({ ...form, city: e.target.value as CityId })
+            }
+          >
+            {CITIES.map((c) => (
+              <option key={c.id} value={c.id} disabled={!c.live}>
+                {c.name}
+                {!c.live ? " (soon)" : ""}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block text-sm">
           Status
