@@ -53,36 +53,6 @@ export default function ForRestaurantsPage() {
         </ol>
       </section>
 
-      <h2 className="mt-10 text-xl font-semibold tracking-tight">Intake</h2>
-      <ol className="mt-4 list-decimal space-y-4 pl-5 text-stone-300">
-        <li className="leading-relaxed">
-          Apply free — intake approval required.
-        </li>
-        <li className="leading-relaxed">
-          Fill out application and Upload required documents.
-        </li>
-        <li className="leading-relaxed">
-          We will upload everything for you to start, future changes will be
-          done through your partner dashboard, publish and edit your
-          Promotions, Menu, Events, and Job Openings. – its simple!
-        </li>
-        <li className="leading-relaxed">
-          Create an EXCLUSIVE Promotion. Cannot have the same offer(s)
-          available to the public at the same time. Suggested offers: Free
-          item(s) or at least 20% off. Franchises will be a max of 12% off. Can
-          run multiple offers at once. Suggest a minimum of two weeks to
-          measure effectiveness.
-        </li>
-        <li className="leading-relaxed">
-          Staff opens dashboard → scan member code → honor deal on your POS.
-        </li>
-        <li className="leading-relaxed">
-          Its simple – We want you to keep your doors open! No listing fee,
-          Free to sign up, No fees for in-store sales. We charge 1% of online
-          orders and have optional paid marketing services.
-        </li>
-      </ol>
-
       <div className="mt-10 gp-card gp-card-static p-6">
         <p className="text-2xl font-bold tracking-tight text-brand-mint uppercase">
           FREE TO JOIN
@@ -93,6 +63,29 @@ export default function ForRestaurantsPage() {
           upload owner permission).
         </p>
       </div>
+
+      <h2 className="mt-10 text-xl font-semibold tracking-tight">Intake</h2>
+      <ol className="mt-4 list-decimal space-y-4 pl-5 text-stone-300">
+        <li className="leading-relaxed">Apply free.</li>
+        <li className="leading-relaxed">Fill out application.</li>
+        <li className="leading-relaxed">
+          Customize your details through your partner dashboard, publish and
+          edit your Promotions, Menu and photos, Events, and Job Openings. –
+          its simple!
+        </li>
+        <li className="leading-relaxed">
+          Create an EXCLUSIVE Promotion. Cannot have the same offer(s)
+          available to the public at the same time. Suggested offers: Free
+          item(s) or at least 20% off. Franchises will be a max of 12% off. Can
+          run multiple offers at once. Suggest a minimum of two weeks to
+          measure effectiveness.
+        </li>
+        <li className="leading-relaxed">
+          We want you to keep your doors open! No listing fee, Free to sign
+          up, No fees for in-store sales. We charge 1% of online orders and
+          have optional paid marketing services.
+        </li>
+      </ol>
 
       <div className="mt-10 flex flex-wrap gap-3">
         <Link href="/apply" className="gp-btn gp-btn-primary">
