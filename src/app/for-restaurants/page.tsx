@@ -58,6 +58,17 @@ export default function ForRestaurantsPage() {
         </ol>
       </section>
 
+      <div className="mt-10 gp-card gp-card-static p-6">
+        <p className="text-2xl font-bold tracking-tight text-brand-mint uppercase">
+          FREE TO JOIN
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Planned start date must be at least 2 weeks out so we can complete
+          approval and setup. Contact must have authority to make decisions (or
+          upload owner permission).
+        </p>
+      </div>
+
       <h2 className="mt-10 text-xl font-semibold tracking-tight">Intake</h2>
       <ol className="mt-4 list-decimal space-y-4 pl-5 text-stone-300">
         <li className="leading-relaxed">Apply free.</li>
