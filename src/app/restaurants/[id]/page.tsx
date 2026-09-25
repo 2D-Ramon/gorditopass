@@ -461,7 +461,9 @@ export default function RestaurantDetailPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-semibold">
-                        ${item.priceUsd.toFixed(2)}
+                        {item.priceUsd > 0
+                          ? `$${item.priceUsd.toFixed(2)}`
+                          : "Ask the restaurant"}
                       </span>
                       {item.soldOut ? (
                         <span className="text-sm text-muted">86&apos;d</span>

@@ -1,4 +1,5 @@
 import type { CityId, FeedPost, Restaurant, Review } from "./types";
+import { TULSA_RESTAURANTS } from "./tulsa-restaurants";
 
 export const CITIES = [
   { id: "dallas" as const, name: "Dallas", state: "TX", live: true },
@@ -15,7 +16,7 @@ export function cityLabel(id: string) {
   return CITIES.find((c) => c.id === id)?.name ?? id;
 }
 
-export const RESTAURANTS: Restaurant[] = [
+const SEED_RESTAURANTS: Restaurant[] = [
   {
     id: "mi-tierra",
     name: "Mi Tierra Cocina",
@@ -762,7 +763,15 @@ export const RESTAURANTS: Restaurant[] = [
   },
 ];
 
-export const REVIEWS: Review[] = [
+const TULSA_IDS = new Set(TULSA_RESTAURANTS.map((r) => r.id));
+
+/** Dallas placeholders for these brands are replaced by the real Tulsa listings. */
+export const RESTAURANTS: Restaurant[] = [
+  ...SEED_RESTAURANTS.filter((r) => !TULSA_IDS.has(r.id)),
+  ...TULSA_RESTAURANTS,
+];
+
+const RAW_REVIEWS: Review[] = [
   {
     id: "r1",
     restaurantId: "mi-tierra",
@@ -788,6 +797,10 @@ export const REVIEWS: Review[] = [
     createdAt: "2026-08-01",
   },
 ];
+
+export const REVIEWS: Review[] = RAW_REVIEWS.filter(
+  (r) => !TULSA_IDS.has(r.restaurantId),
+);
 
 /** Demo public member profiles (feed seed authors) */
 export const DEMO_MEMBERS: {
@@ -940,7 +953,7 @@ export const APPLY_CUISINE_OPTIONS: { id: string; label: string }[] = (() => {
   }));
 })();
 
-export const PARTNER_EVENTS: import("./types").PartnerEvent[] = [
+const RAW_PARTNER_EVENTS: import("./types").PartnerEvent[] = [
   {
     id: "ev1",
     restaurantId: "mi-tierra",
@@ -999,7 +1012,10 @@ export const PARTNER_EVENTS: import("./types").PartnerEvent[] = [
   },
 ];
 
-export const JOB_POSTINGS: import("./types").JobPosting[] = [
+export const PARTNER_EVENTS: import("./types").PartnerEvent[] =
+  RAW_PARTNER_EVENTS.filter((e) => !TULSA_IDS.has(e.restaurantId));
+
+const RAW_JOB_POSTINGS: import("./types").JobPosting[] = [
   {
     id: "job1",
     restaurantId: "mi-tierra",
@@ -1049,3 +1065,6 @@ export const JOB_POSTINGS: import("./types").JobPosting[] = [
     applyUrl: "https://example.com/careers/just-winging/runner",
   },
 ];
+
+export const JOB_POSTINGS: import("./types").JobPosting[] =
+  RAW_JOB_POSTINGS.filter((j) => !TULSA_IDS.has(j.restaurantId));

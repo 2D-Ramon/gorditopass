@@ -47,6 +47,7 @@ import {
   type PointActionId,
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
+import { tulsaPartnerAccounts } from "./tulsa-restaurants";
 import { detectVisitorCity } from "./geo-city";
 import { getPassportRestaurants, PASSPORTS } from "./passports";
 import {
@@ -536,6 +537,7 @@ function mockUserFromAccount(a: AuthAccount): MockUser {
     favoriteFoodType: a.favoriteFoodType,
     avatarDataUrl: a.avatarDataUrl,
     staffRole: a.staffRole,
+    restaurantId: a.restaurantId,
     rewardPoints: a.rewardPoints ?? 0,
     rewardPointsLifetime: a.rewardPointsLifetime ?? 0,
     rewardsClaimed: a.rewardsClaimed ?? 0,
@@ -579,6 +581,7 @@ function upsertAccountFromUser(
     familySeats: user.familySeats,
     maxFamilySeats: user.maxFamilySeats,
     staffRole: user.staffRole,
+    restaurantId: user.restaurantId ?? existing?.restaurantId,
     householdPlanId: user.householdPlanId,
     isPlanPrimary: user.isPlanPrimary,
     householdMembers: user.householdMembers,
@@ -885,7 +888,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setModeratedFeedPosts(data.moderatedFeedPosts);
     setRestaurantApprovalOverrides(data.restaurantApprovalOverrides);
     setNotifications(data.notifications ?? []);
-    setAccounts(data.accounts ?? []);
+    setAccounts(() => {
+      const saved = data.accounts ?? [];
+      const byEmail = new Map(saved.map((a) => [a.email.toLowerCase(), a]));
+      for (const partner of tulsaPartnerAccounts()) {
+        if (!byEmail.has(partner.email)) byEmail.set(partner.email, partner);
+      }
+      return [...byEmail.values()];
+    });
     setAutoApproveSettings(data.autoApproveSettings ?? []);
     setChats(data.chats ?? []);
     setEventRsvps(data.eventRsvps ?? []);
@@ -3134,7 +3144,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { orderId, total };
   }, [cartTotal, awardPoints]);
 
-  const rid = partnerRestaurantId();
+  const rid = user?.restaurantId || partnerRestaurantId();
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   const monthMs = 30 * 24 * 60 * 60 * 1000;
   const ytdMs = Date.now() - ytdStartMs();

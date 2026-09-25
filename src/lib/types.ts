@@ -438,6 +438,8 @@ export interface AuthAccount {
   familySeats: number;
   maxFamilySeats: number;
   staffRole?: StaffRole;
+  /** Listing this partner login manages */
+  restaurantId?: string;
   householdPlanId?: string;
   isPlanPrimary?: boolean;
   householdMembers?: MemberSeatProfile[];

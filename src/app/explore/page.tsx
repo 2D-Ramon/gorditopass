@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RestaurantCard } from "@/components/RestaurantCard";
+import { RestaurantMap } from "@/components/RestaurantMap";
 import { CITIES, cuisineLabel } from "@/lib/data";
 import { asCity, CITY_CENTERS } from "@/lib/listing-map";
 import { useLiveCatalog } from "@/lib/live-catalog";
@@ -83,42 +84,11 @@ export default function ExplorePage() {
       </div>
 
       <div className="mt-8 gp-card gp-card-static p-4">
-        <p className="mb-3 text-sm font-medium text-muted">Map</p>
-        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-          <iframe
-            title={`${cityMeta?.name ?? "City"} map`}
-            className="h-56 w-full rounded-lg border-0 ring-1 ring-border"
-            loading="lazy"
-            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${center.lat},${center.lng}&zoom=11`}
-          />
-        ) : (
-        <div className="relative h-48 overflow-hidden rounded-lg bg-background ring-1 ring-border">
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage:
-                "linear-gradient(#3f3f46 1px, transparent 1px), linear-gradient(90deg, #3f3f46 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-            }}
-          />
-          {list.map((r, i) => (
-            <div
-              key={r.id}
-              className="absolute flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-elevated text-sm shadow-lg"
-              style={{
-                left: `${12 + ((i * 17) % 70)}%`,
-                top: `${18 + ((i * 23) % 55)}%`,
-              }}
-              title={r.name}
-            >
-              {r.emoji}
-            </div>
-          ))}
-          <p className="absolute bottom-2 right-2 text-[10px] text-muted">
-            Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for live Google tiles
-          </p>
-        </div>
-        )}
+        <RestaurantMap
+          restaurants={list}
+          center={center}
+          cityName={cityMeta?.name ?? "City"}
+        />
       </div>
 
       <p className="mt-8 text-sm text-muted">
