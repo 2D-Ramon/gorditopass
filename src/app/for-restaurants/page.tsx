@@ -33,7 +33,7 @@ export default function ForRestaurantsPage() {
             body: "Track sales, hot items, and revenue from your partner dashboard.",
           },
           {
-            icon: "case",
+            icon: "tag",
             title: "You set the offer",
             body: "You set the promotion and the margin. Member offers are not the same ones you run for the public at the same time.",
           },

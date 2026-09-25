@@ -261,7 +261,7 @@ function MembershipInner() {
             body: "Member deals are not the same offers restaurants run for the public at the same time.",
           },
           {
-            icon: "bag",
+            icon: "dollar",
             title: "Save money",
             body: "Redeem in store or online, and track what you save on the plates you already love.",
           },
