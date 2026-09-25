@@ -47,6 +47,7 @@ import {
   type PointActionId,
 } from "./pricing";
 import { getDeal, getRestaurant, RESTAURANTS, REVIEWS } from "./data";
+import { detectVisitorCity } from "./geo-city";
 import { getPassportRestaurants, PASSPORTS } from "./passports";
 import {
   defaultAutoApprove,
@@ -104,6 +105,8 @@ interface Persisted {
   chats: ChatThread[];
   eventRsvps: EventRsvp[];
   city?: CityId;
+  /** True after the visitor picks a city. Otherwise we use their location. */
+  cityManual?: boolean;
 }
 
 interface StoreValue {
@@ -853,6 +856,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [eventRsvps, setEventRsvps] = useState<EventRsvp[]>([]);
   const [city, setCity] = useState<CityId>("dallas");
+  const [cityManual, setCityManual] = useState(false);
+
+  const selectCity = useCallback((next: CityId) => {
+    setCity(next);
+    setCityManual(true);
+  }, []);
 
   useEffect(() => {
     const data = load();
@@ -882,8 +891,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setEventRsvps(data.eventRsvps ?? []);
     if (data.city) setCity(data.city);
     else if (data.user?.city) setCity(data.user.city);
+    setCityManual(Boolean(data.cityManual));
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || cityManual) return;
+    let cancelled = false;
+    void detectVisitorCity().then((next) => {
+      if (!cancelled && next) setCity(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, cityManual]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -913,6 +934,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       chats,
       eventRsvps,
       city,
+      cityManual,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -942,6 +964,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     chats,
     eventRsvps,
     city,
+    cityManual,
   ]);
 
   // Food cart is per identity. Signing in, switching accounts, or joining
@@ -2517,6 +2540,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setChats([]);
     setEventRsvps([]);
     setCity("dallas");
+    setCityManual(false);
   }, []);
 
   const addPartnerEvent = useCallback(
@@ -3177,7 +3201,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     moderatedFeedPosts,
     restaurantApprovalOverrides,
     city,
-    setCity,
+    setCity: selectCity,
     signInDemo,
     signInOpsAdmin,
     hydrateFromServer,

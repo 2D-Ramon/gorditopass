@@ -55,6 +55,45 @@ export const CITY_CENTERS: Record<CityId, { lat: number; lng: number }> = {
   okc: { lat: 35.4676, lng: -97.5164 },
 };
 
+export function isCityId(v: string | null | undefined): v is CityId {
+  return v === "dallas" || v === "tulsa" || v === "kansas-city" || v === "okc";
+}
+
+function haversineKm(
+  aLat: number,
+  aLng: number,
+  bLat: number,
+  bLng: number,
+): number {
+  const r = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const h =
+    s1 * s1 +
+    Math.cos((aLat * Math.PI) / 180) *
+      Math.cos((bLat * Math.PI) / 180) *
+      s2 *
+      s2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Closest Gordito market to a visitor's coordinates. */
+export function nearestCity(lat: number, lng: number): CityId {
+  let best: CityId = "dallas";
+  let bestKm = Infinity;
+  (Object.keys(CITY_CENTERS) as CityId[]).forEach((id) => {
+    const c = CITY_CENTERS[id];
+    const km = haversineKm(lat, lng, c.lat, c.lng);
+    if (km < bestKm) {
+      bestKm = km;
+      best = id;
+    }
+  });
+  return best;
+}
+
 /** Map free-text city (apply form, CRM, listings) onto a CityId. */
 export function asCity(v: string | null | undefined): CityId {
   const s = (v ?? "").toLowerCase().trim();

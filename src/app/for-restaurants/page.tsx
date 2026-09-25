@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { WhyGordito } from "@/components/WhyGordito";
 import { PLATFORM } from "@/lib/pricing";
 
 export const metadata = { title: "For restaurants" };
 
 export default function ForRestaurantsPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10">
       <p className="gp-badge mb-4">Business partners</p>
       <h1 className="gp-page-title">For restaurants</h1>
       <p className="gp-page-sub">
@@ -14,26 +15,27 @@ export default function ForRestaurantsPage() {
         fees.
       </p>
 
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold tracking-tight">Why Gordito</h2>
-        <p className="mt-3 text-sm leading-relaxed text-stone-300">
-          Most food apps win by charging restaurants until it hurts. GorditoPass
-          is membership-funded so you can fill seats and keep the sale.
-        </p>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-stone-300">
-          <li>Free to join after approval. No listing fee.</li>
-          <li>No fee on in-store sales. We charge 1% of online orders.</li>
-          <li>
-            You set the promotion and the margin. Member offers are not the
-            same ones you run for the public at the same time.
-          </li>
-          <li>
-            Mom-and-pop preferred. Franchises are welcome, with a max of 12%
-            off.
-          </li>
-        </ul>
-      </section>
+      <WhyGordito
+        items={[
+          {
+            icon: "megaphone",
+            title: "Free to join",
+            body: "Free to join after approval. No listing fee. Membership pays for the platform so you can fill seats.",
+          },
+          {
+            icon: "bag",
+            title: "Keep the sale",
+            body: "No fee on in-store sales. We charge 1% of online orders.",
+          },
+          {
+            icon: "case",
+            title: "You set the offer",
+            body: "You set the promotion and the margin. Member offers are not the same ones you run for the public at the same time.",
+          },
+        ]}
+      />
 
+      <div className="max-w-3xl">
       <section className="mt-10">
         <h2 className="text-xl font-semibold tracking-tight">How it works</h2>
         <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-relaxed text-stone-300">
@@ -54,8 +56,7 @@ export default function ForRestaurantsPage() {
       <h2 className="mt-10 text-xl font-semibold tracking-tight">Intake</h2>
       <ol className="mt-4 list-decimal space-y-4 pl-5 text-stone-300">
         <li className="leading-relaxed">
-          Apply free — intake approval required (mom-and-pop preferred;
-          franchises OK).
+          Apply free — intake approval required.
         </li>
         <li className="leading-relaxed">
           Fill out application and Upload required documents.
@@ -121,6 +122,7 @@ export default function ForRestaurantsPage() {
           Membership
         </Link>
       </p>
+      </div>
     </div>
   );
 }

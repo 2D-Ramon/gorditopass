@@ -807,7 +807,9 @@ export default function ApplyPage() {
               placeholder="e.g. Free fries with entrée, or 20% off member plates"
             />
             <span className="mt-1 block text-xs font-normal text-muted">
-              If not sure, we can discuss this to help with ideas.
+              If not sure, we can discuss this to help with ideas. Suggestion:
+              free item(s) or minimum 20% off. Keep an offer ~2 weeks to
+              measure success.
             </span>
           </label>
 
@@ -845,10 +847,6 @@ export default function ApplyPage() {
             </div>
           </div>
 
-          <p className="text-xs leading-relaxed text-muted">
-            Suggestion: free item(s) or minimum 20% off. Keep an offer ~2 weeks
-            to measure success.
-          </p>
           {error && (
             <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
               {error}

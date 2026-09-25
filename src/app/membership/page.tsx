@@ -12,6 +12,7 @@ import {
   POINT_ACTIONS,
   REFERRAL,
 } from "@/lib/pricing";
+import { WhyGordito } from "@/components/WhyGordito";
 import { useStore } from "@/lib/store";
 import type { MemberSeatProfile, MembershipPlanId } from "@/lib/types";
 
@@ -217,7 +218,7 @@ function MembershipInner() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10">
       <p className="gp-badge mb-4">For diners</p>
       <h1 className="gp-page-title">Membership</h1>
       <p className="gp-page-sub">{PLATFORM.mission}</p>
@@ -247,22 +248,25 @@ function MembershipInner() {
         </div>
       )}
 
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold tracking-tight">Why Gordito</h2>
-        <p className="mt-3 text-sm leading-relaxed text-stone-300">
-          Membership pays for GorditoPass, so local kitchens are not charged a
-          listing fee or a cut of in-store sales. You get deals that are not
-          offered to the public at the same time.
-        </p>
-        <ul className="mt-4 space-y-2 text-sm leading-relaxed text-stone-300">
-          <li>Browse free, then redeem in store or online.</li>
-          <li>Track what you save, and see what is cooking in your city.</li>
-          <li>
-            One membership works in every city we launch. Individual or Family
-            &amp; Friends plans.
-          </li>
-        </ul>
-      </section>
+      <WhyGordito
+        items={[
+          {
+            icon: "megaphone",
+            title: "Member prices",
+            body: "Membership pays for GorditoPass, so local kitchens are not charged a listing fee or a cut of in-store sales.",
+          },
+          {
+            icon: "bag",
+            title: "Deals you will not see publicly",
+            body: "Member offers are not the same ones restaurants run for the public at the same time.",
+          },
+          {
+            icon: "case",
+            title: "Browse, redeem, track",
+            body: "Browse free, redeem in store or online, and track what you save. One membership works in every city we launch.",
+          },
+        ]}
+      />
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold tracking-tight">How it works</h2>
