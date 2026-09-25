@@ -90,7 +90,7 @@ export function WhyGordito({
         }`}
       >
         {items.map((item) => (
-          <div key={item.title}>
+          <div key={item.title} className="text-center">
             <div className="flex justify-center text-brand">
               <WhyIconMark name={item.icon} />
             </div>
