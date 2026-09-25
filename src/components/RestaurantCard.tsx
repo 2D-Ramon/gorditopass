@@ -7,9 +7,12 @@ export function RestaurantCard({
   restaurant,
   /** Home featured gallery — larger, bolder promo callout */
   highlightPromo = false,
+  /** Explore cards. Hidden on the home scroller. */
+  showDirections = true,
 }: {
   restaurant: Restaurant;
   highlightPromo?: boolean;
+  showDirections?: boolean;
 }) {
   const topDeal = restaurant.deals.find((d) => d.active);
   // Featured strip already implies member deals — drop redundant phrasing
@@ -33,7 +36,11 @@ export function RestaurantCard({
         className="flex flex-1 flex-col"
       >
       <div
-        className="relative flex h-36 items-center justify-center text-5xl"
+        className={`relative flex items-center justify-center ${
+          restaurant.logoUrl && !highlightPromo
+            ? "h-52 text-5xl"
+            : "h-36 text-5xl"
+        }`}
         style={{
           background: `linear-gradient(145deg, ${restaurant.accent}40, #121214 70%)`,
         }}
@@ -43,7 +50,11 @@ export function RestaurantCard({
           <img
             src={restaurant.logoUrl}
             alt=""
-            className="max-h-28 max-w-[80%] object-contain drop-shadow-md"
+            className={
+              highlightPromo
+                ? "max-h-28 max-w-[80%] object-contain drop-shadow-md"
+                : "h-full w-full object-contain p-4 drop-shadow-md"
+            }
           />
         ) : (
           <span className="drop-shadow-md transition duration-200 group-hover:scale-105">
@@ -91,41 +102,20 @@ export function RestaurantCard({
         <p className="line-clamp-2 text-sm leading-relaxed text-muted">
           {restaurant.tagline}
         </p>
-        {restaurant.menu.length > 0 && (
-          <div className="mt-1 max-h-40 overflow-y-auto rounded-md bg-background/60 p-2 ring-1 ring-border">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
-              Menu
-            </p>
-            <ul className="space-y-1">
-              {restaurant.menu.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-baseline justify-between gap-2 text-xs"
-                >
-                  <span className="text-stone-200">
-                    {item.name}
-                    <span className="text-muted"> · {item.category}</span>
-                  </span>
-                  <span className="shrink-0 font-medium text-stone-100">
-                    {item.priceUsd > 0 ? `$${item.priceUsd.toFixed(2)}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
       </Link>
-      <div className="px-4 pb-4">
-        <a
-          href={directions}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="gp-btn gp-btn-secondary w-full text-sm"
-        >
-          Directions
-        </a>
-      </div>
+      {showDirections && (
+        <div className="px-4 pb-4">
+          <a
+            href={directions}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="gp-btn gp-btn-secondary w-full text-sm"
+          >
+            Directions
+          </a>
+        </div>
+      )}
     </article>
   );
 }
