@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { APPLY_CUISINE_OPTIONS, CITIES } from "@/lib/data";
 import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
@@ -100,6 +101,7 @@ export default function ApplyPage() {
   const [phone, setPhone] = useState("");
   const [emailOptIn, setEmailOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [city, setCity] = useState<CityId | "">("");
   const [promo, setPromo] = useState("");
   const [contactName, setContactName] = useState("");
@@ -255,8 +257,12 @@ export default function ApplyPage() {
               setError("Select a position.");
               return;
             }
-            if (smsOptIn && !phone.trim()) {
-              setError("Enter a phone number to opt in to texts.");
+            if (!phone.trim()) {
+              setError("Phone number is required.");
+              return;
+            }
+            if (!agreedToTerms) {
+              setError("Agree to the terms to submit your application.");
               return;
             }
             if (!address.trim()) {
@@ -687,19 +693,16 @@ export default function ApplyPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Phone
+            Phone *
             <input
+              required
               type="tel"
               className="gp-input mt-1.5"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               autoComplete="tel"
               placeholder="(555) 555-5555"
-              required={smsOptIn}
             />
-            <span className="mt-1 block text-xs font-normal text-muted">
-              Required if you opt in to texts.
-            </span>
           </label>
           <label className="flex items-start gap-2.5 text-sm leading-relaxed">
             <input
@@ -722,6 +725,26 @@ export default function ApplyPage() {
               by replying STOP.
             </span>
           </label>
+          <p className="text-xs leading-relaxed text-muted">
+            We will never sell your information. It is only used for
+            promotions, updated terms, and offers.
+          </p>
+          <div className="flex items-start gap-2.5 text-sm leading-relaxed">
+            <input
+              id="apply-terms"
+              type="checkbox"
+              className="mt-1"
+              required
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+            />
+            <span>
+              <label htmlFor="apply-terms">I agree to the </label>
+              <Link href="/legal/terms" className="text-brand underline">
+                terms
+              </Link>
+            </span>
+          </div>
           <label className="block text-sm font-medium">
             Contact name *
             <input

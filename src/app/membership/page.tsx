@@ -59,6 +59,7 @@ function MembershipInner() {
   const [primaryPassword, setPrimaryPassword] = useState("");
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [paying, setPaying] = useState(false);
 
   // Auto-populate from share link: /membership?ref=CODE
@@ -144,6 +145,10 @@ function MembershipInner() {
     const primary = finalized[0];
     if (!user && primaryPassword.length < 8) {
       setIntakeError("Create an 8+ character password for the primary account.");
+      return;
+    }
+    if (!agreedToTerms) {
+      setIntakeError("Agree to the terms to continue.");
       return;
     }
 
@@ -643,6 +648,26 @@ function MembershipInner() {
               />
               Text me (US). Msg/data rates may apply. Opt out by replying STOP.
             </label>
+            <p className="text-xs leading-relaxed text-muted">
+              We will never sell your information. It is only used for
+              promotions, updated terms, and offers.
+            </p>
+            <div className="flex items-start gap-2 text-sm">
+              <input
+                id="member-terms"
+                type="checkbox"
+                className="mt-1"
+                required
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+              />
+              <span>
+                <label htmlFor="member-terms">I agree to the </label>
+                <Link href="/legal/terms" className="text-brand underline">
+                  terms
+                </Link>
+              </span>
+            </div>
 
             {intakeError && (
               <p className="text-sm text-red-300">{intakeError}</p>
