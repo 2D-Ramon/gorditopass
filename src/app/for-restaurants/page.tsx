@@ -18,14 +18,19 @@ export default function ForRestaurantsPage() {
       <WhyGordito
         items={[
           {
-            icon: "megaphone",
-            title: "Free to join",
-            body: "Free to join after approval. No listing fee. Membership pays for the platform so you can fill seats.",
+            icon: "dollar",
+            title: "Keep the sale",
+            body: "Free to join. No listing fee. No fee on in-store sales. No up to 35% in delivery services. We only charge 1% of online orders.",
           },
           {
-            icon: "bag",
-            title: "Keep the sale",
-            body: "No fee on in-store sales. We charge 1% of online orders.",
+            icon: "megaphone",
+            title: "Attract new customers",
+            body: "Attract new customers and keep them coming back. Members find you while they browse, then return for your exclusive offers.",
+          },
+          {
+            icon: "chart",
+            title: "Track the business",
+            body: "Track sales, hot items, and revenue from your partner dashboard.",
           },
           {
             icon: "case",
@@ -52,17 +57,6 @@ export default function ForRestaurantsPage() {
           </li>
         </ol>
       </section>
-
-      <div className="mt-10 gp-card gp-card-static p-6">
-        <p className="text-2xl font-bold tracking-tight text-brand-mint uppercase">
-          FREE TO JOIN
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Planned start date must be at least 2 weeks out so we can complete
-          approval and setup. Contact must have authority to make decisions (or
-          upload owner permission).
-        </p>
-      </div>
 
       <h2 className="mt-10 text-xl font-semibold tracking-tight">Intake</h2>
       <ol className="mt-4 list-decimal space-y-4 pl-5 text-stone-300">

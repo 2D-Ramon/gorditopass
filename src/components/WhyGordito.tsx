@@ -1,4 +1,4 @@
-type WhyIcon = "megaphone" | "bag" | "case" | "tag" | "star";
+type WhyIcon = "megaphone" | "bag" | "case" | "tag" | "star" | "dollar" | "chart";
 
 function WhyIconMark({ name }: { name: WhyIcon }) {
   const common = {
@@ -30,6 +30,29 @@ function WhyIconMark({ name }: { name: WhyIcon }) {
     return (
       <svg {...common}>
         <path d="m16 4.8 2.9 6.8 7.4.7-5.6 4.8 1.7 7.3L16 20.7 9.6 24.4l1.7-7.3L5.7 12.3l7.4-.7L16 4.8Z" />
+      </svg>
+    );
+  }
+  if (name === "dollar") {
+    return (
+      <svg {...common}>
+        <text
+          x="16"
+          y="25"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="700"
+          fontFamily="inherit"
+        >
+          $
+        </text>
+      </svg>
+    );
+  }
+  if (name === "chart") {
+    return (
+      <svg {...common}>
+        <path d="M6 22h5V12H6v10Zm7.5 0h5V7h-5v15ZM21 22h5V14h-5v8ZM4 25.5h24v2.2H4v-2.2Z" />
       </svg>
     );
   }
