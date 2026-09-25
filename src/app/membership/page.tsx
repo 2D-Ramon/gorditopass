@@ -251,19 +251,24 @@ function MembershipInner() {
       <WhyGordito
         items={[
           {
-            icon: "megaphone",
-            title: "Member prices",
-            body: "Membership pays for GorditoPass, so local kitchens are not charged a listing fee or a cut of in-store sales.",
+            icon: "tag",
+            title: "Exclusive offers",
+            body: "Member deals are not the same offers restaurants run for the public at the same time.",
           },
           {
             icon: "bag",
-            title: "Deals you will not see publicly",
-            body: "Member offers are not the same ones restaurants run for the public at the same time.",
+            title: "Save money",
+            body: "Redeem in store or online, and track what you save on the plates you already love.",
           },
           {
             icon: "case",
-            title: "Browse, redeem, track",
-            body: "Browse free, redeem in store or online, and track what you save. One membership works in every city we launch.",
+            title: "Support local",
+            body: "Your membership brings neighbors in the door. Kitchens keep the sale — no listing fee and no cut of in-store orders.",
+          },
+          {
+            icon: "star",
+            title: "Extra perks",
+            body: "Chat with other members, catch partner events, and earn rewards as you explore.",
           },
         ]}
       />
