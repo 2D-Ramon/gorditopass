@@ -48,8 +48,16 @@ export async function POST(req: Request) {
     city,
     contact_name: String(body?.contactName ?? "").trim() || null,
     contact_email: email,
+    contact_phone: String(body?.phone ?? "").trim() || null,
     address: String(body?.address ?? "").trim() || null,
-    notes: String(body?.promo ?? "").trim() || null,
+    notes:
+      [
+        String(body?.promo ?? "").trim(),
+        `Email opt-in: ${body?.email_opt_in ? "yes" : "no"}`,
+        `Text opt-in: ${body?.sms_opt_in ? "yes" : "no"}`,
+      ]
+        .filter(Boolean)
+        .join("\n") || null,
     source: "website-apply",
   });
   return NextResponse.json({ ok: true, id: app.id });

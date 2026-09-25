@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
-import { CITIES, cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
+import { CITIES, cityLabel, cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { asCity } from "@/lib/listing-map";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
@@ -145,42 +145,59 @@ export default function AdminPage() {
 
   const liveApps = useMemo(
     () =>
-      (queue?.applications ?? []).map((a) => ({
-        id: String(a.id),
-        name: String(a.name ?? ""),
-        email: String(a.email ?? ""),
-        at: String(a.created_at ?? ""),
-        contactName: String(a.contact_name ?? ""),
-        position: String(a.position ?? ""),
-        address: String(a.address ?? ""),
-        city: String(a.city ?? ""),
-        promo: String(a.promo ?? ""),
-        status: (String(a.status ?? "pending") as "pending" | "approved" | "rejected"),
-        uploads: (() => {
-          const payload = (a.payload ?? {}) as {
-            uploads?: {
-              label?: string;
-              fileName?: string;
-              dataUrl?: string;
-              mimeType?: string;
-            }[];
-          };
-          return (payload.uploads ?? []).map((u) => ({
+      (queue?.applications ?? []).map((a) => {
+        const payload = (a.payload ?? {}) as {
+          uploads?: {
+            label?: string;
+            fileName?: string;
+            dataUrl?: string;
+            mimeType?: string;
+          }[];
+          concepts?: RestaurantApplication["concepts"];
+          phone?: string;
+          email_opt_in?: boolean;
+          sms_opt_in?: boolean;
+          plannedStartDate?: string;
+          hasAuthority?: boolean;
+          businessType?: RestaurantApplication["businessType"];
+          businessTypeOther?: string;
+          ownershipType?: RestaurantApplication["ownershipType"];
+          ownershipTypeOther?: string;
+          totalLocations?: number;
+        };
+        return {
+          id: String(a.id),
+          name: String(a.name ?? ""),
+          email: String(a.email ?? ""),
+          at: String(a.created_at ?? ""),
+          contactName: String(a.contact_name ?? ""),
+          phone: String(payload.phone ?? a.contact_phone ?? ""),
+          emailOptIn: Boolean(payload.email_opt_in),
+          smsOptIn: Boolean(payload.sms_opt_in),
+          position: String(a.position ?? ""),
+          address: String(a.address ?? ""),
+          city: String(a.city ?? ""),
+          promo: String(a.promo ?? ""),
+          status: (String(a.status ?? "pending") as
+            | "pending"
+            | "approved"
+            | "rejected"),
+          uploads: (payload.uploads ?? []).map((u) => ({
             label: String(u.label ?? ""),
             fileName: String(u.fileName ?? "file"),
             dataUrl: u.dataUrl,
             mimeType: u.mimeType,
-          }));
-        })(),
-        plannedStartDate: "",
-        hasAuthority: undefined as boolean | undefined,
-        businessType: undefined as RestaurantApplication["businessType"],
-        businessTypeOther: undefined as string | undefined,
-        ownershipType: undefined as RestaurantApplication["ownershipType"],
-        ownershipTypeOther: undefined as string | undefined,
-        totalLocations: undefined as number | undefined,
-        concepts: undefined as RestaurantApplication["concepts"],
-      })),
+          })),
+          plannedStartDate: String(payload.plannedStartDate ?? ""),
+          hasAuthority: payload.hasAuthority,
+          businessType: payload.businessType,
+          businessTypeOther: payload.businessTypeOther,
+          ownershipType: payload.ownershipType,
+          ownershipTypeOther: payload.ownershipTypeOther,
+          totalLocations: payload.totalLocations,
+          concepts: payload.concepts,
+        };
+      }),
     [queue],
   );
   const appsList = queue ? liveApps : restaurantApplications;
@@ -518,7 +535,7 @@ export default function AdminPage() {
                           Address
                         </dt>
                         <dd>
-                          {a.address || "—"} · {a.city || "—"}
+                          {a.address || "—"} · {a.city ? cityLabel(a.city) : "—"}
                         </dd>
                       </div>
                       <div>
@@ -532,6 +549,16 @@ export default function AdminPage() {
                           Authority
                         </dt>
                         <dd>{a.hasAuthority ? "Yes" : "No / —"}</dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-[10px] uppercase text-muted">
+                          Updates
+                        </dt>
+                        <dd>
+                          Email {a.emailOptIn ? "yes" : "no"} · Text{" "}
+                          {a.smsOptIn ? "yes" : "no"}
+                          {a.phone ? ` · ${a.phone}` : ""}
+                        </dd>
                       </div>
                       <div>
                         <dt className="text-[10px] uppercase text-muted">
@@ -585,7 +612,7 @@ export default function AdminPage() {
                               {c.cuisineOrTheme
                                 ? ` · ${cuisineLabel(c.cuisineOrTheme)}`
                                 : ""}
-                              {c.cities ? ` · ${c.cities}` : ""}
+                              {c.cities ? ` · ${cityLabel(c.cities)}` : ""}
                             </li>
                           ))}
                         </ul>

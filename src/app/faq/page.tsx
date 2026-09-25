@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export const metadata = { title: "FAQ" };
 
-const FAQS = [
+const FOODIE_FAQS = [
   {
     q: "Do I need a membership to browse?",
     a: "No. Browse free. Membership is required to redeem deals and to post or reply in the city feed.",
@@ -14,10 +14,6 @@ const FAQS = [
   {
     q: "What is your refund policy?",
     a: "Refunds are handled case by case. Generally, if you have redeemed more than once, a refund is less likely unless our team verifies a bad experience claim. Cancel anytime; you keep access until your paid term ends.",
-  },
-  {
-    q: "Do restaurants pay to list?",
-    a: "No. Free to join after approval. Optional paid marketing packages later.",
   },
   {
     q: "How do I redeem a deal?",
@@ -53,7 +49,7 @@ const FAQS = [
   },
   {
     q: "How do I log in if my family shares a plan?",
-    a: "Each person on a multi-seat plan gets their own login (email + password or magic link) at /login. The plan is shared for billing; accounts are individual so points, passports, and redemptions stay personal. Business owners invite staff by email with roles (owner / manager / marketing / employee) — never share one password.",
+    a: "Each person on a multi-seat plan gets their own login (email + password or magic link) at /login. The plan is shared for billing; accounts are individual so points, passports, and redemptions stay personal.",
   },
   {
     q: "What happens when a new restaurant joins my passport?",
@@ -62,6 +58,17 @@ const FAQS = [
   {
     q: "How does multi-person membership signup work?",
     a: "Pick a plan and seats, then fill an intake form for each person (name, email, phone, birthday, home address). Each seat creates an account. Favorite restaurant and food type can be set later in profile.",
+  },
+];
+
+const BUSINESS_FAQS = [
+  {
+    q: "Do restaurants pay to list?",
+    a: "No. Free to join after approval. Optional paid marketing packages later.",
+  },
+  {
+    q: "How do restaurant staff log in?",
+    a: "Business owners invite staff by email with roles (owner / manager / marketing / employee) — never share one password.",
   },
 ];
 
@@ -80,8 +87,21 @@ export default function FaqPage() {
         </Link>
         .
       </p>
-      <div className="mt-8 space-y-3">
-        {FAQS.map((f) => (
+      <h2 className="mt-10 text-xl font-semibold tracking-tight">Foodies</h2>
+      <div className="mt-4 space-y-3">
+        {FOODIE_FAQS.map((f) => (
+          <details key={f.q} className="gp-card gp-card-static p-5">
+            <summary className="cursor-pointer font-semibold tracking-tight">
+              {f.q}
+            </summary>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{f.a}</p>
+          </details>
+        ))}
+      </div>
+
+      <h2 className="mt-10 text-xl font-semibold tracking-tight">Business</h2>
+      <div className="mt-4 space-y-3">
+        {BUSINESS_FAQS.map((f) => (
           <details key={f.q} className="gp-card gp-card-static p-5">
             <summary className="cursor-pointer font-semibold tracking-tight">
               {f.q}

@@ -248,9 +248,24 @@ function MembershipInner() {
       )}
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold tracking-tight">
-          How it works for you
-        </h2>
+        <h2 className="text-xl font-semibold tracking-tight">Why Gordito</h2>
+        <p className="mt-3 text-sm leading-relaxed text-stone-300">
+          Membership pays for GorditoPass, so local kitchens are not charged a
+          listing fee or a cut of in-store sales. You get deals that are not
+          offered to the public at the same time.
+        </p>
+        <ul className="mt-4 space-y-2 text-sm leading-relaxed text-stone-300">
+          <li>Browse free, then redeem in store or online.</li>
+          <li>Track what you save, and see what is cooking in your city.</li>
+          <li>
+            One membership works in every city we launch. Individual or Family
+            &amp; Friends plans.
+          </li>
+        </ul>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold tracking-tight">How it works</h2>
         <ol className="mt-5 space-y-5">
           {[
             {

@@ -12,32 +12,38 @@ import type {
   OwnershipTypeId,
 } from "@/lib/types";
 
+const DOC_ACCEPT = "image/*,.pdf,.doc,.docx";
+
 const UPLOADS = [
   { label: "Logo", required: true, accept: "image/*" },
-  { label: "Menu", required: true, accept: "image/*,.pdf,.doc,.docx" },
+  { label: "Menu", required: true, accept: DOC_ACCEPT },
   {
-    label: "Local health department food service license",
-    required: false,
-    accept: "image/*,.pdf,.doc,.docx",
+    label: "Health department license (tied to the kitchen address)",
+    required: true,
+    accept: DOC_ACCEPT,
   },
-  { label: "EIN", required: false, accept: "image/*,.pdf,.doc,.docx" },
-  {
-    label: "State sales tax permit",
-    required: false,
-    accept: "image/*,.pdf,.doc,.docx",
-  },
+  { label: "EIN", required: true, accept: DOC_ACCEPT },
+  { label: "State sales tax permit", required: true, accept: DOC_ACCEPT },
   {
     label: "Owner/manager food handler certification",
-    required: false,
-    accept: "image/*,.pdf,.doc,.docx",
+    required: true,
+    accept: DOC_ACCEPT,
+  },
+  {
+    label: "Owner state issued ID/passport",
+    required: true,
+    accept: DOC_ACCEPT,
+  },
+  {
+    label: "Legal business name documentation",
+    required: true,
+    accept: DOC_ACCEPT,
   },
 ] as const;
 
 const POSITIONS = [
   { value: "manager", label: "Manager" },
-  { value: "marketing", label: "Marketing" },
   { value: "owner", label: "Owner" },
-  { value: "other", label: "Other" },
 ];
 
 function emptyConcept(): ApplicationConcept {
@@ -52,6 +58,35 @@ function emptyConcept(): ApplicationConcept {
   };
 }
 
+function MarketSelect({
+  value,
+  onChange,
+  required = false,
+}: {
+  value: string;
+  onChange: (city: CityId) => void;
+  required?: boolean;
+}) {
+  return (
+    <select
+      required={required}
+      className="gp-input mt-1.5"
+      value={value}
+      onChange={(e) => onChange(e.target.value as CityId)}
+    >
+      <option value="" disabled>
+        Select city / market
+      </option>
+      {CITIES.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+          {!c.live ? " (coming later)" : ""}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function minStartDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 14);
@@ -62,7 +97,10 @@ export default function ApplyPage() {
   const { submitRestaurantApplication } = useStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [city, setCity] = useState<CityId>("dallas");
+  const [phone, setPhone] = useState("");
+  const [emailOptIn, setEmailOptIn] = useState(false);
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [city, setCity] = useState<CityId | "">("");
   const [promo, setPromo] = useState("");
   const [contactName, setContactName] = useState("");
   const [position, setPosition] = useState("");
@@ -217,17 +255,25 @@ export default function ApplyPage() {
               setError("Select a position.");
               return;
             }
+            if (smsOptIn && !phone.trim()) {
+              setError("Enter a phone number to opt in to texts.");
+              return;
+            }
             if (!address.trim()) {
-              setError("Address is required.");
+              setError("Full address is required.");
               return;
             }
-            if (!hasUpload("Logo")) {
-              setError("Please upload your logo.");
+            if (!city) {
+              setError(
+                "Select the city or market you are in, or the closest one.",
+              );
               return;
             }
-            if (!hasUpload("Menu")) {
-              setError("Please upload your menu.");
-              return;
+            for (const item of UPLOADS) {
+              if (!hasUpload(item.label)) {
+                setError(`Please upload: ${item.label}.`);
+                return;
+              }
             }
             if (!hasAuthority) {
               setError(
@@ -251,6 +297,12 @@ export default function ApplyPage() {
                   );
                   return;
                 }
+                if (!c.cities) {
+                  setError(
+                    `Select a city / market for concept “${c.conceptName || "unnamed"}”.`,
+                  );
+                  return;
+                }
                 if (c.businessType === "other" && !c.businessTypeOther?.trim()) {
                   setError(
                     `Describe business type for concept “${c.conceptName || "unnamed"}”.`,
@@ -271,6 +323,9 @@ export default function ApplyPage() {
               city,
               promo,
               contactName,
+              phone: phone.trim() || undefined,
+              emailOptIn,
+              smsOptIn,
               position,
               hasAuthority,
               address,
@@ -320,6 +375,9 @@ export default function ApplyPage() {
                 city,
                 promo,
                 contactName,
+                phone: phone.trim(),
+                email_opt_in: emailOptIn,
+                sms_opt_in: smsOptIn,
                 position,
                 address,
                 cuisine: primaryCuisine,
@@ -603,15 +661,15 @@ export default function ApplyPage() {
                     </select>
                   </label>
                   <label className="block text-sm">
-                    Cities / markets (optional)
-                    <input
-                      className="gp-input mt-1"
+                    City / market *
+                    <MarketSelect
+                      required
                       value={c.cities ?? ""}
-                      onChange={(e) =>
-                        updateConcept(c.id, { cities: e.target.value })
-                      }
-                      placeholder="Dallas, Tulsa"
+                      onChange={(next) => updateConcept(c.id, { cities: next })}
                     />
+                    <span className="mt-1 block text-xs text-muted">
+                      The market this concept is in, or the closest one.
+                    </span>
                   </label>
                 </div>
               ))}
@@ -627,6 +685,42 @@ export default function ApplyPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+          </label>
+          <label className="block text-sm font-medium">
+            Phone
+            <input
+              type="tel"
+              className="gp-input mt-1.5"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              placeholder="(555) 555-5555"
+              required={smsOptIn}
+            />
+            <span className="mt-1 block text-xs font-normal text-muted">
+              Required if you opt in to texts.
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 text-sm leading-relaxed">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={emailOptIn}
+              onChange={(e) => setEmailOptIn(e.target.checked)}
+            />
+            <span>Email me partner updates (unsubscribe anytime)</span>
+          </label>
+          <label className="flex items-start gap-2.5 text-sm leading-relaxed">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+            />
+            <span>
+              Text me partner updates (US). Msg/data rates may apply. Opt out
+              by replying STOP.
+            </span>
           </label>
           <label className="block text-sm font-medium">
             Contact name *
@@ -680,19 +774,15 @@ export default function ApplyPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            City
-            <select
-              className="gp-input mt-1.5"
+            City / market *
+            <MarketSelect
+              required
               value={city}
-              onChange={(e) => setCity(e.target.value as CityId)}
-            >
-              {CITIES.map((c) => (
-                <option key={c.id} value={c.id} disabled={!c.live}>
-                  {c.name}, {c.state}
-                  {!c.live ? " (coming later)" : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setCity}
+            />
+            <span className="mt-1 block text-xs font-normal text-muted">
+              The city you are in, or the closest market.
+            </span>
           </label>
           <label className="block text-sm font-medium">
             Planned start date
@@ -717,15 +807,17 @@ export default function ApplyPage() {
               placeholder="e.g. Free fries with entrée, or 20% off member plates"
             />
             <span className="mt-1 block text-xs font-normal text-muted">
-              We can discuss this to help with ideas.
+              If not sure, we can discuss this to help with ideas.
             </span>
           </label>
 
           <div className="rounded-lg border border-border bg-elevated/50 p-4">
             <p className="text-sm font-semibold">Uploads</p>
             <p className="mt-1 text-xs text-muted">
-              Logo and menu are required. Food photos can be added later from
-              the partner dashboard. Documents (PDF) upload as-is, up to 8 MB.
+              All items are required to submit application. Documents must be
+              clear, complete, unexpired, and match the info you enter. Food
+              photos can be added later from the partner dashboard. Documents
+              (PDF) upload as-is, up to 8 MB.
             </p>
             <div className="mt-3 space-y-3">
               {UPLOADS.map((item) => (

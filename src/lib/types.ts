@@ -396,6 +396,11 @@ export interface RestaurantApplication {
   email: string;
   at: string;
   contactName?: string;
+  phone?: string;
+  /** Owner opted in to partner email updates on the application. */
+  emailOptIn?: boolean;
+  /** Owner opted in to partner texts on the application. */
+  smsOptIn?: boolean;
   position?: string;
   hasAuthority?: boolean;
   address?: string;
