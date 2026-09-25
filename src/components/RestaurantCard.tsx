@@ -22,11 +22,16 @@ export function RestaurantCard({
     .replace(/\.\s*\./g, ".")
     .trim();
 
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+    `${restaurant.name}, ${restaurant.address}`,
+  )}`;
+
   return (
-    <Link
-      href={`/restaurants/${restaurant.id}`}
-      className="gp-card group flex flex-col overflow-hidden transition hover:border-brand/40 hover:shadow-[var(--shadow-glow)]"
-    >
+    <article className="gp-card group flex flex-col overflow-hidden transition hover:border-brand/40 hover:shadow-[var(--shadow-glow)]">
+      <Link
+        href={`/restaurants/${restaurant.id}`}
+        className="flex flex-1 flex-col"
+      >
       <div
         className="relative flex h-36 items-center justify-center text-5xl"
         style={{
@@ -78,6 +83,17 @@ export function RestaurantCard({
           {restaurant.tagline}
         </p>
       </div>
-    </Link>
+      </Link>
+      <div className="px-4 pb-4">
+        <a
+          href={directions}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="gp-btn gp-btn-secondary w-full text-sm"
+        >
+          Directions
+        </a>
+      </div>
+    </article>
   );
 }
