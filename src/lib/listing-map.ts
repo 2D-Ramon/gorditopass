@@ -172,6 +172,7 @@ export function mapListing(row: LiveListingRow, seed?: Restaurant): Restaurant {
     lat: row.lat ?? seed?.lat ?? CITY_CENTERS[city].lat,
     lng: row.lng ?? seed?.lng ?? CITY_CENTERS[city].lng,
     emoji: row.emoji || seed?.emoji || "🍽️",
+    logoUrl: seed?.logoUrl,
     accent: row.accent || seed?.accent || "#f97316",
     plateRating: seed?.plateRating ?? 0,
     reviewCount: seed?.reviewCount ?? 0,

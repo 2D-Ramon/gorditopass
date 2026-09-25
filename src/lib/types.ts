@@ -90,6 +90,8 @@ export interface Restaurant {
   lat: number;
   lng: number;
   emoji: string;
+  /** Public logo, when we have one */
+  logoUrl?: string;
   accent: string;
   plateRating: number;
   reviewCount: number;

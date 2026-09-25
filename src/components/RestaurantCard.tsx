@@ -38,9 +38,18 @@ export function RestaurantCard({
           background: `linear-gradient(145deg, ${restaurant.accent}40, #121214 70%)`,
         }}
       >
-        <span className="drop-shadow-md transition duration-200 group-hover:scale-105">
-          {restaurant.emoji}
-        </span>
+        {restaurant.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={restaurant.logoUrl}
+            alt=""
+            className="max-h-28 max-w-[80%] object-contain drop-shadow-md"
+          />
+        ) : (
+          <span className="drop-shadow-md transition duration-200 group-hover:scale-105">
+            {restaurant.emoji}
+          </span>
+        )}
         {topDeal && !highlightPromo && (
           <span className="absolute bottom-2.5 left-2.5 gp-badge max-w-[90%] truncate !normal-case !tracking-normal">
             {topDeal.title}
@@ -82,6 +91,29 @@ export function RestaurantCard({
         <p className="line-clamp-2 text-sm leading-relaxed text-muted">
           {restaurant.tagline}
         </p>
+        {restaurant.menu.length > 0 && (
+          <div className="mt-1 max-h-40 overflow-y-auto rounded-md bg-background/60 p-2 ring-1 ring-border">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Menu
+            </p>
+            <ul className="space-y-1">
+              {restaurant.menu.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-baseline justify-between gap-2 text-xs"
+                >
+                  <span className="text-stone-200">
+                    {item.name}
+                    <span className="text-muted"> · {item.category}</span>
+                  </span>
+                  <span className="shrink-0 font-medium text-stone-100">
+                    {item.priceUsd > 0 ? `$${item.priceUsd.toFixed(2)}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       </Link>
       <div className="px-4 pb-4">
