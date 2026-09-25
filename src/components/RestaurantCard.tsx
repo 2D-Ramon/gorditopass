@@ -36,25 +36,23 @@ export function RestaurantCard({
         className="flex flex-1 flex-col"
       >
       <div
-        className={`relative flex items-center justify-center ${
-          restaurant.logoUrl && !highlightPromo
-            ? "h-52 text-5xl"
-            : "h-36 text-5xl"
+        className={`relative flex items-center justify-center text-5xl ${
+          restaurant.logoUrl ? "h-48 bg-black" : "h-36"
         }`}
-        style={{
-          background: `linear-gradient(145deg, ${restaurant.accent}40, #121214 70%)`,
-        }}
+        style={
+          restaurant.logoUrl
+            ? undefined
+            : {
+                background: `linear-gradient(145deg, ${restaurant.accent}40, #121214 70%)`,
+              }
+        }
       >
         {restaurant.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={restaurant.logoUrl}
             alt=""
-            className={
-              highlightPromo
-                ? "max-h-28 max-w-[80%] object-contain drop-shadow-md"
-                : "h-full w-full object-contain p-4 drop-shadow-md"
-            }
+            className="h-[80%] w-[80%] object-contain"
           />
         ) : (
           <span className="drop-shadow-md transition duration-200 group-hover:scale-105">
