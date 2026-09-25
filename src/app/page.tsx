@@ -45,7 +45,7 @@ export default function HomePage() {
 
           <div className="gp-card gp-card-static relative overflow-hidden p-6 sm:p-8">
             <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-brand/10 blur-3xl" />
-            <p className="gp-section-label">How it works for you</p>
+            <p className="gp-section-label">How it works</p>
             <ol className="mt-5 space-y-5">
               {[
                 {
