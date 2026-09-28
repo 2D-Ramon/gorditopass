@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRestaurant } from "@/lib/data";
+import { isLiveListing } from "@/lib/listing-status";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
@@ -31,8 +32,19 @@ export async function POST(req: Request) {
       .eq("member_id", profile.id)
       .eq("restaurant_id", restaurantId);
   } else {
+    const { data: existing } = await sb
+      .from("listings")
+      .select("approved, banned, tagline")
+      .eq("id", restaurantId)
+      .maybeSingle();
+    if (existing && !isLiveListing(existing)) {
+      return NextResponse.json(
+        { error: "This restaurant is not available." },
+        { status: 404 },
+      );
+    }
     const seed = getRestaurant(restaurantId);
-    if (seed) {
+    if (seed && !existing) {
       await sb.from("listings").upsert(
         {
           id: seed.id,

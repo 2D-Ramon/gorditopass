@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
-import { cuisineLabel, getRestaurant } from "@/lib/data";
+import { cuisineLabel } from "@/lib/data";
 import { useLiveCatalog } from "@/lib/live-catalog";
-import { mapListing, type LiveListingRow } from "@/lib/listing-map";
+import type { LiveListingRow } from "@/lib/listing-map";
 import { MENU_CATEGORIES } from "@/lib/pricing";
 import { isPartnerContentLive, useStore } from "@/lib/store";
 import type { Restaurant, Review } from "@/lib/types";
@@ -15,11 +15,9 @@ export default function RestaurantDetailPage() {
   const params = useParams();
   const id = String(params.id);
   const { restaurants, ready } = useLiveCatalog();
-  const [fetched, setFetched] = useState<Restaurant | null>(null);
   const [liveReviews, setLiveReviews] = useState<Review[]>([]);
-  const catalogRestaurant =
-    restaurants.find((r) => r.id === id || r.slug === id) ?? getRestaurant(id);
-  const restaurant = catalogRestaurant ?? fetched;
+  const restaurant =
+    restaurants.find((r) => r.id === id || r.slug === id) ?? null;
   const {
     user,
     cart,
@@ -59,9 +57,6 @@ export default function RestaurantDetailPage() {
         (data: { restaurant?: LiveListingRow | null; reviews?: Review[] } | null) => {
           if (stop || !data) return;
           if (data.reviews) setLiveReviews(data.reviews);
-          if (data.restaurant?.id) {
-            setFetched(mapListing(data.restaurant));
-          }
         },
       )
       .catch(() => {});

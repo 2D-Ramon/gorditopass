@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLiveListing } from "@/lib/listing-status";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -10,7 +11,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
   const sb = createOpsClient();
   const { data: listing } = await sb.from("listings").select("*").eq("id", id).maybeSingle();
-  if (!listing) {
+  if (!listing || !isLiveListing(listing)) {
     return NextResponse.json({ restaurant: null, reviews: [] });
   }
   const [{ data: deals }, { data: menu }, { data: reviews }] = await Promise.all([

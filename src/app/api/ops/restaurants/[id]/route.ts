@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DELETED_LISTING_TAGLINE } from "@/lib/listing-status";
 import { SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { loadRestaurantInsights } from "@/lib/load-restaurant-insights";
 import { jsonError, withOps } from "../../_util";
@@ -33,7 +34,9 @@ export async function GET(_req: Request, ctx: Ctx) {
   const sb = gate.supabase;
   const loaded = await loadRestaurantInsights(sb, id);
   const listing = loaded.listing;
-  if (!listing) return jsonError("Restaurant not found.", 404);
+  if (!listing || listing.tagline === DELETED_LISTING_TAGLINE) {
+    return jsonError("Restaurant not found.", 404);
+  }
 
   const ownerEmail = String(listing.owner_email ?? "").trim();
   const name = String(listing.name ?? "").trim();

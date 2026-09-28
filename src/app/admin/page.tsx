@@ -6,6 +6,11 @@ import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
 import { CITIES, cityLabel, cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
 import { asCity } from "@/lib/listing-map";
+import {
+  DELETED_LISTING_TAGLINE,
+  restaurantAccountState,
+  type RestaurantAccountState,
+} from "@/lib/listing-status";
 import { PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { OpsAdminPublic, OpsStatus } from "@/lib/ops-types";
@@ -96,7 +101,6 @@ export default function AdminPage() {
     setPartnerMenuStatus,
     setPartnerEventStatus,
     setPartnerJobStatus,
-    setRestaurantApproved,
     isRestaurantApproved,
     hideFeedPost,
     unhideFeedPost,
@@ -112,6 +116,9 @@ export default function AdminPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginErr, setLoginErr] = useState("");
   const [localDemo, setLocalDemo] = useState(false);
+  const [cityFilter, setCityFilter] = useState<CityId | "all">("all");
+  const [restaurantMsg, setRestaurantMsg] = useState("");
+  const [restaurantBusy, setRestaurantBusy] = useState("");
   const [queue, setQueue] = useState<{
     applications: Record<string, unknown>[];
     deals: Record<string, unknown>[];
@@ -1147,92 +1154,180 @@ export default function AdminPage() {
           <h2 className="font-semibold">Live restaurants</h2>
           <p className="mt-1 text-sm text-muted">
             Open a name to see that business’s signup and the same numbers it
-            sees on the partner dashboard.
+            sees on the partner dashboard. Pause and deactivate keep every
+            record. Delete removes the restaurant from the site and the database.
           </p>
+          <label className="mt-4 block max-w-xs text-sm">
+            City
+            <select
+              className="gp-input mt-1"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value as CityId | "all")}
+              aria-label="Sort restaurants by city"
+            >
+              <option value="all">All cities</option>
+              {CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {restaurantMsg && (
+            <p className="mt-3 text-sm text-red-300">{restaurantMsg}</p>
+          )}
           <ul className="mt-4 space-y-2">
             {(queue?.listings?.length
-              ? queue.listings.map((l) => ({
-                  id: String(l.id),
-                  name: String(l.name ?? ""),
-                  emoji: String(l.emoji ?? "🍽️"),
-                  cuisine: String(l.cuisine ?? ""),
-                  city: asCity(String(l.city ?? "dallas")),
-                  approved: l.approved !== false && l.banned !== true,
-                }))
+              ? queue.listings
+                  .filter((l) => String(l.tagline ?? "") !== DELETED_LISTING_TAGLINE)
+                  .map((l) => ({
+                    id: String(l.id),
+                    name: String(l.name ?? ""),
+                    emoji: String(l.emoji ?? "🍽️"),
+                    cuisine: String(l.cuisine ?? ""),
+                    city: asCity(String(l.city ?? "dallas")),
+                    state: restaurantAccountState({
+                      approved: l.approved !== false,
+                      banned: l.banned === true,
+                    }),
+                  }))
               : RESTAURANTS.map((r) => ({
                   id: r.id,
                   name: r.name,
                   emoji: r.emoji,
                   cuisine: r.cuisine,
                   city: r.city,
-                  approved: isRestaurantApproved(r.id),
+                  state: (isRestaurantApproved(r.id)
+                    ? "active"
+                    : "deactivated") as RestaurantAccountState,
                 }))
-            ).map((r) => {
-              const live = r.approved;
-              return (
-                <li
-                  key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-                >
-                  <Link
-                    href={`/admin/restaurants/${r.id}`}
-                    className="font-medium hover:text-orange-200 hover:underline"
+            )
+              .filter((r) => cityFilter === "all" || r.city === cityFilter)
+              .sort(
+                (a, b) =>
+                  cityLabel(a.city).localeCompare(cityLabel(b.city)) ||
+                  a.name.localeCompare(b.name),
+              )
+              .map((r) => {
+                const busy = restaurantBusy === r.id;
+                async function patch(body: { approved: boolean; banned: boolean }) {
+                  setRestaurantMsg("");
+                  setRestaurantBusy(r.id);
+                  const res = await fetch(`/api/ops/listings/${r.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                  });
+                  setRestaurantBusy("");
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    setRestaurantMsg(data.error ?? "Could not update that restaurant.");
+                    return;
+                  }
+                  refreshQueue();
+                }
+                return (
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                   >
-                    {r.emoji} {r.name}
-                    <span className="ml-2 text-xs font-normal text-muted">
-                      {r.cuisine}
-                    </span>
-                  </Link>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <select
-                      className="gp-input !py-1.5 text-xs"
-                      value={r.city}
-                      onChange={async (e) => {
-                        const city = e.target.value as CityId;
-                        await fetch(`/api/ops/listings/${r.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ city }),
-                        });
-                        refreshQueue();
-                      }}
-                      aria-label={`City for ${r.name}`}
+                    <Link
+                      href={`/admin/restaurants/${r.id}`}
+                      className="font-medium hover:text-orange-200 hover:underline"
                     >
-                      {CITIES.map((c) => (
-                        <option key={c.id} value={c.id} disabled={!c.live}>
-                          {c.name}
-                          {!c.live ? " (soon)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className={`gp-btn text-xs !py-1.5 ${
-                        live ? "gp-btn-secondary" : "gp-btn-primary"
-                      }`}
-                      onClick={async () => {
-                        const res = await fetch(`/api/ops/listings/${r.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            approved: !live,
-                            banned: live,
-                          }),
-                        });
-                        if (res.ok) {
+                      {r.emoji} {r.name}
+                      <span className="ml-2 text-xs font-normal text-muted">
+                        {r.cuisine}
+                        {cityFilter === "all" ? ` · ${cityLabel(r.city)}` : ""}
+                        {" · "}
+                        {r.state === "active"
+                          ? "Active"
+                          : r.state === "paused"
+                            ? "Paused"
+                            : "Deactivated"}
+                      </span>
+                    </Link>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {r.state === "active" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          disabled={busy}
+                          onClick={() => patch({ approved: true, banned: true })}
+                        >
+                          Pause account
+                        </button>
+                      )}
+                      {r.state === "paused" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary text-xs !py-1.5"
+                          disabled={busy}
+                          onClick={() => patch({ approved: true, banned: false })}
+                        >
+                          Unpause account
+                        </button>
+                      )}
+                      {r.state !== "deactivated" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+                          disabled={busy}
+                          onClick={() => patch({ approved: false, banned: false })}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                      {r.state === "deactivated" && (
+                        <button
+                          type="button"
+                          className="gp-btn gp-btn-primary text-xs !py-1.5"
+                          disabled={busy}
+                          onClick={() => patch({ approved: true, banned: false })}
+                        >
+                          Reactivate account
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="gp-btn text-xs !py-1.5 text-red-300"
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            !confirm(
+                              "Are you sure you want to delete permanently? All data and history will be deleted.",
+                            )
+                          ) {
+                            return;
+                          }
+                          setRestaurantMsg("");
+                          setRestaurantBusy(r.id);
+                          const res = await fetch(`/api/ops/listings/${r.id}`, {
+                            method: "DELETE",
+                          });
+                          setRestaurantBusy("");
+                          if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            setRestaurantMsg(
+                              data.error ?? "Could not delete that restaurant.",
+                            );
+                            return;
+                          }
                           refreshQueue();
-                          return;
-                        }
-                        setRestaurantApproved(r.id, !live);
-                      }}
-                    >
-                      {live ? "Unlist" : "List live"}
-                    </button>
-                  </span>
-                </li>
-              );
-            })}
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
           </ul>
+          {cityFilter !== "all" && (
+            <p className="mt-3 text-xs text-muted">
+              Showing {cityLabel(cityFilter)} only.
+            </p>
+          )}
         </section>
       )}
 

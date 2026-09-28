@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLiveListing } from "@/lib/listing-status";
 import { getDeal } from "@/lib/data";
 import { estimateDealValue } from "@/lib/deal-value";
 import { userFromRequest } from "@/lib/market";
@@ -32,6 +33,17 @@ export async function POST(req: Request) {
     const seed = getDeal(dealId);
     if (!seed || !seed.deal.active) {
       return NextResponse.json({ error: "This deal is not live." }, { status: 404 });
+    }
+    const { data: existing } = await sb
+      .from("listings")
+      .select("approved, banned, tagline")
+      .eq("id", seed.restaurant.id)
+      .maybeSingle();
+    if (existing && !isLiveListing(existing)) {
+      return NextResponse.json(
+        { error: "This restaurant is not accepting member visits right now." },
+        { status: 404 },
+      );
     }
     await sb.from("listings").upsert(
       {
@@ -100,6 +112,17 @@ export async function POST(req: Request) {
   if (deal.active === false || deal.sold_out === true) {
     return NextResponse.json(
       { error: "This deal is paused or sold out tonight." },
+      { status: 404 },
+    );
+  }
+  const { data: liveRow } = await sb
+    .from("listings")
+    .select("approved, banned, tagline")
+    .eq("id", deal.restaurant_id)
+    .maybeSingle();
+  if (!isLiveListing(liveRow)) {
+    return NextResponse.json(
+      { error: "This restaurant is not accepting member visits right now." },
       { status: 404 },
     );
   }
