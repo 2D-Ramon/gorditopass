@@ -157,10 +157,18 @@ export async function POST(req: Request) {
   ) {
     const sub = event.data.object as Stripe.Subscription;
     const active = sub.status === "active" || sub.status === "trialing";
+    const { data: holder } = await sb
+      .from("profiles")
+      .select("membership_renews_at")
+      .eq("stripe_subscription_id", sub.id)
+      .maybeSingle();
+    const compStill =
+      holder?.membership_renews_at &&
+      new Date(holder.membership_renews_at).getTime() > Date.now();
     await sb
       .from("profiles")
       .update({
-        is_member: active,
+        is_member: active || Boolean(compStill),
         stripe_subscription_id: sub.id,
       })
       .eq("stripe_subscription_id", sub.id);

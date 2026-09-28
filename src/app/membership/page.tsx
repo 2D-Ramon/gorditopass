@@ -31,6 +31,68 @@ function emptySeat(i: number, isPrimary: boolean): MemberSeatProfile {
   };
 }
 
+function FreeAccessCode({ userSignedIn }: { userSignedIn: boolean }) {
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function apply(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setBusy(true);
+    try {
+      const { authedFetch } = await import("@/lib/authed");
+      const res = await authedFetch("/api/membership/access-code", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data.error ?? "Could not apply that code.");
+        return;
+      }
+      window.location.href = "/account";
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="mt-6 gp-card gp-card-static space-y-2 p-5" onSubmit={apply}>
+      <h2 className="font-semibold">Free access code</h2>
+      <p className="text-sm text-muted">
+        Have a code from GorditoPass? Sign in, enter it, and membership turns on
+        for the time on that code. No charge.
+      </p>
+      {userSignedIn ? (
+        <>
+          <label className="block text-sm">
+            Code
+            <input
+              className="gp-input mt-1 max-w-xs font-mono uppercase tracking-wide"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="GP-XXXXXXXX"
+              autoComplete="off"
+            />
+          </label>
+          <button type="submit" className="gp-btn gp-btn-primary text-sm" disabled={busy || !code.trim()}>
+            Apply code
+          </button>
+          {err && <p className="text-sm text-red-300">{err}</p>}
+        </>
+      ) : (
+        <p className="text-sm">
+          <Link href="/login" className="text-brand underline">
+            Sign in
+          </Link>{" "}
+          first, then come back and enter the code.
+        </p>
+      )}
+    </form>
+  );
+}
+
 export default function MembershipPage() {
   return (
     <Suspense
@@ -245,6 +307,8 @@ function MembershipInner() {
           Payment received. Your membership is active — redeem deals on Explore.
         </div>
       )}
+
+      <FreeAccessCode userSignedIn={Boolean(user)} />
 
       {referralCode && (
         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-sm text-orange-200">

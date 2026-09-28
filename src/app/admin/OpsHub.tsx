@@ -1017,6 +1017,183 @@ function MemberActions({
   );
 }
 
+type FreeCode = {
+  id: string;
+  code: string;
+  label: string;
+  kind: "individual" | "limited" | "promo";
+  maxUses: number | null;
+  accessDays: number | null;
+  redeemUntil: string | null;
+  active: boolean;
+  uses: { email: string; usedAt: string; accessUntil: string }[];
+};
+
+function FreeAccessCodes() {
+  const [codes, setCodes] = useState<FreeCode[]>([]);
+  const [kind, setKind] = useState<FreeCode["kind"]>("individual");
+  const [accessDays, setAccessDays] = useState(30);
+  const [maxUses, setMaxUses] = useState(10);
+  const [redeemUntil, setRedeemUntil] = useState("");
+  const [label, setLabel] = useState("");
+  const [flash, setFlash] = useState("");
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/ops/access-codes");
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) setCodes(data.codes ?? []);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function createCode(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setFlash("");
+    const res = await fetch("/api/ops/access-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind,
+        label,
+        accessDays,
+        maxUses,
+        redeemUntil: kind === "promo" ? redeemUntil : undefined,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setErr(data.error ?? "Could not create the code.");
+      return;
+    }
+    setFlash(`Code ${data.code?.code} is ready.`);
+    setLabel("");
+    await load();
+  }
+
+  return (
+    <div className="gp-card gp-card-static p-5">
+      <h2 className="font-semibold">Free access codes</h2>
+      <p className="mt-1 text-sm text-muted">
+        One person, a set number of people, or a promotion anyone can use until
+        a date. They sign in on the membership page and enter the code. No charge.
+      </p>
+      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={createCode}>
+        <label className="block text-sm sm:col-span-2">
+          Who can use it
+          <select
+            className="gp-input mt-1"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as FreeCode["kind"])}
+          >
+            <option value="individual">One person</option>
+            <option value="limited">A set number of people</option>
+            <option value="promo">Promotion — unlimited until a date</option>
+          </select>
+        </label>
+        {kind !== "promo" && (
+          <label className="block text-sm">
+            Free for (days)
+            <input
+              required
+              type="number"
+              min={1}
+              className="gp-input mt-1"
+              value={accessDays}
+              onChange={(e) => setAccessDays(Number(e.target.value))}
+            />
+          </label>
+        )}
+        {kind === "limited" && (
+          <label className="block text-sm">
+            Number of people
+            <input
+              required
+              type="number"
+              min={2}
+              className="gp-input mt-1"
+              value={maxUses}
+              onChange={(e) => setMaxUses(Number(e.target.value))}
+            />
+          </label>
+        )}
+        {kind === "promo" && (
+          <label className="block text-sm">
+            Free through
+            <input
+              required
+              type="date"
+              className="gp-input mt-1"
+              value={redeemUntil}
+              onChange={(e) => setRedeemUntil(e.target.value)}
+            />
+          </label>
+        )}
+        <label className="block text-sm sm:col-span-2">
+          Note (optional)
+          <input
+            className="gp-input mt-1"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Tulsa friends, staff, launch week"
+          />
+        </label>
+        <div className="sm:col-span-2">
+          <button type="submit" className="gp-btn gp-btn-primary text-sm">
+            Create code
+          </button>
+          {flash && <p className="mt-2 text-sm text-success">{flash}</p>}
+          {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
+        </div>
+      </form>
+      <ul className="mt-4 space-y-3">
+        {codes.map((c) => (
+          <li key={c.id} className="rounded-lg border border-border px-3 py-2 text-sm">
+            <p className="font-mono font-semibold">{c.code}</p>
+            <p className="text-xs text-muted">
+              {c.label ? `${c.label} · ` : ""}
+              {c.kind === "individual"
+                ? `One person · ${c.accessDays} days`
+                : c.kind === "limited"
+                  ? `${c.uses.length} of ${c.maxUses} used · ${c.accessDays} days each`
+                  : `Unlimited · free through ${c.redeemUntil?.slice(0, 10)}`}
+              {!c.active ? " · Off" : ""}
+            </p>
+            {c.uses.length > 0 && (
+              <ul className="mt-1 text-xs text-muted">
+                {c.uses.map((u) => (
+                  <li key={`${u.email}-${u.usedAt}`}>
+                    {u.email} · through {u.accessUntil.slice(0, 10)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              className="mt-1 text-xs text-brand"
+              onClick={() => {
+                void fetch(`/api/ops/access-codes/${c.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ active: !c.active }),
+                }).then(() => load());
+              }}
+            >
+              {c.active ? "Turn off" : "Turn on"}
+            </button>
+          </li>
+        ))}
+        {codes.length === 0 && (
+          <li className="text-sm text-muted">No codes yet.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 function MembersPanel() {
   const [rows, setRows] = useState<MemberRecord[]>([]);
   const [diners, setDiners] = useState<DinerAccount[]>([]);
@@ -1153,6 +1330,7 @@ function MembersPanel() {
 
   return (
     <div className="space-y-4">
+      <FreeAccessCodes />
       <form className="gp-card gp-card-static grid gap-3 p-5 sm:grid-cols-2" onSubmit={add}>
         <h2 className="font-semibold sm:col-span-2">Add member</h2>
         <label className="block text-sm">

@@ -63,7 +63,9 @@ export default function PrivacyPage() {
             We keep a record of redemptions, online orders, rewards, and
             favorites. An order record includes the restaurant, items, time,
             amount, and the offer applied. A redemption record includes the
-            restaurant, the offer, and the time the code was confirmed.
+            restaurant, the offer, and the time the code was confirmed. If you
+            use a free access code, we record that code and the date the free
+            membership ends.
           </p>
           <p className="mt-2">
             We use an approximate location from your IP address, or from your
