@@ -862,9 +862,28 @@ type DinerAccount = {
   is_member: boolean;
   plan_id: string | null;
   banned: boolean;
+  email_opt_in?: boolean;
+  sms_opt_in?: boolean;
   deleted?: boolean;
   suspensionUntil?: string | null;
   suspensionScope?: "redeem" | "social" | "all" | null;
+};
+
+type DirectoryRow = {
+  key: string;
+  crmId: string | null;
+  profileId: string | null;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  status: string;
+  email_opt_in: boolean;
+  sms_opt_in: boolean;
+  deleted: boolean;
+  banned: boolean;
+  suspensionUntil: string | null;
+  suspensionScope: DinerAccount["suspensionScope"];
 };
 
 function scopeLabel(scope: string | null | undefined) {
@@ -1002,7 +1021,6 @@ function MembersPanel() {
   const [rows, setRows] = useState<MemberRecord[]>([]);
   const [diners, setDiners] = useState<DinerAccount[]>([]);
   const [q, setQ] = useState("");
-  const [accountQ, setAccountQ] = useState("");
   const [flash, setFlash] = useState("");
   const [form, setForm] = useState({
     first_name: "",
@@ -1032,10 +1050,43 @@ function MembersPanel() {
     void load();
   }, [load]);
 
-  const visible = rows.filter((m) => {
-    const hay = `${m.first_name} ${m.last_name} ${m.email} ${m.phone}`.toLowerCase();
-    return hay.includes(q.toLowerCase());
-  });
+  const directory = (() => {
+    const byEmail = new Map<string, { crm: MemberRecord | null; diner: DinerAccount | null }>();
+    for (const crm of rows) {
+      byEmail.set(crm.email.toLowerCase(), { crm, diner: null });
+    }
+    for (const diner of diners) {
+      const key = diner.email.toLowerCase();
+      const existing = byEmail.get(key);
+      if (existing) existing.diner = diner;
+      else byEmail.set(key, { crm: null, diner });
+    }
+    const list: DirectoryRow[] = [];
+    for (const [key, pair] of byEmail) {
+      const crm = pair.crm;
+      const diner = pair.diner;
+      list.push({
+        key,
+        crmId: crm?.id ?? null,
+        profileId: diner?.id ?? null,
+        email: crm?.email ?? diner?.email ?? "",
+        first_name: crm?.first_name ?? diner?.first_name ?? null,
+        last_name: crm?.last_name ?? diner?.last_name ?? null,
+        phone: crm?.phone ?? diner?.phone ?? null,
+        status: crm?.status ?? (diner?.is_member ? "active" : "waitlist"),
+        email_opt_in: crm?.email_opt_in ?? Boolean(diner?.email_opt_in),
+        sms_opt_in: crm?.sms_opt_in ?? Boolean(diner?.sms_opt_in),
+        deleted: Boolean(diner?.deleted) || crm?.notes === "Account deleted",
+        banned: Boolean(diner?.banned),
+        suspensionUntil: diner?.suspensionUntil ?? null,
+        suspensionScope: diner?.suspensionScope ?? null,
+      });
+    }
+    return list.filter((m) => {
+      const hay = `${m.first_name ?? ""} ${m.last_name ?? ""} ${m.email} ${m.phone ?? ""}`.toLowerCase();
+      return hay.includes(q.toLowerCase());
+    });
+  })();
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -1082,70 +1133,26 @@ function MembersPanel() {
     await load();
   }
 
-  const accountRows = diners.filter((m) => {
-    const hay = `${m.first_name ?? ""} ${m.last_name ?? ""} ${m.email} ${m.phone ?? ""}`.toLowerCase();
-    return hay.includes(accountQ.toLowerCase());
-  });
+  async function toggleOpt(
+    row: DirectoryRow,
+    field: "email_opt_in" | "sms_opt_in",
+    checked: boolean,
+  ) {
+    if (row.crmId) {
+      await toggle(row.crmId, { [field]: checked });
+      return;
+    }
+    if (!row.profileId) return;
+    await fetch(`/api/ops/diners/${row.profileId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: checked }),
+    });
+    await load();
+  }
 
   return (
     <div className="space-y-4">
-      <div className="gp-card gp-card-static p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">Member accounts ({accountRows.length})</h2>
-          <input
-            className="gp-input max-w-xs text-sm"
-            placeholder="Search name, email, phone"
-            value={accountQ}
-            onChange={(e) => setAccountQ(e.target.value)}
-          />
-        </div>
-        <p className="mt-1 text-sm text-muted">
-          Open a name to see that member’s account: plan, visits, reviews,
-          favorites, and household. Same permission as this Members tab.
-        </p>
-        <ul className="mt-3 space-y-2">
-          {accountRows.map((m) => {
-            const name =
-              [m.first_name, m.last_name].filter(Boolean).join(" ") || m.email;
-            return (
-              <li
-                key={m.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-              >
-                <Link
-                  href={`/admin/members/${m.id}`}
-                  className="font-medium hover:text-orange-200 hover:underline"
-                >
-                  {name}
-                  <span className="ml-2 text-xs font-normal text-muted">
-                    {m.email}
-                    {m.city ? ` · ${m.city}` : ""}
-                    {m.deleted
-                      ? " · Deleted"
-                      : m.suspensionUntil &&
-                          new Date(m.suspensionUntil).getTime() > Date.now()
-                        ? ` · Suspended from ${scopeLabel(m.suspensionScope)} until ${m.suspensionUntil.slice(0, 10)}`
-                        : m.banned
-                          ? " · Banned"
-                          : m.is_member
-                            ? " · Member"
-                            : " · Not a member"}
-                  </span>
-                </Link>
-                <MemberActions
-                  profileId={m.id}
-                  deleted={m.deleted}
-                  suspensionUntil={m.suspensionUntil}
-                  onDone={() => void load()}
-                />
-              </li>
-            );
-          })}
-          {accountRows.length === 0 && (
-            <li className="text-sm text-muted">No member accounts yet.</li>
-          )}
-        </ul>
-      </div>
       <form className="gp-card gp-card-static grid gap-3 p-5 sm:grid-cols-2" onSubmit={add}>
         <h2 className="font-semibold sm:col-span-2">Add member</h2>
         <label className="block text-sm">
@@ -1255,7 +1262,13 @@ function MembersPanel() {
       </form>
       <div className="gp-card gp-card-static p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">Directory ({visible.length})</h2>
+          <div>
+            <h2 className="font-semibold">Directory ({directory.length})</h2>
+            <p className="mt-1 text-sm text-muted">
+              Open a name to see that member’s account. Status, email, and text
+              opt-in are on this list.
+            </p>
+          </div>
           <input
             className="gp-input max-w-xs text-sm"
             placeholder="Search name, email, phone"
@@ -1275,102 +1288,103 @@ function MembersPanel() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((m) => (
-                <tr key={m.id} className="border-t border-border">
-                  <td className="py-2">
-                    <p className="font-medium">
-                      {[m.first_name, m.last_name].filter(Boolean).join(" ") ||
-                        m.email}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {m.email}
-                      {m.phone ? ` · ${m.phone}` : ""}
-                    </p>
-                  </td>
-                  <td className="text-xs">{m.status}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={m.email_opt_in}
-                      onChange={(e) =>
-                        void toggle(m.id, { email_opt_in: e.target.checked })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={m.sms_opt_in}
-                      onChange={(e) =>
-                        void toggle(m.id, { sms_opt_in: e.target.checked })
-                      }
-                    />
-                  </td>
-                  <td className="text-right">
-                    {m.notes === "Account deleted" ? (
-                      <span className="text-xs text-muted">Deleted</span>
-                    ) : (
-                      <div className="space-y-2">
-                        {diners.find(
-                          (d) => d.email.toLowerCase() === m.email.toLowerCase(),
-                        ) && (
-                          <MemberActions
-                            profileId={
-                              diners.find(
-                                (d) =>
-                                  d.email.toLowerCase() === m.email.toLowerCase(),
-                              )!.id
+              {directory.map((m) => {
+                const name =
+                  [m.first_name, m.last_name].filter(Boolean).join(" ") ||
+                  m.email;
+                const suspended =
+                  m.suspensionUntil &&
+                  new Date(m.suspensionUntil).getTime() > Date.now();
+                return (
+                  <tr key={m.key} className="border-t border-border">
+                    <td className="py-2">
+                      {m.profileId ? (
+                        <Link
+                          href={`/admin/members/${m.profileId}`}
+                          className="font-medium hover:text-orange-200 hover:underline"
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <p className="font-medium">{name}</p>
+                      )}
+                      <p className="text-xs text-muted">
+                        {m.email}
+                        {m.phone ? ` · ${m.phone}` : ""}
+                      </p>
+                    </td>
+                    <td className="text-xs">
+                      {m.deleted ? "Deleted" : m.status}
+                      {suspended && (
+                        <p className="text-muted">
+                          Suspended from {scopeLabel(m.suspensionScope)} until{" "}
+                          {m.suspensionUntil!.slice(0, 10)}
+                        </p>
+                      )}
+                      {m.banned && !m.deleted && (
+                        <p className="text-muted">Banned</p>
+                      )}
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={m.email_opt_in}
+                        onChange={(e) =>
+                          void toggleOpt(m, "email_opt_in", e.target.checked)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={m.sms_opt_in}
+                        onChange={(e) =>
+                          void toggleOpt(m, "sms_opt_in", e.target.checked)
+                        }
+                      />
+                    </td>
+                    <td className="text-right">
+                      {m.profileId ? (
+                        <MemberActions
+                          profileId={m.profileId}
+                          deleted={m.deleted}
+                          suspensionUntil={m.suspensionUntil}
+                          onDone={() => void load()}
+                        />
+                      ) : m.deleted ? (
+                        <span className="text-xs text-muted">Deleted</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-xs text-red-300 hover:underline"
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                "Delete this member? They will not be able to sign in. All account info stays so you can view it later.",
+                              )
+                            ) {
+                              return;
                             }
-                            deleted={
-                              diners.find(
-                                (d) =>
-                                  d.email.toLowerCase() === m.email.toLowerCase(),
-                              )?.deleted
-                            }
-                            suspensionUntil={
-                              diners.find(
-                                (d) =>
-                                  d.email.toLowerCase() === m.email.toLowerCase(),
-                              )?.suspensionUntil
-                            }
-                            onDone={() => void load()}
-                          />
-                        )}
-                        {!diners.find(
-                          (d) => d.email.toLowerCase() === m.email.toLowerCase(),
-                        ) && (
-                          <button
-                            type="button"
-                            className="text-xs text-red-300 hover:underline"
-                            onClick={() => {
-                              if (
-                                !confirm(
-                                  "Delete this member? They will not be able to sign in. All account info stays so you can view it later.",
-                                )
-                              ) {
-                                return;
-                              }
-                              void fetch(`/api/ops/members/${m.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  status: "cancelled",
-                                  notes: "Account deleted",
-                                }),
-                              }).then(() => load());
-                            }}
-                          >
-                            Delete member
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                            void fetch(`/api/ops/members/${m.crmId}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                status: "cancelled",
+                                notes: "Account deleted",
+                              }),
+                            }).then(() => load());
+                          }}
+                        >
+                          Delete member
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          {visible.length === 0 && (
+          {directory.length === 0 && (
             <p className="mt-3 text-sm text-muted">No members match.</p>
           )}
         </div>

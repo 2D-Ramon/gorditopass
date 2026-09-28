@@ -98,3 +98,24 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return jsonError("Unknown action.");
 }
+
+export async function PATCH(req: Request, ctx: Ctx) {
+  const gate = await withOps("can_members");
+  if (!gate.ok) return gate.response;
+  const { id } = await ctx.params;
+  const body = (await req.json().catch(() => null)) as {
+    email_opt_in?: boolean;
+    sms_opt_in?: boolean;
+  } | null;
+  const patch: { email_opt_in?: boolean; sms_opt_in?: boolean } = {};
+  if (typeof body?.email_opt_in === "boolean") patch.email_opt_in = body.email_opt_in;
+  if (typeof body?.sms_opt_in === "boolean") patch.sms_opt_in = body.sms_opt_in;
+  if (!Object.keys(patch).length) return jsonError("Nothing to update.");
+  const { error } = await gate.supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", id)
+    .eq("role", "diner");
+  if (error) return jsonError(error.message, 500);
+  return NextResponse.json({ ok: true });
+}

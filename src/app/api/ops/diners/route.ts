@@ -10,7 +10,7 @@ export async function GET() {
   const { data, error } = await gate.supabase
     .from("profiles")
     .select(
-      "id, email, first_name, last_name, phone, city, is_member, plan_id, banned, created_at",
+      "id, email, first_name, last_name, phone, city, is_member, plan_id, banned, email_opt_in, sms_opt_in, created_at",
     )
     .eq("role", "diner")
     .order("created_at", { ascending: false });
