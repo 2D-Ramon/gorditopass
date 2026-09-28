@@ -5,6 +5,14 @@ import { authedFetch } from "@/lib/authed";
 import type { InsightsPayload, MemberRow } from "@/lib/partner-insights";
 import { memberLabel } from "@/lib/partner-insights";
 
+type ReportRow = {
+  id: string;
+  code?: string;
+  note: string;
+  memberName?: string;
+  createdAt: string;
+};
+
 type Extra = {
   openStatus: string;
   hours: string;
@@ -12,6 +20,9 @@ type Extra = {
   googleMapsUrl: string;
   dealsLive: { id: string; title: string; soldOut: boolean; active: boolean }[];
   menuLive: { id: string; name: string; soldOut: boolean }[];
+  messages?: InboxMsg[];
+  reviews?: ReviewRow[];
+  reports?: ReportRow[];
 };
 
 type HourRow = { id: string; days: string; time: string };
@@ -77,11 +88,17 @@ export function PartnerDesk({
   restaurantId,
   restaurantName,
   address,
+  readOnly = false,
+  seed = null,
 }: {
   tab: PartnerDeskTab;
   restaurantId: string;
   restaurantName: string;
   address: string;
+  /** Admin view: same numbers, no replies, reports, or hour edits. */
+  readOnly?: boolean;
+  /** Already-loaded insights. Skips the partner session fetch. */
+  seed?: (InsightsPayload & Extra) | null;
 }) {
   const [data, setData] = useState<(InsightsPayload & Extra) | null>(null);
   const [err, setErr] = useState("");
@@ -96,7 +113,17 @@ export function PartnerDesk({
   const [openStatus, setOpenStatus] = useState("hours");
   const [maps, setMaps] = useState("");
 
+  const applyPayload = useCallback((json: InsightsPayload & Extra) => {
+    setData(json);
+    setHourRows(parseHourRows(json.hours ?? ""));
+    setOpenStatus(json.openStatus ?? "hours");
+    setMaps(json.googleMapsUrl ?? "");
+    if (json.messages) setInbox(json.messages);
+    if (json.reviews) setReviews(json.reviews);
+  }, []);
+
   const load = useCallback(async () => {
+    if (seed) return;
     setErr("");
     const res = await authedFetch("/api/partner/insights");
     const json = await res.json();
@@ -104,31 +131,32 @@ export function PartnerDesk({
       setErr(json.error ?? "Could not load insights. Run partner_ops.sql in Supabase.");
       return;
     }
-    setData(json);
-    setHourRows(parseHourRows(json.hours ?? ""));
-    setOpenStatus(json.openStatus ?? "hours");
-    setMaps(json.googleMapsUrl ?? "");
-  }, []);
+    applyPayload(json);
+  }, [applyPayload, seed]);
 
   useEffect(() => {
+    if (seed) {
+      applyPayload(seed);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [applyPayload, load, seed]);
 
   useEffect(() => {
-    if (tab !== "inbox") return;
+    if (tab !== "inbox" || readOnly || seed) return;
     void authedFetch("/api/partner/inbox")
       .then((r) => r.json())
       .then((j) => setInbox(j.messages ?? []))
       .catch(() => {});
-  }, [tab]);
+  }, [tab, readOnly, seed]);
 
   useEffect(() => {
-    if (tab !== "reviews") return;
+    if (tab !== "reviews" || readOnly || seed) return;
     void authedFetch("/api/partner/reviews")
       .then((r) => r.json())
       .then((j) => setReviews(j.reviews ?? []))
       .catch(() => {});
-  }, [tab]);
+  }, [tab, readOnly, seed]);
 
   async function post(path: string, body: unknown) {
     const res = await authedFetch(path, {
@@ -331,6 +359,28 @@ export function PartnerDesk({
               </li>
             ))}
           </ul>
+          {readOnly && (
+            <div className="mt-6 space-y-2 border-t border-border pt-4">
+              <h3 className="text-sm font-semibold">Redeem reports</h3>
+              {(data.reports ?? []).length === 0 ? (
+                <p className="text-sm text-muted">No reports filed.</p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {(data.reports ?? []).map((r) => (
+                    <li key={r.id}>
+                      <span className="text-muted">
+                        {r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}
+                        {r.code ? ` · code ${r.code}` : ""}
+                        {r.memberName ? ` · ${r.memberName}` : ""}
+                      </span>
+                      <p>{r.note}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {!readOnly && (
           <form
             className="mt-6 space-y-2 border-t border-border pt-4"
             onSubmit={async (e) => {
@@ -368,6 +418,7 @@ export function PartnerDesk({
               Send report
             </button>
           </form>
+          )}
         </section>
       )}
 
@@ -384,13 +435,18 @@ export function PartnerDesk({
             {inbox.map((m) => (
               <li key={m.id}>
                 <span className="text-muted">
-                  {m.from_role === "staff" ? "You" : m.from_name} ·{" "}
-                  {new Date(m.created_at).toLocaleString()}
+                  {readOnly
+                    ? `${m.from_name || "Someone"} · ${m.from_role === "staff" ? "restaurant" : "member"}`
+                    : m.from_role === "staff"
+                      ? "You"
+                      : m.from_name}{" "}
+                  · {new Date(m.created_at).toLocaleString()}
                 </span>
                 <p>{m.body}</p>
               </li>
             ))}
           </ul>
+          {!readOnly && (
           <form
             className="mt-4 space-y-2"
             onSubmit={async (e) => {
@@ -412,6 +468,7 @@ export function PartnerDesk({
               Send reply
             </button>
           </form>
+          )}
         </section>
       )}
 
@@ -431,8 +488,10 @@ export function PartnerDesk({
                 <p className="text-sm text-stone-300">{r.text}</p>
                 {r.reply ? (
                   <p className="mt-1 text-sm text-brand-mint">
-                    Your reply: {r.reply.body}
+                    {readOnly ? "Restaurant reply" : "Your reply"}: {r.reply.body}
                   </p>
+                ) : readOnly ? (
+                  <p className="mt-1 text-xs text-muted">No reply yet.</p>
                 ) : (
                   <form
                     className="mt-2 flex flex-col gap-2"
@@ -472,6 +531,39 @@ export function PartnerDesk({
 
       {tab === "hours" && (
         <>
+          {readOnly ? (
+            <section className="gp-card gp-card-static p-5">
+              <h2 className="font-semibold">Open / closed / hours</h2>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div>
+                  <dt className="text-[10px] uppercase text-muted">Status</dt>
+                  <dd>
+                    {openStatus === "open"
+                      ? "Open now (override)"
+                      : openStatus === "closed"
+                        ? "Closed now"
+                        : "Follow posted hours"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase text-muted">Hours</dt>
+                  <dd>{data.hours || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase text-muted">Google Maps</dt>
+                  <dd>
+                    {maps ? (
+                      <a href={maps} className="text-brand underline" target="_blank" rel="noreferrer">
+                        {maps}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          ) : (
           <section className="gp-card gp-card-static p-5 no-print">
             <h2 className="font-semibold">Open / closed / hours</h2>
             <form
@@ -565,6 +657,7 @@ export function PartnerDesk({
               </button>
             </form>
           </section>
+          )}
 
           <section className="gp-card gp-card-static p-5 print-tent print:border-0 print:shadow-none">
             <h2 className="font-semibold no-print">Window QR / table tent</h2>

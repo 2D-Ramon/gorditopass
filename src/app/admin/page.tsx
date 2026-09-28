@@ -134,6 +134,27 @@ export default function AdminPage() {
   useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (
+      t === "connect" ||
+      t === "crm" ||
+      t === "members" ||
+      t === "campaigns" ||
+      t === "admins" ||
+      t === "apps" ||
+      t === "deals" ||
+      t === "menu" ||
+      t === "events" ||
+      t === "jobs" ||
+      t === "restaurants" ||
+      t === "auto" ||
+      t === "feed"
+    ) {
+      setTab(t);
+    }
+  }, []);
+
+  useEffect(() => {
     void fetch("/api/ops/status")
       .then((r) => r.json())
       .then((s: OpsStatus) => {
@@ -466,7 +487,12 @@ export default function AdminPage() {
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", t.id);
+              window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+            }}
             className={`rounded-md px-3 py-1.5 text-sm font-medium ${
               visibleTab === t.id
                 ? "bg-brand/15 text-orange-200 ring-1 ring-brand/30"
@@ -1119,6 +1145,10 @@ export default function AdminPage() {
       {visibleTab === "restaurants" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Live restaurants</h2>
+          <p className="mt-1 text-sm text-muted">
+            Open a name to see that business’s signup and the same numbers it
+            sees on the partner dashboard.
+          </p>
           <ul className="mt-4 space-y-2">
             {(queue?.listings?.length
               ? queue.listings.map((l) => ({
@@ -1144,10 +1174,15 @@ export default function AdminPage() {
                   key={r.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                 >
-                  <span>
+                  <Link
+                    href={`/admin/restaurants/${r.id}`}
+                    className="font-medium hover:text-orange-200 hover:underline"
+                  >
                     {r.emoji} {r.name}
-                    <span className="ml-2 text-xs text-muted">{r.cuisine}</span>
-                  </span>
+                    <span className="ml-2 text-xs font-normal text-muted">
+                      {r.cuisine}
+                    </span>
+                  </Link>
                   <span className="flex flex-wrap items-center gap-2">
                     <select
                       className="gp-input !py-1.5 text-xs"
