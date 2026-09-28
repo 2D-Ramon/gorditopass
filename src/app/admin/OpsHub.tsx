@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CITIES } from "@/lib/data";
+import { CITIES, RESTAURANTS, cuisineLabel } from "@/lib/data";
+import { campaignTargetLabel, unpackCampaign, type CampaignTarget } from "@/lib/ops-audience";
 import type {
   BusinessAccount,
   BusinessStatus,
-  CampaignAudience,
   CampaignChannel,
   CampaignRecord,
   MemberPlanId,
@@ -1632,6 +1632,26 @@ function MembersPanel() {
   );
 }
 
+const CUISINE_OPTIONS = [
+  "american",
+  "mexican",
+  "texmex",
+  "latin",
+  "italian",
+  "pizza",
+  "bbq",
+  "wings",
+  "seafood",
+  "japanese",
+  "chinese",
+  "thai",
+  "indian",
+  "mediterranean",
+  "french",
+  "caribbean",
+  "other",
+];
+
 function CampaignsPanel() {
   const [rows, setRows] = useState<CampaignRecord[]>([]);
   const [count, setCount] = useState<number | null>(null);
@@ -1639,7 +1659,12 @@ function CampaignsPanel() {
   const [form, setForm] = useState({
     name: "",
     channel: "email" as CampaignChannel,
-    audience: "members_opted_in" as CampaignAudience,
+    target: "all_members" as CampaignTarget,
+    city: "tulsa",
+    restaurantId: RESTAURANTS[0]?.id ?? "",
+    zip: "",
+    cuisine: "american",
+    sendOn: "",
     subject: "",
     body: "",
   });
@@ -1656,14 +1681,20 @@ function CampaignsPanel() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      void fetch(
-        `/api/ops/audience?channel=${form.channel}&audience=${form.audience}`,
-      )
+      const params = new URLSearchParams({
+        channel: form.channel,
+        target: form.target,
+        city: form.city,
+        restaurantId: form.restaurantId,
+        zip: form.zip,
+        cuisine: form.cuisine,
+      });
+      void fetch(`/api/ops/audience?${params}`)
         .then((r) => r.json())
         .then((d) => setCount(typeof d.count === "number" ? d.count : null));
-    }, 200);
+    }, 300);
     return () => clearTimeout(t);
-  }, [form.channel, form.audience]);
+  }, [form.channel, form.target, form.city, form.restaurantId, form.zip, form.cuisine]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -1678,7 +1709,7 @@ function CampaignsPanel() {
       setFlash(data.error ?? "Could not save.");
       return;
     }
-    setForm({ ...form, name: "", subject: "", body: "" });
+    setForm({ ...form, name: "", subject: "", body: "", sendOn: "" });
     setFlash("Draft saved.");
     await load();
   }
@@ -1695,8 +1726,8 @@ function CampaignsPanel() {
       <form className="gp-card gp-card-static space-y-3 p-5" onSubmit={create}>
         <h2 className="font-semibold">New campaign</h2>
         <p className="text-sm text-muted">
-          Audience is built from your member and business lists (opt-in only
-          where required). Delivery pipes for actual send come next.
+          Member campaigns go only to people who opted in for this channel.
+          Paused businesses are the restaurant accounts you have paused.
         </p>
         <label className="block text-sm">
           Name
@@ -1725,21 +1756,95 @@ function CampaignsPanel() {
             Audience
             <select
               className="gp-input mt-1"
-              value={form.audience}
+              value={form.target}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  audience: e.target.value as CampaignAudience,
+                  target: e.target.value as CampaignTarget,
                 })
               }
             >
-              <option value="members_opted_in">Opted-in members</option>
-              <option value="waitlist">Waitlist</option>
               <option value="all_members">All members</option>
-              <option value="businesses">Business contacts</option>
+              <option value="city">City</option>
+              <option value="restaurant">Restaurant name</option>
+              <option value="zip">Within 10 miles of a ZIP code</option>
+              <option value="cuisine">Restaurant type</option>
+              <option value="paused">Paused businesses</option>
             </select>
           </label>
         </div>
+        {form.target === "city" && (
+          <label className="block text-sm">
+            City
+            <select
+              className="gp-input mt-1"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+            >
+              {CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {form.target === "restaurant" && (
+          <label className="block text-sm">
+            Restaurant
+            <select
+              className="gp-input mt-1"
+              value={form.restaurantId}
+              onChange={(e) => setForm({ ...form, restaurantId: e.target.value })}
+            >
+              {RESTAURANTS.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {form.target === "zip" && (
+          <label className="block text-sm">
+            ZIP code
+            <input
+              required
+              className="gp-input mt-1 max-w-xs"
+              inputMode="numeric"
+              maxLength={5}
+              placeholder="74133"
+              value={form.zip}
+              onChange={(e) => setForm({ ...form, zip: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+            />
+          </label>
+        )}
+        {form.target === "cuisine" && (
+          <label className="block text-sm">
+            Restaurant type
+            <select
+              className="gp-input mt-1"
+              value={form.cuisine}
+              onChange={(e) => setForm({ ...form, cuisine: e.target.value })}
+            >
+              {CUISINE_OPTIONS.map((id) => (
+                <option key={id} value={id}>
+                  {cuisineLabel(id)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="block text-sm">
+          Send date
+          <input
+            required
+            type="date"
+            className="gp-input mt-1 max-w-xs"
+            value={form.sendOn}
+            onChange={(e) => setForm({ ...form, sendOn: e.target.value })}
+          />
+        </label>
         {form.channel === "email" && (
           <label className="block text-sm">
             Subject
@@ -1781,7 +1886,10 @@ function CampaignsPanel() {
               <div>
                 <p className="font-medium">{c.name}</p>
                 <p className="text-xs text-muted">
-                  {c.channel} · {c.audience} · {c.status}
+                  {c.channel} · {campaignTargetLabel(unpackCampaign(c))}
+                  {unpackCampaign(c).sendOn ? ` · send ${unpackCampaign(c).sendOn}` : ""}
+                  {" · "}
+                  {c.status}
                   {c.recipient_count ? ` · ${c.recipient_count} people` : ""}
                 </p>
               </div>

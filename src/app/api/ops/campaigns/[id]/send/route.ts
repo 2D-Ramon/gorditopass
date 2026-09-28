@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadAudience } from "@/lib/ops-audience";
+import { loadAudience, unpackCampaign } from "@/lib/ops-audience";
 import type { CampaignAudience, CampaignChannel } from "@/lib/ops-types";
 import { jsonError, withOps } from "../../../_util";
 
@@ -15,13 +15,22 @@ export async function POST(_req: Request, ctx: Ctx) {
     .eq("id", id)
     .single();
   if (loadErr || !campaign) return jsonError("Campaign not found.", 404);
+  const spec = unpackCampaign(campaign);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+  }).format(new Date());
+  if (spec.sendOn && spec.sendOn > today) {
+    return jsonError(`This campaign is set to send on ${spec.sendOn}.`);
+  }
 
   let audience;
   try {
+    const packed = String(campaign.subject ?? "").startsWith("{");
     audience = await loadAudience(
       gate.supabase,
       campaign.channel as CampaignChannel,
       campaign.audience as CampaignAudience,
+      packed ? spec : undefined,
     );
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "Could not build audience.", 500);
@@ -71,7 +80,7 @@ export async function POST(_req: Request, ctx: Ctx) {
         body: JSON.stringify({
           from,
           to: row.email,
-          subject: campaign.subject || campaign.name,
+          subject: spec.subject || campaign.name,
           text: campaign.body,
         }),
       });
