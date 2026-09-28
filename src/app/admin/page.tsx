@@ -1154,8 +1154,8 @@ export default function AdminPage() {
           <h2 className="font-semibold">Live restaurants</h2>
           <p className="mt-1 text-sm text-muted">
             Open a name to see that business’s signup and the same numbers it
-            sees on the partner dashboard. Pause and deactivate keep every
-            record. Delete removes the restaurant from the site and the database.
+            sees on the partner dashboard. Pause hides it from the public and
+            keeps every record. Delete removes it from the site and the database.
           </p>
           <label className="mt-4 block max-w-xs text-sm">
             City
@@ -1199,7 +1199,7 @@ export default function AdminPage() {
                   city: r.city,
                   state: (isRestaurantApproved(r.id)
                     ? "active"
-                    : "deactivated") as RestaurantAccountState,
+                    : "paused") as RestaurantAccountState,
                 }))
             )
               .filter((r) => cityFilter === "all" || r.city === cityFilter)
@@ -1240,11 +1240,7 @@ export default function AdminPage() {
                         {r.cuisine}
                         {cityFilter === "all" ? ` · ${cityLabel(r.city)}` : ""}
                         {" · "}
-                        {r.state === "active"
-                          ? "Active"
-                          : r.state === "paused"
-                            ? "Paused"
-                            : "Deactivated"}
+                        {r.state === "active" ? "Active" : "Paused"}
                       </span>
                     </Link>
                     <span className="flex flex-wrap items-center gap-2">
@@ -1266,26 +1262,6 @@ export default function AdminPage() {
                           onClick={() => patch({ approved: true, banned: false })}
                         >
                           Unpause account
-                        </button>
-                      )}
-                      {r.state !== "deactivated" && (
-                        <button
-                          type="button"
-                          className="gp-btn gp-btn-secondary text-xs !py-1.5"
-                          disabled={busy}
-                          onClick={() => patch({ approved: false, banned: false })}
-                        >
-                          Deactivate
-                        </button>
-                      )}
-                      {r.state === "deactivated" && (
-                        <button
-                          type="button"
-                          className="gp-btn gp-btn-primary text-xs !py-1.5"
-                          disabled={busy}
-                          onClick={() => patch({ approved: true, banned: false })}
-                        >
-                          Reactivate account
                         </button>
                       )}
                       <button

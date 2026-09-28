@@ -304,7 +304,7 @@ export default function AdminRestaurantPage() {
         {cuisineLabel(listing.cuisine) || "Cuisine not set"}
         {listing.neighborhood ? ` · ${listing.neighborhood}` : ""} ·{" "}
         {listing.city ? cityLabel(listing.city) : "City not set"} ·{" "}
-        {listing.approved ? "Listed" : "Unlisted"}
+        {listing.approved ? "On the site" : "Paused — hidden from the public"}
         {listing.ownerEmail ? ` · ${listing.ownerEmail}` : ""}
       </p>
       <p className="mt-2 text-sm text-muted">
