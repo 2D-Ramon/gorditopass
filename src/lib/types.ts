@@ -239,6 +239,8 @@ export interface MockUser {
   awardedBonuses?: string[];
   /** Count of city feed posts by this user (demo) */
   feedPostCount?: number;
+  /** Moderation warnings. Shown only on this member's own account. */
+  warningCount?: number;
   /**
    * Passport ids currently held (badge active — all restaurants visited).
    * Badge pauses when a new restaurant joins until that stamp is earned.
@@ -276,6 +278,7 @@ export interface LiveMemberBundle {
   rewardHistory?: RewardEvent[];
   feedPostCount?: number;
   savingsYtd?: number;
+  warningCount?: number;
   newBadges?: string[];
 }
 

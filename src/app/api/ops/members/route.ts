@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { asCity } from "@/lib/listing-map";
+import { isRemovedFeedTombstone } from "@/lib/moderation";
 import { jsonError, withOps } from "../_util";
 
 export async function GET() {
@@ -10,7 +11,9 @@ export async function GET() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) return jsonError(error.message, 500);
-  return NextResponse.json({ members: data ?? [] });
+  return NextResponse.json({
+    members: (data ?? []).filter((m) => !isRemovedFeedTombstone(m.email)),
+  });
 }
 
 export async function POST(req: Request) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { asCity } from "@/lib/listing-map";
+import { loadRemovedFeedIds } from "@/lib/moderation";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET(req: Request) {
@@ -8,6 +9,7 @@ export async function GET(req: Request) {
   }
   const city = asCity(new URL(req.url).searchParams.get("city") || "dallas");
   const sb = createOpsClient();
+  const removedSeedIds = await loadRemovedFeedIds(sb);
   const { data, error } = await sb
     .from("city_posts")
     .select("*")
@@ -15,7 +17,7 @@ export async function GET(req: Request) {
     .eq("hidden", false)
     .order("created_at", { ascending: false })
     .limit(80);
-  if (error) return NextResponse.json({ posts: [] });
+  if (error) return NextResponse.json({ posts: [], removedSeedIds });
   const memberIds = [...new Set((data ?? []).map((p) => p.member_id))];
   const { data: profiles } = memberIds.length
     ? await sb
@@ -30,6 +32,7 @@ export async function GET(req: Request) {
     ]),
   );
   return NextResponse.json({
+    removedSeedIds,
     posts: (data ?? []).map((p) => ({
       id: p.id,
       city: p.city,

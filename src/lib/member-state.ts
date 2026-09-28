@@ -1,3 +1,4 @@
+import { WARNING_NOTE } from "./moderation";
 import { BADGES, POINT_ACTIONS, REWARDS } from "./pricing";
 import { PASSPORTS } from "./passports";
 import {
@@ -258,8 +259,11 @@ export async function memberSnapshot(
     isPrimary: s.is_primary,
   }));
 
+  const warnings = ledger.filter((l) => l.note === WARNING_NOTE);
+  const rewardRows = ledger.filter((l) => l.note !== WARNING_NOTE);
   const fresh = await loadProfile(id);
   const user = profileToUser(fresh ?? profile);
+  user.warningCount = warnings.length;
   user.feedPostCount = posts.length;
   user.householdMembers = household;
   user.completedPassports = (fresh ?? profile).completed_passports ?? [];
@@ -297,7 +301,7 @@ export async function memberSnapshot(
       cuisine: r.cuisine ?? undefined,
     })),
     household,
-    rewardHistory: ledger.map((l) => ({
+    rewardHistory: rewardRows.map((l) => ({
       id: l.id,
       at: l.created_at,
       type: l.points < 0 ? "claim" : "earn",
@@ -306,6 +310,7 @@ export async function memberSnapshot(
     })),
     feedPostCount: posts.length,
     savingsYtd,
+    warningCount: warnings.length,
   };
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { CITIES } from "@/lib/data";
 import type {
   BusinessAccount,
@@ -851,9 +852,23 @@ function CrmPanel() {
   );
 }
 
+type DinerAccount = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  city: string | null;
+  is_member: boolean;
+  plan_id: string | null;
+  banned: boolean;
+};
+
 function MembersPanel() {
   const [rows, setRows] = useState<MemberRecord[]>([]);
+  const [diners, setDiners] = useState<DinerAccount[]>([]);
   const [q, setQ] = useState("");
+  const [accountQ, setAccountQ] = useState("");
   const [flash, setFlash] = useState("");
   const [form, setForm] = useState({
     first_name: "",
@@ -869,9 +884,14 @@ function MembersPanel() {
   });
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/ops/members");
+    const [res, dinerRes] = await Promise.all([
+      fetch("/api/ops/members"),
+      fetch("/api/ops/diners"),
+    ]);
     const data = await res.json();
+    const dinerData = await dinerRes.json().catch(() => ({}));
     if (res.ok) setRows(data.members ?? []);
+    if (dinerRes.ok) setDiners(dinerData.diners ?? []);
   }, []);
 
   useEffect(() => {
@@ -928,8 +948,55 @@ function MembersPanel() {
     await load();
   }
 
+  const accountRows = diners.filter((m) => {
+    const hay = `${m.first_name ?? ""} ${m.last_name ?? ""} ${m.email} ${m.phone ?? ""}`.toLowerCase();
+    return hay.includes(accountQ.toLowerCase());
+  });
+
   return (
     <div className="space-y-4">
+      <div className="gp-card gp-card-static p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">Member accounts ({accountRows.length})</h2>
+          <input
+            className="gp-input max-w-xs text-sm"
+            placeholder="Search name, email, phone"
+            value={accountQ}
+            onChange={(e) => setAccountQ(e.target.value)}
+          />
+        </div>
+        <p className="mt-1 text-sm text-muted">
+          Open a name to see that member’s account: plan, visits, reviews,
+          favorites, and household. Same permission as this Members tab.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {accountRows.map((m) => {
+            const name =
+              [m.first_name, m.last_name].filter(Boolean).join(" ") || m.email;
+            return (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <Link
+                  href={`/admin/members/${m.id}`}
+                  className="font-medium hover:text-orange-200 hover:underline"
+                >
+                  {name}
+                  <span className="ml-2 text-xs font-normal text-muted">
+                    {m.email}
+                    {m.city ? ` · ${m.city}` : ""}
+                    {m.banned ? " · Banned" : m.is_member ? " · Member" : " · Not a member"}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+          {accountRows.length === 0 && (
+            <li className="text-sm text-muted">No member accounts yet.</li>
+          )}
+        </ul>
+      </div>
       <form className="gp-card gp-card-static grid gap-3 p-5 sm:grid-cols-2" onSubmit={add}>
         <h2 className="font-semibold sm:col-span-2">Add member</h2>
         <label className="block text-sm">

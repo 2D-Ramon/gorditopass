@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
-import { CITIES, cityLabel, cuisineLabel, FEED_POSTS, RESTAURANTS } from "@/lib/data";
+import { CITIES, cityLabel, cuisineLabel, RESTAURANTS } from "@/lib/data";
 import { asCity } from "@/lib/listing-map";
 import {
   DELETED_LISTING_TAGLINE,
@@ -102,9 +102,6 @@ export default function AdminPage() {
     setPartnerEventStatus,
     setPartnerJobStatus,
     isRestaurantApproved,
-    hideFeedPost,
-    unhideFeedPost,
-    moderatedFeedPosts,
     resetDemoData,
     getAutoApprove,
     setAutoApprove,
@@ -119,6 +116,22 @@ export default function AdminPage() {
   const [cityFilter, setCityFilter] = useState<CityId | "all">("all");
   const [restaurantMsg, setRestaurantMsg] = useState("");
   const [restaurantBusy, setRestaurantBusy] = useState("");
+  const [feedPosts, setFeedPosts] = useState<
+    {
+      id: string;
+      title: string;
+      body: string;
+      city: string;
+      author: string;
+      memberId: string;
+      createdAt: string;
+      warningCount: number;
+      banned: boolean;
+      source: "live" | "seed";
+    }[]
+  >([]);
+  const [feedMsg, setFeedMsg] = useState("");
+  const [feedBusy, setFeedBusy] = useState("");
   const [queue, setQueue] = useState<{
     applications: Record<string, unknown>[];
     deals: Record<string, unknown>[];
@@ -170,6 +183,10 @@ export default function AdminPage() {
         if (s.unlocked) refreshQueue();
       });
   }, [signInOpsAdmin]);
+
+  useEffect(() => {
+    if (tab === "feed") loadFeed();
+  }, [tab]);
 
   const liveApps = useMemo(
     () =>
@@ -342,21 +359,13 @@ export default function AdminPage() {
     [dealsList, menuList, eventsList, jobsList],
   );
 
-  const feedQueue = useMemo(() => {
-    const seed = FEED_POSTS.map((p) => ({
-      id: p.id,
-      city: p.city,
-      author: p.author,
-      title: p.title,
-      body: p.body,
-      createdAt: p.createdAt,
-    }));
-    const hiddenMap = new Map(moderatedFeedPosts.map((p) => [p.id, p]));
-    return seed.map((p) => {
-      const mod = hiddenMap.get(p.id);
-      return { ...p, hidden: mod?.hidden ?? false };
-    });
-  }, [moderatedFeedPosts]);
+  function loadFeed() {
+    void fetch("/api/ops/feed")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.posts) setFeedPosts(d.posts);
+      });
+  }
 
   if (!user || user.role !== "admin") {
     return (
@@ -1310,52 +1319,121 @@ export default function AdminPage() {
       {visibleTab === "feed" && (
         <section className="mt-6 gp-card gp-card-static p-5">
           <h2 className="font-semibold">Feed moderation</h2>
+          <p className="mt-1 text-sm text-muted">
+            Delete removes the comment from the feed and from the member’s
+            reviews. Warn member adds a warning only that member can see on
+            their account. Ban member appears after 3 warnings.
+          </p>
+          {feedMsg && <p className="mt-3 text-sm text-red-300">{feedMsg}</p>}
           <ul className="mt-4 space-y-2">
-            {feedQueue.map((p) => (
-              <li
-                key={p.id}
-                className="rounded-lg border border-border px-3 py-2 text-sm"
-              >
-                <p className="font-medium">
-                  {p.title}{" "}
-                  {p.hidden && (
-                    <span className="text-xs text-red-300">(hidden)</span>
-                  )}
-                </p>
-                <p className="text-xs text-muted">
-                  {p.author} · {p.city}
-                </p>
-                <p className="mt-1 text-muted">{p.body}</p>
-                <div className="mt-2">
-                  {p.hidden ? (
-                    <button
-                      type="button"
-                      className="text-xs text-brand"
-                      onClick={() => unhideFeedPost(p.id)}
-                    >
-                      Unhide
-                    </button>
-                  ) : (
+            {feedPosts.length === 0 && (
+              <li className="text-sm text-muted">No comments in the feed.</li>
+            )}
+            {feedPosts.map((p) => {
+              const busy = feedBusy === p.id;
+              return (
+                <li
+                  key={p.id}
+                  className="rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  <p className="font-medium">{p.title}</p>
+                  <p className="text-xs text-muted">
+                    {p.author} · {p.city}
+                    {p.memberId ? ` · Warnings: ${p.warningCount}` : ""}
+                    {p.banned ? " · Banned" : ""}
+                  </p>
+                  <p className="mt-1 text-muted">{p.body}</p>
+                  <div className="mt-2 flex flex-wrap gap-3">
                     <button
                       type="button"
                       className="text-xs text-red-300"
-                      onClick={() =>
-                        hideFeedPost({
-                          id: p.id,
-                          city: p.city,
-                          author: p.author,
-                          title: p.title,
-                          body: p.body,
-                          createdAt: p.createdAt,
-                        })
-                      }
+                      disabled={busy}
+                      onClick={async () => {
+                        if (
+                          !confirm(
+                            "Delete this comment? It will be removed everywhere.",
+                          )
+                        ) {
+                          return;
+                        }
+                        setFeedMsg("");
+                        setFeedBusy(p.id);
+                        const res = await fetch(`/api/ops/feed/${p.id}`, {
+                          method: "DELETE",
+                        });
+                        setFeedBusy("");
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}));
+                          setFeedMsg(data.error ?? "Could not delete that comment.");
+                          return;
+                        }
+                        loadFeed();
+                      }}
                     >
-                      Hide
+                      Delete
                     </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                    <button
+                      type="button"
+                      className="text-xs text-brand"
+                      disabled={busy}
+                      onClick={async () => {
+                        setFeedMsg("");
+                        setFeedBusy(p.id);
+                        const res = await fetch(`/api/ops/feed/${p.id}`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "warn" }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        setFeedBusy("");
+                        if (!res.ok) {
+                          setFeedMsg(
+                            data.error ??
+                              "This comment is not tied to a member account.",
+                          );
+                          return;
+                        }
+                        loadFeed();
+                      }}
+                    >
+                      Warn member
+                    </button>
+                    {p.memberId && p.warningCount >= 3 && !p.banned && (
+                      <button
+                        type="button"
+                        className="text-xs text-red-300"
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            !confirm(
+                              "Ban this member? They will not be able to sign in.",
+                            )
+                          ) {
+                            return;
+                          }
+                          setFeedMsg("");
+                          setFeedBusy(p.id);
+                          const res = await fetch(`/api/ops/feed/${p.id}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "ban" }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          setFeedBusy("");
+                          if (!res.ok) {
+                            setFeedMsg(data.error ?? "Could not ban that member.");
+                            return;
+                          }
+                          loadFeed();
+                        }}
+                      >
+                        Ban member
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

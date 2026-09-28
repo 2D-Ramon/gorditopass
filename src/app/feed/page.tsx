@@ -142,11 +142,13 @@ export default function FeedPage() {
     let stop = false;
     void fetch(`/api/feed?city=${city}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { posts?: FeedPost[] } | null) => {
-        if (stop || !data?.posts?.length) return;
+      .then((data: { posts?: FeedPost[]; removedSeedIds?: string[] } | null) => {
+        if (stop || !data) return;
+        const removed = new Set(data.removedSeedIds ?? []);
         setLocalPosts((prev) => {
           const seen = new Set(prev.map((p) => p.id));
-          return [...data.posts!.filter((p) => !seen.has(p.id)), ...prev];
+          const incoming = (data.posts ?? []).filter((p) => !seen.has(p.id));
+          return [...incoming, ...prev].filter((p) => !removed.has(p.id));
         });
       })
       .catch(() => {});

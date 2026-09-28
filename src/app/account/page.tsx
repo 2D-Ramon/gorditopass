@@ -219,6 +219,11 @@ function AccountInner() {
           <p className="gp-page-sub">
             {user.name} · {user.email}
           </p>
+          {isDiner && (
+            <p className="mt-1 text-sm text-muted">
+              Warnings: {user.warningCount ?? 0}
+            </p>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           {isDiner && (

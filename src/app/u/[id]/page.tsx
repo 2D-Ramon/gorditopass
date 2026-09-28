@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FEED_POSTS, getDemoMember } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -85,10 +85,24 @@ export default function PublicProfilePage() {
     return null;
   }, [accounts, user, id]);
 
+  const [removedFeedIds, setRemovedFeedIds] = useState<string[]>([]);
+  useEffect(() => {
+    void fetch("/api/feed?city=dallas")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { removedSeedIds?: string[] } | null) => {
+        if (data?.removedSeedIds) setRemovedFeedIds(data.removedSeedIds);
+      })
+      .catch(() => {});
+  }, []);
+
   const recentPosts = useMemo(
     () =>
-      FEED_POSTS.filter((p) => p.authorId === id || p.author === profile?.name),
-    [id, profile?.name],
+      FEED_POSTS.filter(
+        (p) =>
+          (p.authorId === id || p.author === profile?.name) &&
+          !removedFeedIds.includes(p.id),
+      ),
+    [id, profile?.name, removedFeedIds],
   );
 
   if (!profile) {
