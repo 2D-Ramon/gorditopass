@@ -169,6 +169,8 @@ const SKIP_PAYLOAD = new Set([
   "ownershipType",
   "ownershipTypeOther",
   "totalLocations",
+  "agreedToTerms",
+  "agreed_to_terms",
 ]);
 
 function payloadOf(app: Record<string, unknown>) {
@@ -637,6 +639,11 @@ function ApplicationCard({ app }: { app: Record<string, unknown> }) {
         </Field>
         <Field label="Email updates">{yesNo(emailOpt)}</Field>
         <Field label="Text updates">{yesNo(smsOpt)}</Field>
+        <Field label="Agreed to terms">
+          {payload.agreedToTerms == null && payload.agreed_to_terms == null
+            ? ""
+            : yesNo(payload.agreedToTerms ?? payload.agreed_to_terms)}
+        </Field>
         <div className="sm:col-span-2">
           <dt className="text-[10px] uppercase text-muted">Promo idea</dt>
           <dd className="whitespace-pre-wrap">{text(app.promo) || "—"}</dd>

@@ -388,7 +388,41 @@ export default function ApplyPage() {
                 address,
                 cuisine: primaryCuisine,
                 primaryCuisine,
-                concepts: multiConcept ? concepts : undefined,
+                plannedStartDate,
+                hasAuthority,
+                businessType: multiConcept ? undefined : businessType,
+                businessTypeOther:
+                  !multiConcept && businessType === "other"
+                    ? businessTypeOther.trim()
+                    : undefined,
+                ownershipType,
+                ownershipTypeOther:
+                  ownershipType === "other"
+                    ? ownershipTypeOther.trim()
+                    : undefined,
+                totalLocations,
+                agreedToTerms: true,
+                concepts: multiConcept
+                  ? concepts.map((c) => ({
+                      ...c,
+                      conceptName: c.conceptName.trim(),
+                      cuisineOrTheme: c.cuisineOrTheme || "other",
+                      cities: c.cities?.trim(),
+                    }))
+                  : [
+                      {
+                        id: "primary",
+                        conceptName: name.trim(),
+                        businessType,
+                        businessTypeOther:
+                          businessType === "other"
+                            ? businessTypeOther.trim()
+                            : undefined,
+                        cuisineOrTheme: primaryCuisine || "other",
+                        locationCount: totalLocations,
+                        cities: city,
+                      },
+                    ],
                 uploads,
               }),
             });
