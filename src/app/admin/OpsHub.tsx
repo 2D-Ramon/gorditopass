@@ -862,7 +862,141 @@ type DinerAccount = {
   is_member: boolean;
   plan_id: string | null;
   banned: boolean;
+  deleted?: boolean;
+  suspensionUntil?: string | null;
+  suspensionScope?: "redeem" | "social" | "all" | null;
 };
+
+function scopeLabel(scope: string | null | undefined) {
+  if (scope === "redeem") return "redeeming";
+  if (scope === "social") return "messaging, reviews, and chat";
+  if (scope === "all") return "everything";
+  return "";
+}
+
+function MemberActions({
+  profileId,
+  deleted,
+  suspensionUntil,
+  onDone,
+}: {
+  profileId: string;
+  deleted?: boolean;
+  suspensionUntil?: string | null;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [days, setDays] = useState(7);
+  const [scope, setScope] = useState<"redeem" | "social" | "all">("all");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function post(body: Record<string, unknown>) {
+    setBusy(true);
+    setErr("");
+    const res = await fetch(`/api/ops/diners/${profileId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setErr(data.error ?? "Could not update this member.");
+      return;
+    }
+    setOpen(false);
+    onDone();
+  }
+
+  if (deleted) return <span className="text-xs text-muted">Deleted</span>;
+
+  const active =
+    suspensionUntil && new Date(suspensionUntil).getTime() > Date.now();
+
+  return (
+    <div className="text-right">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          className="gp-btn gp-btn-secondary text-xs !py-1.5"
+          disabled={busy}
+          onClick={() => setOpen((v) => !v)}
+        >
+          Suspend
+        </button>
+        {active && (
+          <button
+            type="button"
+            className="text-xs text-brand"
+            disabled={busy}
+            onClick={() => void post({ action: "clear" })}
+          >
+            End suspension
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-xs text-red-300 hover:underline"
+          disabled={busy}
+          onClick={() => {
+            if (
+              !confirm(
+                "Delete this member? They will not be able to sign in. All account info stays so you can view it later.",
+              )
+            ) {
+              return;
+            }
+            void post({ action: "delete" });
+          }}
+        >
+          Delete member
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 flex flex-wrap items-end justify-end gap-2">
+          <label className="text-xs">
+            Days
+            <select
+              className="gp-input mt-1 text-xs"
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+            >
+              {[1, 3, 7, 14, 30].map((n) => (
+                <option key={n} value={n}>
+                  {n} days
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs">
+            Applies to
+            <select
+              className="gp-input mt-1 text-xs"
+              value={scope}
+              onChange={(e) =>
+                setScope(e.target.value as "redeem" | "social" | "all")
+              }
+            >
+              <option value="redeem">Redeeming</option>
+              <option value="social">Messaging, reviews, and chat</option>
+              <option value="all">All</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="gp-btn gp-btn-primary text-xs !py-1.5"
+            disabled={busy}
+            onClick={() => void post({ action: "suspend", days, scope })}
+          >
+            Confirm suspend
+          </button>
+        </div>
+      )}
+      {err && <p className="mt-1 text-xs text-red-300">{err}</p>}
+    </div>
+  );
+}
 
 function MembersPanel() {
   const [rows, setRows] = useState<MemberRecord[]>([]);
@@ -986,9 +1120,24 @@ function MembersPanel() {
                   <span className="ml-2 text-xs font-normal text-muted">
                     {m.email}
                     {m.city ? ` · ${m.city}` : ""}
-                    {m.banned ? " · Banned" : m.is_member ? " · Member" : " · Not a member"}
+                    {m.deleted
+                      ? " · Deleted"
+                      : m.suspensionUntil &&
+                          new Date(m.suspensionUntil).getTime() > Date.now()
+                        ? ` · Suspended from ${scopeLabel(m.suspensionScope)} until ${m.suspensionUntil.slice(0, 10)}`
+                        : m.banned
+                          ? " · Banned"
+                          : m.is_member
+                            ? " · Member"
+                            : " · Not a member"}
                   </span>
                 </Link>
+                <MemberActions
+                  profileId={m.id}
+                  deleted={m.deleted}
+                  suspensionUntil={m.suspensionUntil}
+                  onDone={() => void load()}
+                />
               </li>
             );
           })}
@@ -1158,18 +1307,64 @@ function MembersPanel() {
                     />
                   </td>
                   <td className="text-right">
-                    <button
-                      type="button"
-                      className="text-xs text-red-300 hover:underline"
-                      onClick={() => {
-                        if (!confirm(`Remove ${m.email}?`)) return;
-                        void fetch(`/api/ops/members/${m.id}`, {
-                          method: "DELETE",
-                        }).then(() => load());
-                      }}
-                    >
-                      Remove
-                    </button>
+                    {m.notes === "Account deleted" ? (
+                      <span className="text-xs text-muted">Deleted</span>
+                    ) : (
+                      <div className="space-y-2">
+                        {diners.find(
+                          (d) => d.email.toLowerCase() === m.email.toLowerCase(),
+                        ) && (
+                          <MemberActions
+                            profileId={
+                              diners.find(
+                                (d) =>
+                                  d.email.toLowerCase() === m.email.toLowerCase(),
+                              )!.id
+                            }
+                            deleted={
+                              diners.find(
+                                (d) =>
+                                  d.email.toLowerCase() === m.email.toLowerCase(),
+                              )?.deleted
+                            }
+                            suspensionUntil={
+                              diners.find(
+                                (d) =>
+                                  d.email.toLowerCase() === m.email.toLowerCase(),
+                              )?.suspensionUntil
+                            }
+                            onDone={() => void load()}
+                          />
+                        )}
+                        {!diners.find(
+                          (d) => d.email.toLowerCase() === m.email.toLowerCase(),
+                        ) && (
+                          <button
+                            type="button"
+                            className="text-xs text-red-300 hover:underline"
+                            onClick={() => {
+                              if (
+                                !confirm(
+                                  "Delete this member? They will not be able to sign in. All account info stays so you can view it later.",
+                                )
+                              ) {
+                                return;
+                              }
+                              void fetch(`/api/ops/members/${m.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  status: "cancelled",
+                                  notes: "Account deleted",
+                                }),
+                              }).then(() => load());
+                            }}
+                          >
+                            Delete member
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

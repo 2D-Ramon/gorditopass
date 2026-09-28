@@ -3,6 +3,7 @@ import { asCity } from "@/lib/listing-map";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
+import { moderationBlock } from "@/lib/moderation";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -25,6 +26,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
   }
   const sb = createOpsClient();
+  const blocked = await moderationBlock(sb, profile.id, "social");
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
   const post = {
     member_id: profile.id,
     city: asCity(body?.city || profile.city || "dallas"),

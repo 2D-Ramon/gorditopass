@@ -86,7 +86,17 @@ export default function AdminMemberPage() {
       <p className="gp-page-sub">
         {user.email}
         {user.city ? ` · ${cityLabel(user.city)}` : ""} ·{" "}
-        {data.banned ? "Banned" : user.isMember ? "Active member" : "Not a member"}
+        {user.accountDeleted
+          ? "Deleted — history kept"
+          : data.banned
+            ? "Banned"
+            : user.isMember
+              ? "Active member"
+              : "Not a member"}
+        {user.suspension &&
+        new Date(user.suspension.until).getTime() > Date.now()
+          ? ` · Suspended until ${user.suspension.until.slice(0, 10)} (${user.suspension.scope})`
+          : ""}
         {user.planId ? ` · ${user.planId}` : ""}
       </p>
       <p className="mt-2 text-sm text-muted">

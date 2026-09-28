@@ -222,6 +222,16 @@ function AccountInner() {
           {isDiner && (
             <p className="mt-1 text-sm text-muted">
               Warnings: {user.warningCount ?? 0}
+              {user.suspension &&
+              new Date(user.suspension.until).getTime() > Date.now()
+                ? ` · Suspended from ${
+                    user.suspension.scope === "redeem"
+                      ? "redeeming"
+                      : user.suspension.scope === "social"
+                        ? "messaging, reviews, and chat"
+                        : "redeeming, messaging, reviews, and chat"
+                  } until ${user.suspension.until.slice(0, 10)}`
+                : ""}
             </p>
           )}
         </div>

@@ -1,4 +1,9 @@
-import { WARNING_NOTE } from "./moderation";
+import {
+  DELETED_NOTE,
+  SUSPEND_CLEARED,
+  WARNING_NOTE,
+  parseModeration,
+} from "./moderation";
 import { BADGES, POINT_ACTIONS, REWARDS } from "./pricing";
 import { PASSPORTS } from "./passports";
 import {
@@ -260,10 +265,21 @@ export async function memberSnapshot(
   }));
 
   const warnings = ledger.filter((l) => l.note === WARNING_NOTE);
-  const rewardRows = ledger.filter((l) => l.note !== WARNING_NOTE);
+  const moderation = parseModeration(ledger);
+  const rewardRows = ledger.filter((l) => {
+    const note = l.note ?? "";
+    return (
+      note !== WARNING_NOTE &&
+      note !== DELETED_NOTE &&
+      note !== SUSPEND_CLEARED &&
+      !note.startsWith("Suspension|")
+    );
+  });
   const fresh = await loadProfile(id);
   const user = profileToUser(fresh ?? profile);
   user.warningCount = warnings.length;
+  user.suspension = moderation.suspension;
+  user.accountDeleted = moderation.deleted;
   user.feedPostCount = posts.length;
   user.householdMembers = household;
   user.completedPassports = (fresh ?? profile).completed_passports ?? [];

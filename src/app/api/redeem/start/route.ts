@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isLiveListing } from "@/lib/listing-status";
+import { moderationBlock } from "@/lib/moderation";
 import { getDeal } from "@/lib/data";
 import { estimateDealValue } from "@/lib/deal-value";
 import { userFromRequest } from "@/lib/market";
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
   const dealId = body?.dealId;
   if (!dealId) return NextResponse.json({ error: "Missing deal." }, { status: 400 });
   const sb = createOpsClient();
+  const blocked = await moderationBlock(sb, profile.id, "redeem");
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
   let { data: deal } = await sb
     .from("listing_deals")
     .select("*")

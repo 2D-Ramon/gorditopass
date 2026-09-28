@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { userFromRequest } from "@/lib/market";
+import { moderationBlock } from "@/lib/moderation";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Write a short message." }, { status: 400 });
   }
   const sb = createOpsClient();
+  const blocked = await moderationBlock(sb, profile.id, "social");
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
   const name =
     [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Member";
   const { error } = await sb.from("listing_messages").insert({

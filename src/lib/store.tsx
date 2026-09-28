@@ -2982,6 +2982,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const sendChatMessage = useCallback(
     (chatId: string, body: string, imageUrl?: string) => {
       if (!user || (!body.trim() && !imageUrl)) return;
+      if (
+        user.suspension &&
+        new Date(user.suspension.until).getTime() > Date.now() &&
+        (user.suspension.scope === "all" || user.suspension.scope === "social")
+      ) {
+        return;
+      }
       const msg = {
         id: `msg-${Date.now()}`,
         chatId,
@@ -3044,6 +3051,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Restaurants (and admins acting as partners) cannot rate plates
       if (user?.role === "restaurant") {
         throw new Error("Restaurants cannot submit plate ratings.");
+      }
+      if (
+        user?.suspension &&
+        new Date(user.suspension.until).getTime() > Date.now() &&
+        (user.suspension.scope === "all" || user.suspension.scope === "social")
+      ) {
+        throw new Error("Messaging, reviews, and chat are suspended on this account.");
       }
       const plates = Math.min(5, Math.max(1, Math.round(review.plates)));
       const full: Review = {
@@ -3328,6 +3342,13 @@ export function useStore() {
 /** Active diner member or restaurant partner (or admin) can post in city feed. */
 export function canPostInFeed(user: MockUser | null): boolean {
   if (!user) return false;
+  if (
+    user.suspension &&
+    new Date(user.suspension.until).getTime() > Date.now() &&
+    (user.suspension.scope === "all" || user.suspension.scope === "social")
+  ) {
+    return false;
+  }
   if (user.role === "restaurant" || user.role === "admin") return true;
   return user.isMember === true;
 }

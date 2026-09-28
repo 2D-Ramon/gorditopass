@@ -241,6 +241,10 @@ export interface MockUser {
   feedPostCount?: number;
   /** Moderation warnings. Shown only on this member's own account. */
   warningCount?: number;
+  /** Timed limit on redeeming and/or messaging. */
+  suspension?: { until: string; scope: "redeem" | "social" | "all" } | null;
+  /** Login removed, history kept. */
+  accountDeleted?: boolean;
   /**
    * Passport ids currently held (badge active — all restaurants visited).
    * Badge pauses when a new restaurant joins until that stamp is earned.
