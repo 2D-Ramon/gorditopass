@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { redeemAccessCode } from "@/lib/access-codes";
+import { findAccessCode, offerLabel, offerOf, redeemAccessCode } from "@/lib/access-codes";
 import { userFromRequest } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
 
@@ -18,8 +18,19 @@ export async function POST(req: Request) {
   }
   const body = (await req.json().catch(() => null)) as { code?: string } | null;
   try {
-    const result = await redeemAccessCode(createOpsClient(), profile, String(body?.code ?? ""));
-    return NextResponse.json({ ok: true, ...result });
+    const sb = createOpsClient();
+    const code = await findAccessCode(sb, String(body?.code ?? ""), profile.id);
+    if (offerOf(code) !== "free") {
+      return NextResponse.json({
+        ok: true,
+        needsPayment: true,
+        code: code.code,
+        offer: offerOf(code),
+        label: offerLabel(code),
+      });
+    }
+    const result = await redeemAccessCode(sb, profile, code.code);
+    return NextResponse.json({ ok: true, needsPayment: false, ...result });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Could not apply the code." },

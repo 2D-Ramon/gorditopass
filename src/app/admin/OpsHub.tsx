@@ -1022,6 +1022,9 @@ type FreeCode = {
   code: string;
   label: string;
   kind: "individual" | "limited" | "promo";
+  offer?: "free" | "percent" | "amount";
+  percentOff?: number | null;
+  amountOffUsd?: number | null;
   maxUses: number | null;
   accessDays: number | null;
   redeemUntil: string | null;
@@ -1029,9 +1032,19 @@ type FreeCode = {
   uses: { email: string; usedAt: string; accessUntil: string }[];
 };
 
+function codeDeal(c: FreeCode) {
+  const offer = c.offer ?? "free";
+  if (offer === "percent") return `${c.percentOff ?? 0}% off`;
+  if (offer === "amount") return `$${Number(c.amountOffUsd ?? 0).toFixed(0)} off`;
+  return "Free";
+}
+
 function FreeAccessCodes() {
   const [codes, setCodes] = useState<FreeCode[]>([]);
   const [kind, setKind] = useState<FreeCode["kind"]>("individual");
+  const [offer, setOffer] = useState<"free" | "percent" | "amount">("free");
+  const [percentOff, setPercentOff] = useState(20);
+  const [amountOffUsd, setAmountOffUsd] = useState(5);
   const [accessDays, setAccessDays] = useState(30);
   const [maxUses, setMaxUses] = useState(10);
   const [redeemUntil, setRedeemUntil] = useState("");
@@ -1058,6 +1071,9 @@ function FreeAccessCodes() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind,
+        offer,
+        percentOff,
+        amountOffUsd,
         label,
         accessDays,
         maxUses,
@@ -1076,10 +1092,11 @@ function FreeAccessCodes() {
 
   return (
     <div className="gp-card gp-card-static p-5">
-      <h2 className="font-semibold">Free access codes</h2>
+      <h2 className="font-semibold">Access codes</h2>
       <p className="mt-1 text-sm text-muted">
-        One person, a set number of people, or a promotion anyone can use until
-        a date. They sign in on the membership page and enter the code. No charge.
+        Choose free membership, a percent off, or a dollar amount off. Then
+        choose one person, a set number of people, or a promotion that ends on
+        a date. They enter the code on the membership page.
       </p>
       <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={createCode}>
         <label className="block text-sm sm:col-span-2">
@@ -1094,7 +1111,47 @@ function FreeAccessCodes() {
             <option value="promo">Promotion — unlimited until a date</option>
           </select>
         </label>
-        {kind !== "promo" && (
+        <label className="block text-sm">
+          Discount
+          <select
+            className="gp-input mt-1"
+            value={offer}
+            onChange={(e) => setOffer(e.target.value as "free" | "percent" | "amount")}
+          >
+            <option value="free">Free</option>
+            <option value="percent">Percent off</option>
+            <option value="amount">Dollar amount off</option>
+          </select>
+        </label>
+        {offer === "percent" && (
+          <label className="block text-sm">
+            Percent off
+            <input
+              required
+              type="number"
+              min={1}
+              max={100}
+              className="gp-input mt-1"
+              value={percentOff}
+              onChange={(e) => setPercentOff(Number(e.target.value))}
+            />
+          </label>
+        )}
+        {offer === "amount" && (
+          <label className="block text-sm">
+            Dollars off
+            <input
+              required
+              type="number"
+              min={1}
+              step={1}
+              className="gp-input mt-1"
+              value={amountOffUsd}
+              onChange={(e) => setAmountOffUsd(Number(e.target.value))}
+            />
+          </label>
+        )}
+        {offer === "free" && kind !== "promo" && (
           <label className="block text-sm">
             Free for (days)
             <input
@@ -1122,7 +1179,7 @@ function FreeAccessCodes() {
         )}
         {kind === "promo" && (
           <label className="block text-sm">
-            Free through
+            {offer === "free" ? "Free through" : "Code works through"}
             <input
               required
               type="date"
@@ -1155,11 +1212,15 @@ function FreeAccessCodes() {
             <p className="font-mono font-semibold">{c.code}</p>
             <p className="text-xs text-muted">
               {c.label ? `${c.label} · ` : ""}
+              {codeDeal(c)}
+              {" · "}
               {c.kind === "individual"
-                ? `One person · ${c.accessDays} days`
+                ? `One person${c.offer === "free" || !c.offer ? ` · ${c.accessDays} days` : ""}`
                 : c.kind === "limited"
-                  ? `${c.uses.length} of ${c.maxUses} used · ${c.accessDays} days each`
-                  : `Unlimited · free through ${c.redeemUntil?.slice(0, 10)}`}
+                  ? `${c.uses.length} of ${c.maxUses} used${
+                      c.offer === "free" || !c.offer ? ` · ${c.accessDays} days each` : ""
+                    }`
+                  : `Unlimited · through ${c.redeemUntil?.slice(0, 10)}`}
               {!c.active ? " · Off" : ""}
             </p>
             {c.uses.length > 0 && (

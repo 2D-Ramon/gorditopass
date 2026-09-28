@@ -31,9 +31,16 @@ function emptySeat(i: number, isPrimary: boolean): MemberSeatProfile {
   };
 }
 
-function FreeAccessCode({ userSignedIn }: { userSignedIn: boolean }) {
+function FreeAccessCode({
+  userSignedIn,
+  onDiscount,
+}: {
+  userSignedIn: boolean;
+  onDiscount: (code: string, label: string) => void;
+}) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
+  const [applied, setApplied] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function apply(e: React.FormEvent) {
@@ -51,6 +58,11 @@ function FreeAccessCode({ userSignedIn }: { userSignedIn: boolean }) {
         setErr(data.error ?? "Could not apply that code.");
         return;
       }
+      if (data.needsPayment) {
+        onDiscount(data.code, data.label ?? "Discount");
+        setApplied(data.label ?? "Discount");
+        return;
+      }
       window.location.href = "/account";
     } finally {
       setBusy(false);
@@ -59,10 +71,10 @@ function FreeAccessCode({ userSignedIn }: { userSignedIn: boolean }) {
 
   return (
     <form className="mt-6 gp-card gp-card-static space-y-2 p-5" onSubmit={apply}>
-      <h2 className="font-semibold">Free access code</h2>
+      <h2 className="font-semibold">Access code</h2>
       <p className="text-sm text-muted">
-        Have a code from GorditoPass? Sign in, enter it, and membership turns on
-        for the time on that code. No charge.
+        A free code turns membership on with no charge. A percent or dollar
+        code is taken off the price when you pay.
       </p>
       {userSignedIn ? (
         <>
@@ -79,6 +91,7 @@ function FreeAccessCode({ userSignedIn }: { userSignedIn: boolean }) {
           <button type="submit" className="gp-btn gp-btn-primary text-sm" disabled={busy || !code.trim()}>
             Apply code
           </button>
+          {applied && <p className="text-sm text-success">{applied} will apply when you pay.</p>}
           {err && <p className="text-sm text-red-300">{err}</p>}
         </>
       ) : (
@@ -118,6 +131,8 @@ function MembershipInner() {
   const [referralCode, setReferralCode] = useState(
     () => user?.referredByCode ?? "",
   );
+  const [accessCode, setAccessCode] = useState("");
+  const [discountNote, setDiscountNote] = useState("");
   const [primaryPassword, setPrimaryPassword] = useState("");
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [smsOptIn, setSmsOptIn] = useState(false);
@@ -260,9 +275,15 @@ function MembershipInner() {
             email_opt_in: emailOptIn,
             sms_opt_in: smsOptIn,
             referral_code: referralCode.trim() || undefined,
+            access_code: accessCode.trim() || undefined,
           }),
         });
         const payJson = await pay.json();
+        if (pay.ok && payJson.comp) {
+          clearCart();
+          window.location.href = "/account";
+          return;
+        }
         if (pay.ok && payJson.url) {
           clearCart();
           window.location.href = payJson.url;
@@ -308,7 +329,18 @@ function MembershipInner() {
         </div>
       )}
 
-      <FreeAccessCode userSignedIn={Boolean(user)} />
+      <FreeAccessCode
+        userSignedIn={Boolean(user)}
+        onDiscount={(code, label) => {
+          setAccessCode(code);
+          setDiscountNote(label);
+        }}
+      />
+      {discountNote && (
+        <p className="mt-2 text-sm text-success">
+          {discountNote} will be taken off when you pay.
+        </p>
+      )}
 
       {referralCode && (
         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-sm text-orange-200">

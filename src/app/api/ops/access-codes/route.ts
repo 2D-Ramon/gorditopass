@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { createAccessCode, listAccessCodes, type AccessCodeKind } from "@/lib/access-codes";
+import {
+  createAccessCode,
+  listAccessCodes,
+  type AccessCodeKind,
+  type AccessOffer,
+} from "@/lib/access-codes";
 import { jsonError, withOps } from "../_util";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +25,9 @@ export async function POST(req: Request) {
   if (!gate.ok) return gate.response;
   const body = (await req.json().catch(() => null)) as {
     kind?: AccessCodeKind;
+    offer?: AccessOffer;
+    percentOff?: number;
+    amountOffUsd?: number;
     label?: string;
     maxUses?: number;
     accessDays?: number;
@@ -32,7 +40,17 @@ export async function POST(req: Request) {
   if (kind === "limited" && (!body?.maxUses || body.maxUses < 2)) {
     return jsonError("Enter how many people can use this code.");
   }
-  if (kind !== "promo" && (!body?.accessDays || body.accessDays < 1)) {
+  const offer = body?.offer ?? "free";
+  if (offer !== "free" && offer !== "percent" && offer !== "amount") {
+    return jsonError("Choose free, a percent off, or a dollar amount off.");
+  }
+  if (offer === "percent" && (!body?.percentOff || body.percentOff < 1 || body.percentOff > 100)) {
+    return jsonError("Enter a percent from 1 to 100.");
+  }
+  if (offer === "amount" && (!body?.amountOffUsd || body.amountOffUsd <= 0)) {
+    return jsonError("Enter a dollar amount off.");
+  }
+  if (offer === "free" && kind !== "promo" && (!body?.accessDays || body.accessDays < 1)) {
     return jsonError("Enter how many days of free access each person gets.");
   }
   if (kind === "promo" && !body?.redeemUntil) {
@@ -47,6 +65,9 @@ export async function POST(req: Request) {
   try {
     const code = await createAccessCode(gate.supabase, {
       kind,
+      offer,
+      percentOff: offer === "percent" ? Number(body?.percentOff) : null,
+      amountOffUsd: offer === "amount" ? Number(body?.amountOffUsd) : null,
       label: body?.label,
       maxUses: kind === "limited" ? Number(body?.maxUses) : null,
       accessDays: kind === "promo" ? null : Number(body?.accessDays),

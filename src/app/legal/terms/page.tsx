@@ -133,10 +133,11 @@ export default function TermsPage() {
               {PLATFORM.supportEmail}
             </a>
             . After you cancel, access continues until the term you already
-            paid for ends. We do not pro-rate unused days. We may also give a
-            free access code for one person, a set number of people, or an
-            open promotion that ends on a date. A free code does not renew and
-            has no cash value.
+            paid for ends. We do not pro-rate unused days. We may give a code
+            for one person, a set number of people, or an open promotion that
+            ends on a date. A code can make membership free for a set time, or
+            take a percent or a dollar amount off the membership price. It does
+            not renew and has no cash value.
           </p>
           <p className="mt-2">
             You pay the restaurant for food, tax, and tip. We do not take a cut

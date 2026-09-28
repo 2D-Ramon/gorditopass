@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { POINT_ACTIONS } from "@/lib/pricing";
+import { recordDiscountUse } from "@/lib/access-codes";
 import {
   addPoints,
   planRenewsAt,
@@ -143,6 +144,19 @@ export async function POST(req: Request) {
           }
         }
         await recomputeMember(pending.profile_id);
+        const accessCode = String(session.metadata?.access_code ?? "").trim();
+        if (accessCode && billedEmail) {
+          try {
+            await recordDiscountUse(
+              sb,
+              { id: pending.profile_id, email: billedEmail },
+              accessCode,
+              planRenewsAt(pending.plan_id),
+            );
+          } catch {
+            // The payment already succeeded. A repeated webhook can hit a used code.
+          }
+        }
         await sb
           .from("pending_memberships")
           .update({ status: "paid" })
