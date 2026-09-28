@@ -11,7 +11,10 @@ export default function CommunityPage() {
         </li>
         <li>No spam, fake deals, or review brigading.</li>
         <li>Photos/videos should be food- and venue-relevant.</li>
-        <li>Report abuse — admins can remove content and ban accounts.</li>
+        <li>
+          Report abuse. We may delete a comment, warn a member, suspend
+          redeeming or posting, or ban an account. The details are in the terms.
+        </li>
       </ul>
     </div>
   );

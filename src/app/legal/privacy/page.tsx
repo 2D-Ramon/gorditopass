@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <Link href="/legal/terms" className="text-brand underline">
           Terms of use
         </Link>
-        . Last updated September 25, 2026.
+        . Last updated September 28, 2026.
       </p>
 
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-stone-300">
@@ -141,6 +141,11 @@ export default function PrivacyPage() {
             our member list.
           </p>
           <p className="mt-2">
+            People we authorize to run {PLATFORM.name} can open a member
+            account and a restaurant dashboard, including signup details and
+            activity, to operate the service.
+          </p>
+          <p className="mt-2">
             Stripe processes card payments. We do not store full card numbers.
             Account data is stored with Supabase, photos and files with
             Cloudflare, and the site is hosted on Vercel. They process
@@ -157,8 +162,18 @@ export default function PrivacyPage() {
           <p className="mt-2">
             We keep account, order, and redemption records while your account
             is open and afterward for as long as we need them for support,
-            fraud checks, and accounting. Chat and feed posts stay until you
-            delete them or we remove them under the community guidelines.
+            fraud checks, and accounting. If we close a member account, that
+            person cannot sign in, and we keep the account record so authorized
+            staff can look it up later.
+          </p>
+          <p className="mt-2">
+            Chat and feed posts stay until you delete them or we remove them.
+            If we delete a feed comment, that post and the matching review are
+            removed. We record a warning and any suspension, including how long
+            it lasts and whether it covers redeeming, messaging, reviews, and
+            chat, or all of those. The warning count and a current suspension
+            are shown on that member’s own account. Other members and the
+            public do not see them.
           </p>
           <p className="mt-2">
             Email{" "}
@@ -186,8 +201,13 @@ export default function PrivacyPage() {
             to review the application, set up the listing, and confirm the
             business. Staff logins the owner creates are used to run that
             listing. We keep application files while the business is listed and
-            for a period afterward for our records. This section does not
-            replace the diner notice above.
+            for a period afterward for our records. While a listing is paused,
+            the public cannot see it, and the records stay so the restaurant
+            and authorized staff can still view them. If we remove a restaurant
+            from the service, we delete the listing and the menu, promotions,
+            scans, reviews, messages, staff connection, and application tied to
+            that business. This section does not replace the diner notice
+            above.
           </p>
         </section>
 

@@ -8,7 +8,7 @@ export default function TermsPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold">Terms of use</h1>
       <p className="mt-4 text-sm text-muted">
-        Last updated September 25, 2026. These terms are an agreement between
+        Last updated September 28, 2026. These terms are an agreement between
         you and {PLATFORM.name}. They cover the website, member tools, and
         restaurant listings. The{" "}
         <Link href="/legal/privacy" className="text-brand underline">
@@ -104,6 +104,19 @@ export default function TermsPage() {
             confirm it is yours. You are responsible for activity under your
             login.
           </p>
+          <p className="mt-2">
+            We may warn a member for breaking these terms or the community
+            guidelines. After three warnings we may ban the account so that
+            person cannot sign in. We may suspend an account for 1, 3, 7, 14,
+            or 30 days from redeeming, from messaging, reviews, and chat, or
+            from all of those. A suspended member can still sign in. We may
+            close an account so the person cannot sign in. What we keep, and
+            who on our team can open an account, is in the{" "}
+            <Link href="/legal/privacy" className="text-brand underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </section>
 
         <section>
@@ -172,7 +185,10 @@ export default function TermsPage() {
             The person who applies must have authority to bind the business.
             The restaurant sets the member promotion and must honor active
             offers for valid members. We may refuse, pause, or remove a listing
-            that breaks these terms, the offer rules, or the law.
+            that breaks these terms, the offer rules, or the law. A paused
+            listing is hidden from the public. The restaurant can still use its
+            dashboard, and we may unpause it. Removing a restaurant takes its
+            listing and history off the service.
           </p>
         </section>
 
@@ -214,7 +230,8 @@ export default function TermsPage() {
             give {PLATFORM.name} permission to display that content on the
             service, including the city feed, chat, and restaurant pages. Do
             not post anything you do not have rights to. We may remove content
-            that breaks these terms.
+            that breaks these terms. If we delete a feed comment, it is also
+            removed from that member’s reviews.
           </p>
         </section>
 
