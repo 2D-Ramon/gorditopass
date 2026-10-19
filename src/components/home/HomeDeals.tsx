@@ -13,7 +13,9 @@ import s from "./home.module.css";
 export function HomeDeals() {
   const { city } = useStore();
   const { openJoin } = useJoin();
-  const current = CITIES.find((c) => c.id === city);
+  // Home page shows a live city only; a "soon" or unknown city falls back to Dallas (launch city).
+  const picked = CITIES.find((c) => c.id === city);
+  const current = picked?.live ? picked : CITIES.find((c) => c.id === "dallas");
   const cityName = current?.name ?? "Dallas";
   const carRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
@@ -81,11 +83,9 @@ export function HomeDeals() {
         <p className={s.sampleLine}>
           <span className={s.pillStatic}>Sample</span>
           <span>
-            {city === "dallas"
+            {cityName === "Dallas"
               ? "Every restaurant and deal below is a sample. Real deals replace them as restaurants join."
-              : current?.live
-                ? `Every restaurant and deal below is a Dallas-style sample. Real ${cityName} deals replace them as restaurants join.`
-                : `${cityName} is coming soon. Every restaurant and deal below is a Dallas-style sample.`}
+              : `Every restaurant and deal below is a Dallas-style sample. Real ${cityName} deals replace them as restaurants join.`}
           </span>
         </p>
         <div

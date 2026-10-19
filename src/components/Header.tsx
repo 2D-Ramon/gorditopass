@@ -173,6 +173,15 @@ export function Header() {
             </div>
           )}
 
+          {!user && pathname === "/" && (
+            <Link
+              href="/membership"
+              className="gp-btn gp-btn-primary shrink-0 text-sm !px-3 !py-1.5 lg:hidden"
+            >
+              Join
+            </Link>
+          )}
+
           <button
             type="button"
             className="gp-btn gp-btn-ghost lg:!hidden"
