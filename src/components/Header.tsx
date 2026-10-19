@@ -23,6 +23,8 @@ export function Header() {
   const { user, cartCount, signOut, city, setCity } = useStore();
   const [open, setOpen] = useState(false);
 
+  const isHome = pathname === "/";
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
@@ -34,7 +36,11 @@ export function Header() {
           className="flex shrink-0 items-center gap-2.5 font-bold tracking-tight"
         >
           <BrandMark />
-          <span className="text-[0.95rem]">
+          <span
+            className={
+              isHome ? "sr-only text-[0.95rem] sm:not-sr-only" : "text-[0.95rem]"
+            }
+          >
             {PLATFORM.name}
             <span className="ml-1.5 hidden rounded-md bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange-300/90 sm:inline">
               beta
@@ -75,10 +81,16 @@ export function Header() {
         </nav>
 
         <div className="flex min-w-0 items-center gap-1.5">
-          <label className="gp-city-select-wrap inline-flex min-w-0 max-w-[8.25rem] sm:max-w-none">
+          <label
+            className={`gp-city-select-wrap inline-flex max-w-[8.25rem] sm:max-w-none ${
+              isHome ? "min-w-[7.5rem] sm:min-w-0" : "min-w-0"
+            }`}
+          >
             <span className="sr-only">City</span>
             <select
-              className="gp-city-select"
+              className={`gp-city-select${
+                isHome ? " overflow-hidden text-ellipsis whitespace-nowrap" : ""
+              }`}
               value={city}
               onChange={(e) => setCity(e.target.value as CityId)}
               aria-label="City"
