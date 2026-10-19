@@ -11,6 +11,7 @@ import type { CityId } from "@/lib/types";
 
 const dinerLinks = [
   { href: "/explore", label: "Explore" },
+  { href: "/on-the-menu", label: "On the menu" },
   { href: "/events", label: "Events" },
   { href: "/feed", label: "City feed" },
   { href: "/membership", label: "Membership" },

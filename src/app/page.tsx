@@ -35,6 +35,12 @@ export default function HomePage() {
                 Membership & benefits →
               </Link>
               <Link
+                href="/on-the-menu"
+                className="font-medium text-muted hover:text-white"
+              >
+                What’s on the menu →
+              </Link>
+              <Link
                 href="/events"
                 className="font-medium text-muted hover:text-white"
               >
