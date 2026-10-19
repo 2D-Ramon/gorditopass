@@ -27,6 +27,9 @@ type PlanCopy = {
   bullets: string[];
 };
 
+/** Home plans: lowest monthly cost first. */
+const PLAN_ORDER: MembershipPlan["id"][] = ["annual", "six_month", "monthly"];
+
 const PLAN_COPY: Record<string, PlanCopy> = {
   monthly: {
     sub: () => "Billed monthly",
@@ -34,13 +37,13 @@ const PLAN_COPY: Record<string, PlanCopy> = {
     bullets: ["Lowest commitment, cancel anytime"],
   },
   six_month: {
-    sub: (p) => `That's ${money(monthlyRate(p))}/mo`,
-    drawer: (p) => `${money(monthlyRate(p))}/mo, billed every six months`,
+    sub: (p) => `Billed as ${money(p.priceUsd)} every 6 months`,
+    drawer: (p) => `${money(p.priceUsd)}, billed every six months`,
     bullets: ["Pay once for six months"],
   },
   annual: {
-    sub: (p) => `That's ${money(monthlyRate(p))}/mo`,
-    drawer: (p) => `${money(monthlyRate(p))}/mo, billed yearly`,
+    sub: (p) => `Billed as ${money(p.priceUsd)} a year`,
+    drawer: (p) => `${money(p.priceUsd)}, billed yearly`,
     bullets: ["Lowest price per month"],
   },
 };
@@ -57,30 +60,27 @@ export type HomePlan = {
   bullets: string[];
 };
 
-function unitFor(months: number) {
-  if (months === 1) return "/mo";
-  if (months === 12) return " / year";
-  return ` / ${months} mo`;
-}
-
-export const HOME_PLANS: HomePlan[] = MEMBERSHIP_PLANS.map((p) => {
-  const copy = PLAN_COPY[p.id] ?? {
-    sub: () => "",
-    drawer: () => "",
-    bullets: p.bullets ?? [],
-  };
-  return {
-    id: p.id,
-    label: p.name,
-    price: money(p.priceUsd),
-    unit: unitFor(p.months),
-    perMonth: `${money(monthlyRate(p))}/mo`,
-    best: p.id === "annual",
-    sub: copy.sub(p),
-    drawer: copy.drawer(p),
-    bullets: copy.bullets,
-  };
-});
+export const HOME_PLANS: HomePlan[] = [...MEMBERSHIP_PLANS]
+  .sort((a, b) => PLAN_ORDER.indexOf(a.id) - PLAN_ORDER.indexOf(b.id))
+  .map((p) => {
+    const copy = PLAN_COPY[p.id] ?? {
+      sub: () => "",
+      drawer: () => "",
+      bullets: p.bullets ?? [],
+    };
+    const perMonth = `${money(monthlyRate(p))}/mo`;
+    return {
+      id: p.id,
+      label: p.name,
+      price: money(monthlyRate(p)),
+      unit: "/mo",
+      perMonth,
+      best: p.id === "annual",
+      sub: copy.sub(p),
+      drawer: copy.drawer(p),
+      bullets: copy.bullets,
+    };
+  });
 
 export const DEFAULT_PLAN_ID: HomePlan["id"] =
   HOME_PLANS.find((p) => p.best)?.id ?? HOME_PLANS[0].id;
