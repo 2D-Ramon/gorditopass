@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cityLabel, cuisineLabel } from "@/lib/data";
@@ -12,6 +13,8 @@ import type { Restaurant } from "@/lib/types";
 
 const RADIUS_PRESETS = [1, 3, 5, 10, 15, 25];
 const SWIPE_PX = 96;
+const SPIN_MS = 3400;
+const ROW_REM = 5.25;
 
 type Origin = { lat: number; lng: number; kind: "you" | "city" };
 type Decision = { id: string; choice: "yes" | "no" };
@@ -28,19 +31,32 @@ function money(priceUsd: number) {
   return `$${priceUsd.toFixed(2)}`;
 }
 
+type NightMemory = {
+  origin: Origin | null;
+  radius: number;
+  decisions: Decision[];
+  view: "deck" | "possibilities";
+  winnerId: string | null;
+};
+
+/** Survives a trip to a restaurant page in this tab. A reload or exit clears it. */
+let nightMemory: NightMemory | null = null;
+
 export function OnTheMenu() {
+  const router = useRouter();
   const { city, isRestaurantApproved } = useStore();
   const { restaurants } = useLiveCatalog();
-  const [origin, setOrigin] = useState<Origin | null>(null);
-  const [locStatus, setLocStatus] = useState<LocStatus>("idle");
-  const [radius, setRadius] = useState(5);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [view, setView] = useState<"deck" | "possibilities">("deck");
+  const remembered = nightMemory;
+  const [origin, setOrigin] = useState<Origin | null>(remembered?.origin ?? null);
+  const [locStatus, setLocStatus] = useState<LocStatus>(remembered?.origin ? "ready" : "idle");
+  const [radius, setRadius] = useState(remembered?.radius ?? 5);
+  const [decisions, setDecisions] = useState<Decision[]>(remembered?.decisions ?? []);
+  const [view, setView] = useState<"deck" | "possibilities">(remembered?.view ?? "deck");
   const [drag, setDrag] = useState({ x: 0, y: 0, dragging: false });
   const [fly, setFly] = useState<Fly>(null);
-  const [reel, setReel] = useState(0);
+  const [shift, setShift] = useState(0);
   const [spinning, setSpinning] = useState(false);
-  const [winnerId, setWinnerId] = useState<string | null>(null);
+  const [winnerId, setWinnerId] = useState<string | null>(remembered?.winnerId ?? null);
   const [exitArmed, setExitArmed] = useState(false);
   const [clearedNote, setClearedNote] = useState(false);
 
@@ -48,6 +64,7 @@ export function OnTheMenu() {
   const exitRef = useRef<string | null>(null);
   const timerRef = useRef<number | null>(null);
   const spinToken = useRef(0);
+  const spinTimer = useRef<number | null>(null);
   const gesture = useRef<{
     x: number;
     y: number;
@@ -62,8 +79,13 @@ export function OnTheMenu() {
       mounted.current = false;
       spinToken.current += 1;
       if (timerRef.current != null) window.clearTimeout(timerRef.current);
+      if (spinTimer.current != null) window.clearTimeout(spinTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    nightMemory = { origin, radius, decisions, view, winnerId };
+  }, [origin, radius, decisions, view, winnerId]);
 
   const cityName = cityLabel(city);
 
@@ -133,7 +155,9 @@ export function OnTheMenu() {
     .filter((place): place is Nearby => Boolean(place));
   const top = deck[0];
   const topId = top?.restaurant.id ?? null;
-  const reelSafe = possibilities.length ? reel % possibilities.length : 0;
+  const shownIndex = possibilities.length
+    ? ((shift % possibilities.length) + possibilities.length) % possibilities.length
+    : 0;
   const winner = possibilities.find((place) => place.restaurant.id === winnerId) ?? null;
 
   const chooseRef = useRef<(choice: "yes" | "no") => void>(() => {});
@@ -203,7 +227,7 @@ export function OnTheMenu() {
     exitRef.current = null;
     setDecisions([]);
     setWinnerId(null);
-    setReel(0);
+    setShift(0);
     setSpinning(false);
     setFly(null);
     setDrag({ x: 0, y: 0, dragging: false });
@@ -220,31 +244,32 @@ export function OnTheMenu() {
     const reduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (spinTimer.current != null) window.clearTimeout(spinTimer.current);
     if (reduced || n === 1) {
-      setReel(pick);
+      setShift(pick);
       setWinnerId(pool[pick].restaurant.id);
       setSpinning(false);
       return;
     }
     const token = ++spinToken.current;
-    const start = reelSafe;
-    const steps = n * 3 + ((pick - start + n) % n);
-    setSpinning(true);
+    const currentMod = ((shift % n) + n) % n;
+    const delta = (pick - currentMod + n) % n;
+    const travel = n * 6 + delta;
     setWinnerId(null);
-    let i = 0;
-    const tick = () => {
+    setSpinning(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!mounted.current || spinToken.current !== token) return;
+        setShift(shift + travel);
+      });
+    });
+    spinTimer.current = window.setTimeout(() => {
+      spinTimer.current = null;
       if (!mounted.current || spinToken.current !== token) return;
-      i += 1;
-      setReel((start + i) % n);
-      if (i >= steps) {
-        setSpinning(false);
-        setWinnerId(pool[pick].restaurant.id);
-        return;
-      }
-      const t = i / steps;
-      window.setTimeout(tick, 45 + t * t * 260);
-    };
-    window.setTimeout(tick, 45);
+      setSpinning(false);
+      setShift(pick);
+      setWinnerId(pool[pick].restaurant.id);
+    }, SPIN_MS);
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLElement>) {
@@ -266,16 +291,25 @@ export function OnTheMenu() {
     setDrag({ x: g.dx, y: g.dy * 0.12, dragging: true });
   }
 
+  function openRestaurant(id: string) {
+    router.push(`/restaurants/${id}`);
+  }
+
   function onPointerUp() {
     const g = gesture.current;
     gesture.current = null;
-    if (!g || g.locked !== "x" || fly) {
+    if (!g || fly) {
       setDrag({ x: 0, y: 0, dragging: false });
       return;
     }
-    if (g.dx >= SWIPE_PX) beginExit("yes");
-    else if (g.dx <= -SWIPE_PX) beginExit("no");
-    else setDrag({ x: 0, y: 0, dragging: false });
+    if (g.locked === "x") {
+      if (g.dx >= SWIPE_PX) beginExit("yes");
+      else if (g.dx <= -SWIPE_PX) beginExit("no");
+      else setDrag({ x: 0, y: 0, dragging: false });
+      return;
+    }
+    setDrag({ x: 0, y: 0, dragging: false });
+    if (!g.locked && Math.hypot(g.dx, g.dy) < 10 && topId) openRestaurant(topId);
   }
 
   const yesOpacity =
@@ -292,8 +326,8 @@ export function OnTheMenu() {
         in Possibilities for tonight, then a draw picks the place.
       </p>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        This is not a saved favorite. The list clears when you leave this page
-        or exit Possibilities.
+        This is not saved to your account. Exit Possibilities and it clears.
+        Open a restaurant and come back, and tonight&apos;s picks are still here.
       </p>
 
       <div className="mt-6 grid grid-cols-2 gap-2" role="tablist" aria-label="Tonight">
@@ -408,7 +442,9 @@ export function OnTheMenu() {
                 })}
                 <article
                   key={top.restaurant.id}
-                  className={`menu-swipe relative z-30 gp-card gp-card-static overflow-hidden ${
+                  role="link"
+                  tabIndex={0}
+                  className={`menu-swipe relative z-30 cursor-pointer gp-card overflow-hidden hover:border-brand/50 ${
                     drag.dragging ? "" : "transition duration-200"
                   }`}
                   style={{
@@ -422,11 +458,17 @@ export function OnTheMenu() {
                             : "translate(0, 0)",
                     opacity: fly ? 0 : 1,
                   }}
-                  aria-label={`${top.restaurant.name}, ${formatMiles(top.miles)}. Swipe right if you want to try it, left to pass.`}
+                  aria-label={`${top.restaurant.name}, ${formatMiles(top.miles)}. Swipe right if you want to try it, left to pass. Activate to open the full restaurant page.`}
                   onPointerDown={onPointerDown}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
                   onPointerCancel={onPointerUp}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && topId) {
+                      e.preventDefault();
+                      openRestaurant(topId);
+                    }
+                  }}
                 >
                   <span
                     className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border-2 border-emerald-400 px-2 py-1 text-xs font-black tracking-wide text-emerald-300"
@@ -440,7 +482,7 @@ export function OnTheMenu() {
                   >
                     PASS
                   </span>
-                  <PlaceFace place={top} />
+                  <PlaceFace place={top} details />
                 </article>
               </div>
               <div className="mt-4 flex items-center justify-center gap-5">
@@ -462,7 +504,7 @@ export function OnTheMenu() {
                 </button>
               </div>
               <p className="mt-3 text-center text-xs text-muted">
-                Drag the card, or use the buttons. Right arrow is yes. Left arrow is no.
+                Drag to swipe. Tap the card for the full restaurant page. Right arrow is yes. Left arrow is no.
               </p>
               <div className="mt-3 text-center">
                 <button
@@ -480,8 +522,8 @@ export function OnTheMenu() {
       ) : (
         <section className="mt-6" aria-label="Possibilities">
           <p className="text-sm leading-relaxed text-muted">
-            Places you said yes to for tonight. Draw one. Nothing here is saved
-            to your account.
+            Places you said yes to for tonight. Spin the slots to pick one.
+            Nothing here is saved to your account.
           </p>
           {possibilities.length === 0 ? (
             <div className="mt-4 gp-card gp-card-static p-6 text-center">
@@ -499,23 +541,23 @@ export function OnTheMenu() {
             </div>
           ) : (
             <>
-              <div className="mt-4 gp-card gp-card-static p-5 text-center" aria-live="polite">
+              <div className="mt-4 gp-card gp-card-static p-4 text-center">
                 <p className="gp-section-label">Tonight&apos;s draw</p>
-                <p className="mt-3 min-h-16 text-3xl font-bold tracking-tight">
-                  {possibilities[reelSafe]?.restaurant.name}
-                </p>
-                <p className="text-sm text-muted">
-                  {possibilities[reelSafe]
-                    ? `${formatMiles(possibilities[reelSafe].miles)} · ${cuisineLabel(possibilities[reelSafe].restaurant.cuisine)}`
-                    : ""}
+                <SlotReel places={possibilities} shift={shift} spinning={spinning} />
+                <p className="sr-only" aria-live="polite">
+                  {spinning
+                    ? "Spinning"
+                    : winner
+                      ? `Winner: ${winner.restaurant.name}`
+                      : ""}
                 </p>
                 <button
                   type="button"
-                  className="gp-btn gp-btn-primary mt-5 w-full"
+                  className="gp-btn gp-btn-primary mt-4 w-full"
                   onClick={draw}
                   disabled={spinning}
                 >
-                  {spinning ? "Drawing…" : winner ? "Draw again" : "Draw a place"}
+                  {spinning ? "Spinning…" : winner ? "Spin again" : "Spin"}
                 </button>
                 {possibilities.length === 1 && !spinning && (
                   <p className="mt-2 text-xs text-muted">Only one place on the list.</p>
@@ -526,7 +568,7 @@ export function OnTheMenu() {
 
               <ul className="mt-4 space-y-2">
                 {possibilities.map((place, index) => {
-                  const active = index === reelSafe;
+                  const active = !spinning && index === shownIndex;
                   const outside = place.miles > radius;
                   return (
                     <li
@@ -731,7 +773,84 @@ function RadiusControl({
   );
 }
 
-function PlaceFace({ place }: { place: Nearby }) {
+function SlotReel({
+  places,
+  shift,
+  spinning,
+}: {
+  places: Nearby[];
+  shift: number;
+  spinning: boolean;
+}) {
+  const n = places.length;
+  const rows = Math.max(n * 8, shift + 4);
+  return (
+    <div
+      className="relative mx-auto mt-4 overflow-hidden rounded-2xl border-2 border-brand/50 bg-black shadow-[inset_0_0_48px_rgba(0,0,0,0.75)]"
+      style={{ height: `${ROW_REM * 3}rem` }}
+      data-slot="reel"
+      aria-hidden
+    >
+      <span className="pointer-events-none absolute left-1.5 top-1/2 z-30 -translate-y-1/2 text-sm text-brand">
+        ▶
+      </span>
+      <span className="pointer-events-none absolute right-1.5 top-1/2 z-30 -translate-y-1/2 text-sm text-brand">
+        ◀
+      </span>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-1/2 z-20 -translate-y-1/2 border-y-2 border-brand/80 bg-brand/10"
+        style={{ height: `${ROW_REM}rem` }}
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-12 bg-gradient-to-b from-black to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-black to-transparent" />
+      <div
+        data-slot-track
+        style={{
+          transform: `translateY(calc(${ROW_REM}rem - ${shift} * ${ROW_REM}rem))`,
+          transition: spinning
+            ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.72, 0.08, 1)`
+            : "none",
+        }}
+      >
+        {Array.from({ length: rows }, (_, i) => {
+          const place = places[i % n];
+          const restaurant = place.restaurant;
+          return (
+            <div
+              key={`${restaurant.id}-${i}`}
+              className="flex items-center gap-3 px-8 text-left"
+              style={{ height: `${ROW_REM}rem` }}
+              data-slot-name={restaurant.name}
+            >
+              {restaurant.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={restaurant.logoUrl}
+                  alt=""
+                  className="h-12 w-12 shrink-0 object-contain"
+                />
+              ) : (
+                <span className="w-12 shrink-0 text-center text-3xl" aria-hidden>
+                  {restaurant.emoji}
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-lg font-bold tracking-tight">
+                  {restaurant.name}
+                </span>
+                <span className="block truncate text-xs text-muted">
+                  {formatMiles(place.miles)} · {cuisineLabel(restaurant.cuisine)}
+                </span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PlaceFace({ place, details = false }: { place: Nearby; details?: boolean }) {
   const { restaurant } = place;
   const deal = restaurant.deals.find((d) => d.active && !d.soldOut);
   const items = menuPreview(restaurant);
@@ -795,6 +914,9 @@ function PlaceFace({ place }: { place: Nearby }) {
             ))}
           </ul>
         )}
+        {details && (
+          <p className="text-xs font-semibold text-orange-200/90">Tap for the full restaurant</p>
+        )}
       </div>
     </>
   );
@@ -821,13 +943,8 @@ function WinnerCard({ place }: { place: Nearby }) {
         >
           Directions
         </a>
-        <Link
-          href={`/restaurants/${restaurant.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="gp-btn gp-btn-secondary text-sm"
-        >
-          Full menu
+        <Link href={`/restaurants/${restaurant.id}`} className="gp-btn gp-btn-secondary text-sm">
+          Full restaurant
         </Link>
       </div>
     </div>
