@@ -45,7 +45,7 @@ export function Header() {
         >
           <BrandMark />
           <span
-            className={`text-[0.95rem]${isHome ? " max-[379px]:sr-only" : ""}`}
+            className={`text-[0.95rem]${isHome ? " max-[389px]:sr-only" : ""}`}
           >
             {PLATFORM.name}
             <span className="ml-1.5 hidden rounded-md bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange-300/90 sm:inline">
