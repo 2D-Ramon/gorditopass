@@ -16,6 +16,14 @@ const dinerLinks = [
   { href: "/membership", label: "Membership" },
 ];
 
+/** Short, airport-style city codes for the narrow home-page header. */
+const CITY_CODES: Partial<Record<CityId, string>> = {
+  dallas: "DAL",
+  tulsa: "TUL",
+  "kansas-city": "KC",
+  okc: "OKC",
+};
+
 const businessLinks = [{ href: "/for-restaurants", label: "For restaurants" }];
 
 export function Header() {
@@ -37,9 +45,7 @@ export function Header() {
         >
           <BrandMark />
           <span
-            className={
-              isHome ? "sr-only text-[0.95rem] sm:not-sr-only" : "text-[0.95rem]"
-            }
+            className={`text-[0.95rem]${isHome ? " max-[379px]:sr-only" : ""}`}
           >
             {PLATFORM.name}
             <span className="ml-1.5 hidden rounded-md bg-brand/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange-300/90 sm:inline">
@@ -83,13 +89,13 @@ export function Header() {
         <div className="flex min-w-0 items-center gap-1.5">
           <label
             className={`gp-city-select-wrap inline-flex max-w-[8.25rem] sm:max-w-none ${
-              isHome ? "min-w-[7.5rem] sm:min-w-0" : "min-w-0"
+              isHome ? "w-[4rem] shrink-0 sm:w-auto sm:shrink" : "min-w-0"
             }`}
           >
             <span className="sr-only">City</span>
             <select
               className={`gp-city-select${
-                isHome ? " overflow-hidden text-ellipsis whitespace-nowrap" : ""
+                isHome ? " max-sm:!text-transparent" : ""
               }`}
               value={city}
               onChange={(e) => setCity(e.target.value as CityId)}
@@ -102,6 +108,14 @@ export function Header() {
                 </option>
               ))}
             </select>
+            {isHome && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-2 text-[0.7rem] font-semibold text-white sm:hidden"
+              >
+                {CITY_CODES[city] ?? city.toUpperCase()}
+              </span>
+            )}
           </label>
 
           <Link
@@ -188,7 +202,7 @@ export function Header() {
           {!user && pathname === "/" && (
             <Link
               href="/membership"
-              className="gp-btn gp-btn-primary shrink-0 text-sm !px-3 !py-1.5 lg:hidden"
+              className="gp-btn gp-btn-primary shrink-0 text-sm !px-3 !py-1.5 lg:!hidden"
             >
               Join
             </Link>
