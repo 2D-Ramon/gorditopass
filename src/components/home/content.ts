@@ -11,19 +11,21 @@ import type { MembershipPlan } from "@/lib/types";
  * Prices always come from MEMBERSHIP_PLANS; only the wording lives here.
  */
 
-/** CTA wording, kept separate from plan data on purpose. */
-export const FROM_PRICE_CTA = "$5/mo";
+const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
+
+/** Lowest monthly rate across plans, derived from MEMBERSHIP_PLANS. */
+export const FROM_PRICE_CTA = `${money(
+  Math.min(...MEMBERSHIP_PLANS.map((p) => monthlyRate(p))),
+)}/mo`;
 export const JOIN_CTA = `Join ${PLATFORM.name}, from ${FROM_PRICE_CTA}`;
 export const MAX_SEATS = MAX_FAMILY_SEATS;
 
 type PlanCopy = {
-  /** Where the plan works, as shown on the home page. */
+  /** Short line under the plan price. */
   sub: (plan: MembershipPlan) => string;
   drawer: (plan: MembershipPlan) => string;
   bullets: string[];
 };
-
-const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 const PLAN_COPY: Record<string, PlanCopy> = {
   monthly: {
@@ -37,7 +39,7 @@ const PLAN_COPY: Record<string, PlanCopy> = {
     bullets: ["Pay once for six months"],
   },
   annual: {
-    sub: (p) => `That's ${money(monthlyRate(p))}/mo.`,
+    sub: (p) => `That's ${money(monthlyRate(p))}/mo`,
     drawer: (p) => `${money(monthlyRate(p))}/mo, billed yearly`,
     bullets: ["Lowest price per month"],
   },

@@ -1587,28 +1587,7 @@
 
 .plan input:checked + .planIn .planSel { opacity: 1; }
 
-.tagChili {
-  background: rgba(249, 115, 22, 0.12);
-  color: var(--orange-300);
-  border: 1px solid rgba(249, 115, 22, 0.22);
-  font-size: 11.2px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
 
-.tagLine {
-  font-size: 11.2px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  color: var(--fg-muted);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
 
 .planCta {
   margin-top: 26px;

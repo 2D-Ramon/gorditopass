@@ -67,6 +67,14 @@ export function HomeJoinProvider({ children }: { children: React.ReactNode }) {
     dialogRef.current?.close();
   }, []);
 
+  // If the page changes while the drawer is open, don't leave the page scroll-locked.
+  useEffect(
+    () => () => {
+      document.documentElement.style.overflow = "";
+    },
+    [],
+  );
+
   const celebrate = useCallback(() => {
     setPulseKey((k) => k + 1);
     setBarWanted(true);
@@ -220,7 +228,8 @@ function StickyBar({ wanted }: { wanted: boolean }) {
   useEffect(() => {
     if (!show) return;
     const prev = document.body.style.paddingBottom;
-    document.body.style.paddingBottom = "84px";
+    document.body.style.paddingBottom =
+      "calc(65px + env(safe-area-inset-bottom, 0px) + 19px)";
     return () => {
       document.body.style.paddingBottom = prev;
     };
