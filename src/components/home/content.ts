@@ -34,12 +34,12 @@ const PLAN_COPY: Record<string, PlanCopy> = {
   monthly: {
     sub: () => "Billed monthly",
     drawer: () => "Billed monthly, cancel anytime",
-    bullets: () => ["Lowest commitment, cancel anytime", "All cities included"],
+    bullets: () => ["Lowest commitment", "All cities included", "Cancel anytime"],
   },
   six_month: {
     sub: (p) => `Billed as ${money(p.priceUsd)} every 6 months`,
     drawer: (p) => `${money(p.priceUsd)}, billed every six months`,
-    bullets: () => ["Pay once for six months", "All cities included"],
+    bullets: () => ["Pay once for six months", "All cities included", "Cancel anytime"],
   },
   annual: {
     sub: (p) => `Billed as ${money(p.priceUsd)} a year`,
@@ -49,6 +49,7 @@ const PLAN_COPY: Record<string, PlanCopy> = {
       `Most Foodies save the ${money(p.priceUsd)} in the first month alone`,
       "Lowest price per month",
       "All cities included",
+      "Cancel anytime",
     ],
   },
 };
