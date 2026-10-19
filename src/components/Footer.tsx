@@ -36,6 +36,11 @@ export function Footer() {
                 Explore
               </Link>
             </li>
+            <li>
+              <Link href="/on-the-menu" className="text-stone-300 hover:text-brand">
+                On the menu
+              </Link>
+            </li>
 
             <li>
               <Link href="/events" className="text-stone-300 hover:text-brand">
