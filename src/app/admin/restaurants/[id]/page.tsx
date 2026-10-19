@@ -8,6 +8,7 @@ import {
   type PartnerDeskTab,
 } from "@/components/partner/PartnerDesk";
 import { RESTAURANTS, cityLabel, cuisineLabel } from "@/lib/data";
+import { dietaryResponsibilityLabel } from "@/lib/pricing";
 import type { InsightsPayload } from "@/lib/partner-insights";
 
 type DeskTab = PartnerDeskTab;
@@ -168,6 +169,8 @@ const SKIP_PAYLOAD = new Set([
   "businessTypeOther",
   "ownershipType",
   "ownershipTypeOther",
+  "dietaryResponsibilities",
+  "dietaryResponsibilityOther",
   "totalLocations",
   "agreedToTerms",
   "agreed_to_terms",
@@ -635,6 +638,18 @@ function ApplicationCard({ app }: { app: Record<string, unknown> }) {
         <Field label="Cuisine">
           {text(payload.primaryCuisine || payload.cuisine)
             ? cuisineLabel(text(payload.primaryCuisine || payload.cuisine))
+            : ""}
+        </Field>
+        <Field label="Dietary responsibilities">
+          {Array.isArray(payload.dietaryResponsibilities)
+            ? payload.dietaryResponsibilities
+                .map((id) => {
+                  const key = text(id);
+                  return key === "other" && text(payload.dietaryResponsibilityOther)
+                    ? `Other (${text(payload.dietaryResponsibilityOther)})`
+                    : dietaryResponsibilityLabel(key);
+                })
+                .join(", ")
             : ""}
         </Field>
         <Field label="Email updates">{yesNo(emailOpt)}</Field>

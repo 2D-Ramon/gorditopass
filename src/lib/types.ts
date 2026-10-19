@@ -387,6 +387,21 @@ export type OwnershipTypeId =
   | "co_op"
   | "other";
 
+/** Diets a partner can serve, chosen on restaurant apply */
+export type DietaryResponsibilityId =
+  | "carnivore"
+  | "dairy_free"
+  | "gluten_free"
+  | "halal"
+  | "keto"
+  | "kosher"
+  | "omnivore"
+  | "paleo"
+  | "pescatarian"
+  | "vegan"
+  | "vegetarian"
+  | "other";
+
 /** One concept / brand under a multi-location application */
 export interface ApplicationConcept {
   id: string;
@@ -420,6 +435,9 @@ export interface RestaurantApplication {
   businessTypeOther?: string;
   ownershipType?: OwnershipTypeId;
   ownershipTypeOther?: string;
+  /** Diets this business can serve */
+  dietaryResponsibilities?: DietaryResponsibilityId[];
+  dietaryResponsibilityOther?: string;
   /** Total locations across the group */
   totalLocations?: number;
   /** Breakdown when multiple concepts (Mexican + Italian + BBQ, etc.) */

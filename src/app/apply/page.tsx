@@ -3,13 +3,18 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { APPLY_CUISINE_OPTIONS, CITIES } from "@/lib/data";
-import { BUSINESS_TYPES, OWNERSHIP_TYPES } from "@/lib/pricing";
+import {
+  BUSINESS_TYPES,
+  DIETARY_RESPONSIBILITIES,
+  OWNERSHIP_TYPES,
+} from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type {
   ApplicationConcept,
   BusinessTypeId,
   CityId,
   Cuisine,
+  DietaryResponsibilityId,
   OwnershipTypeId,
 } from "@/lib/types";
 
@@ -114,6 +119,8 @@ export default function ApplyPage() {
   const [primaryCuisine, setPrimaryCuisine] = useState<Cuisine | "">("");
   const [ownershipType, setOwnershipType] = useState<OwnershipTypeId | "">("");
   const [ownershipTypeOther, setOwnershipTypeOther] = useState("");
+  const [diets, setDiets] = useState<DietaryResponsibilityId[]>([]);
+  const [dietOther, setDietOther] = useState("");
   const [totalLocations, setTotalLocations] = useState(1);
   const [multiConcept, setMultiConcept] = useState(false);
   const [concepts, setConcepts] = useState<ApplicationConcept[]>([
@@ -227,6 +234,10 @@ export default function ApplyPage() {
             }
             if (ownershipType === "other" && !ownershipTypeOther.trim()) {
               setError("Please describe ownership type (Other).");
+              return;
+            }
+            if (diets.includes("other") && !dietOther.trim()) {
+              setError("Please describe the other dietary responsibility.");
               return;
             }
             if (totalLocations < 1) {
@@ -348,6 +359,10 @@ export default function ApplyPage() {
                 ownershipType === "other"
                   ? ownershipTypeOther.trim()
                   : undefined,
+              dietaryResponsibilities: diets,
+              dietaryResponsibilityOther: diets.includes("other")
+                ? dietOther.trim()
+                : undefined,
               totalLocations,
               concepts: multiConcept
                 ? concepts.map((c) => ({
@@ -400,6 +415,10 @@ export default function ApplyPage() {
                   ownershipType === "other"
                     ? ownershipTypeOther.trim()
                     : undefined,
+                dietaryResponsibilities: diets,
+                dietaryResponsibilityOther: diets.includes("other")
+                  ? dietOther.trim()
+                  : undefined,
                 totalLocations,
                 agreedToTerms: true,
                 concepts: multiConcept
@@ -714,6 +733,51 @@ export default function ApplyPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              Dietary responsibilities
+            </legend>
+            <p className="text-xs leading-relaxed text-muted">
+              Select every diet this business can serve, such as vegan or
+              carnivore.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {DIETARY_RESPONSIBILITIES.map((d) => (
+                <label
+                  key={d.id}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={diets.includes(d.id as DietaryResponsibilityId)}
+                    onChange={() => {
+                      const id = d.id as DietaryResponsibilityId;
+                      setDiets((prev) =>
+                        prev.includes(id)
+                          ? prev.filter((x) => x !== id)
+                          : [...prev, id],
+                      );
+                    }}
+                  />
+                  <span>{d.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {diets.includes("other") && (
+            <label className="block text-sm font-medium">
+              Describe the other diet *
+              <input
+                required
+                className="gp-input mt-1.5"
+                value={dietOther}
+                onChange={(e) => setDietOther(e.target.value)}
+                placeholder="e.g. raw, low-FODMAP…"
+              />
+            </label>
           )}
 
           <label className="block text-sm font-medium">

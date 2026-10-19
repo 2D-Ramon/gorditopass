@@ -11,7 +11,7 @@ import {
   restaurantAccountState,
   type RestaurantAccountState,
 } from "@/lib/listing-status";
-import { PLATFORM } from "@/lib/pricing";
+import { dietaryResponsibilityLabel, PLATFORM } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import type { OpsAdminPublic, OpsStatus } from "@/lib/ops-types";
 import type { CityId, RestaurantApplication } from "@/lib/types";
@@ -208,6 +208,8 @@ export default function AdminPage() {
           businessTypeOther?: string;
           ownershipType?: RestaurantApplication["ownershipType"];
           ownershipTypeOther?: string;
+          dietaryResponsibilities?: string[];
+          dietaryResponsibilityOther?: string;
           totalLocations?: number;
         };
         return {
@@ -239,6 +241,8 @@ export default function AdminPage() {
           businessTypeOther: payload.businessTypeOther,
           ownershipType: payload.ownershipType,
           ownershipTypeOther: payload.ownershipTypeOther,
+          dietaryResponsibilities: payload.dietaryResponsibilities,
+          dietaryResponsibilityOther: payload.dietaryResponsibilityOther,
           totalLocations: payload.totalLocations,
           concepts: payload.concepts,
         };
@@ -629,6 +633,20 @@ export default function AdminPage() {
                           Locations
                         </dt>
                         <dd>{a.totalLocations ?? "—"}</dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-[10px] uppercase text-muted">
+                          Dietary responsibilities
+                        </dt>
+                        <dd>
+                          {(a.dietaryResponsibilities ?? [])
+                            .map((id) =>
+                              id === "other" && a.dietaryResponsibilityOther
+                                ? `Other (${a.dietaryResponsibilityOther})`
+                                : dietaryResponsibilityLabel(id),
+                            )
+                            .join(", ") || "—"}
+                        </dd>
                       </div>
                       <div className="sm:col-span-2">
                         <dt className="text-[10px] uppercase text-muted">

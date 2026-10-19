@@ -168,6 +168,27 @@ export const BUSINESS_TYPES: { id: string; label: string }[] = alphaOptions([
   { id: "other", label: "Other" },
 ]);
 
+/** Diets a restaurant can take on during apply (alphabetical, Other last). */
+export const DIETARY_RESPONSIBILITIES: { id: string; label: string }[] =
+  alphaOptions([
+    { id: "carnivore", label: "Carnivore" },
+    { id: "dairy_free", label: "Dairy-free" },
+    { id: "gluten_free", label: "Gluten-free" },
+    { id: "halal", label: "Halal" },
+    { id: "keto", label: "Keto" },
+    { id: "kosher", label: "Kosher" },
+    { id: "omnivore", label: "Omnivore" },
+    { id: "paleo", label: "Paleo" },
+    { id: "pescatarian", label: "Pescatarian" },
+    { id: "vegan", label: "Vegan" },
+    { id: "vegetarian", label: "Vegetarian" },
+    { id: "other", label: "Other" },
+  ]);
+
+export function dietaryResponsibilityLabel(id: string): string {
+  return DIETARY_RESPONSIBILITIES.find((d) => d.id === id)?.label ?? id;
+}
+
 export const OWNERSHIP_TYPES: { id: string; label: string }[] = alphaOptions([
   { id: "chain", label: "Chain" },
   { id: "co_op", label: "Co-op / collective" },
