@@ -18,7 +18,6 @@ export const MAX_SEATS = MAX_FAMILY_SEATS;
 
 type PlanCopy = {
   /** Where the plan works, as shown on the home page. */
-  anyCity: boolean;
   sub: (plan: MembershipPlan) => string;
   drawer: (plan: MembershipPlan) => string;
   bullets: string[];
@@ -28,22 +27,19 @@ const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 const PLAN_COPY: Record<string, PlanCopy> = {
   monthly: {
-    anyCity: false,
     sub: () => "Billed monthly",
-    drawer: () => "Home city only",
-    bullets: ["Lowest commitment, cancel anytime", "Works in your home city"],
+    drawer: () => "Billed monthly, cancel anytime",
+    bullets: ["Lowest commitment, cancel anytime"],
   },
   six_month: {
-    anyCity: false,
     sub: (p) => `That's ${money(monthlyRate(p))}/mo`,
-    drawer: (p) => `${money(monthlyRate(p))}/mo, home city only`,
-    bullets: ["Pay once for six months", "Works in your home city"],
+    drawer: (p) => `${money(monthlyRate(p))}/mo, billed every six months`,
+    bullets: ["Pay once for six months"],
   },
   annual: {
-    anyCity: true,
-    sub: (p) => `That's ${money(monthlyRate(p))}/mo. Best for travelers.`,
-    drawer: (p) => `${money(monthlyRate(p))}/mo, works in any city`,
-    bullets: ["Works in any city", "Lowest price per month"],
+    sub: (p) => `That's ${money(monthlyRate(p))}/mo.`,
+    drawer: (p) => `${money(monthlyRate(p))}/mo, billed yearly`,
+    bullets: ["Lowest price per month"],
   },
 };
 
@@ -53,7 +49,6 @@ export type HomePlan = {
   price: string;
   unit: string;
   perMonth: string;
-  anyCity: boolean;
   best: boolean;
   sub: string;
   drawer: string;
@@ -68,7 +63,6 @@ function unitFor(months: number) {
 
 export const HOME_PLANS: HomePlan[] = MEMBERSHIP_PLANS.map((p) => {
   const copy = PLAN_COPY[p.id] ?? {
-    anyCity: p.cityScope === "all",
     sub: () => "",
     drawer: () => "",
     bullets: p.bullets ?? [],
@@ -79,7 +73,6 @@ export const HOME_PLANS: HomePlan[] = MEMBERSHIP_PLANS.map((p) => {
     price: money(p.priceUsd),
     unit: unitFor(p.months),
     perMonth: `${money(monthlyRate(p))}/mo`,
-    anyCity: copy.anyCity,
     best: p.id === "annual",
     sub: copy.sub(p),
     drawer: copy.drawer(p),
@@ -92,14 +85,6 @@ export const DEFAULT_PLAN_ID: HomePlan["id"] =
 
 const plan = (id: string) => HOME_PLANS.find((p) => p.id === id);
 
-/** FAQ answer built from plan data so it never drifts from pricing. */
-export function planWhereAnswer() {
-  const m = plan("monthly");
-  const s = plan("six_month");
-  const a = plan("annual");
-  if (!m || !s || !a) return "";
-  return `Monthly (${m.perMonth}) and 6-month (${s.price}, or ${s.perMonth}) plans work in your home city. The annual plan (${a.price}, or ${a.perMonth}) works in any city.`;
-}
 
 export const MONTHLY_PER_MONTH = plan("monthly")?.perMonth ?? "";
 

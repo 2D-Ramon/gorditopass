@@ -15,8 +15,7 @@ export function HomePlans() {
           <span className={`gp-section-label ${s.kicker}`}>Plans</span>
           <h2 id="home-plans-h">Pick a plan. Cancel anytime.</h2>
           <p>
-            Same pass on every plan. The longer plans cost less per month, and
-            the annual plan travels with you.
+            Same pass on every plan. The longer plans cost less per month.
           </p>
         </div>
         <fieldset className={s.plans}>
@@ -32,12 +31,7 @@ export function HomePlans() {
               />
               <div className={s.planIn}>
                 <div className={s.planName}>
-                  {p.label}{" "}
-                  {p.anyCity ? (
-                    <span className={s.tagChili}>Any city</span>
-                  ) : (
-                    <span className={s.tagLine}>Home city</span>
-                  )}
+                  {p.label}
                 </div>
                 <div className={s.planPrice}>
                   {p.price}

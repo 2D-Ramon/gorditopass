@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PLATFORM } from "@/lib/pricing";
 import { FoodTile } from "./FoodTile";
 import { Icon } from "./Icon";
-import { MAX_SEATS, MONTHLY_PER_MONTH, planWhereAnswer } from "./content";
+import { MAX_SEATS, MONTHLY_PER_MONTH } from "./content";
 import { JoinButton } from "./HomeJoin";
 import s from "./home.module.css";
 
@@ -268,7 +268,6 @@ const FAQ = [
     q: "Can I cancel anytime?",
     a: `Yes. Cancel anytime and keep access until the end of your paid term. There's no free trial, so the monthly plan is the low-commitment way to start. Accounts are for people 18+, and a plan can cover up to ${MAX_SEATS} people.`,
   },
-  { q: "Which plan works where?", a: planWhereAnswer() },
 ];
 
 /** FAQ accordion + "Ready to try it?" card. */
