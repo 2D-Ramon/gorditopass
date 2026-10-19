@@ -24,7 +24,7 @@ type PlanCopy = {
   /** Short line under the plan price. */
   sub: (plan: MembershipPlan) => string;
   drawer: (plan: MembershipPlan) => string;
-  bullets: string[];
+  bullets: (plan: MembershipPlan) => string[];
 };
 
 /** Home plans: lowest monthly cost first. */
@@ -34,17 +34,21 @@ const PLAN_COPY: Record<string, PlanCopy> = {
   monthly: {
     sub: () => "Billed monthly",
     drawer: () => "Billed monthly, cancel anytime",
-    bullets: ["Lowest commitment, cancel anytime"],
+    bullets: () => ["Lowest commitment, cancel anytime"],
   },
   six_month: {
     sub: (p) => `Billed as ${money(p.priceUsd)} every 6 months`,
     drawer: (p) => `${money(p.priceUsd)}, billed every six months`,
-    bullets: ["Pay once for six months"],
+    bullets: () => ["Pay once for six months"],
   },
   annual: {
     sub: (p) => `Billed as ${money(p.priceUsd)} a year`,
     drawer: (p) => `${money(p.priceUsd)}, billed yearly`,
-    bullets: ["Lowest price per month"],
+    bullets: (p) => [
+      "Biggest savings",
+      `Most Foodies save the ${money(p.priceUsd)} in the first month alone`,
+      "Lowest price per month",
+    ],
   },
 };
 
@@ -66,7 +70,7 @@ export const HOME_PLANS: HomePlan[] = [...MEMBERSHIP_PLANS]
     const copy = PLAN_COPY[p.id] ?? {
       sub: () => "",
       drawer: () => "",
-      bullets: p.bullets ?? [],
+      bullets: (plan: MembershipPlan) => plan.bullets ?? [],
     };
     const perMonth = `${money(monthlyRate(p))}/mo`;
     return {
@@ -78,7 +82,7 @@ export const HOME_PLANS: HomePlan[] = [...MEMBERSHIP_PLANS]
       best: p.id === "annual",
       sub: copy.sub(p),
       drawer: copy.drawer(p),
-      bullets: copy.bullets,
+      bullets: copy.bullets(p),
     };
   });
 
