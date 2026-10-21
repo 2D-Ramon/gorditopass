@@ -123,7 +123,7 @@ export function HomeHow() {
       <div className={s.container}>
         <div className={s.sHead}>
           <span className={`gp-section-label ${s.kicker}`}>How it works</span>
-          <h2 id="home-how-h">Browse. Join. Show your phone.</h2>
+          <h2 id="home-how-h">Browse. Join. Redeem.</h2>
           <p>Three simple steps:</p>
         </div>
         <ol className={s.steps}>
