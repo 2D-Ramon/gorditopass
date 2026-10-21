@@ -235,24 +235,28 @@ export function SlotMachine({
         {spinning ? "Spinning" : winner && spins > 0 ? `Tonight's pick: ${winner.restaurant.name}` : ""}
       </p>
 
-      {display && (
+      {display && placeholder ? (
+        <div className={`${s.result} ${s.skeleton}`} data-slot-result="placeholder" aria-hidden inert>
+          <p className={s.resultLabel}>{spinning ? "Picking…" : "Your pick lands here"}</p>
+          <div className={`gp-card gp-card-static ${s.skelCard}`}>
+            <span className={s.skelLogo} />
+            <span className={s.skelLines}>
+              <span className={s.skelLine} style={{ width: "60%" }} />
+              <span className={s.skelLine} style={{ width: "40%" }} />
+              <span className={s.skelDeal} />
+            </span>
+          </div>
+        </div>
+      ) : display ? (
         <div
-          className={`${s.result} ${reduced ? s.resultFade : ""} ${spinning || placeholder ? s.resultBusy : ""} ${placeholder ? s.ghost : ""}`}
-          key={spinning || placeholder ? "held" : `${display.restaurant.id}-${spins}`}
-          data-slot-result={spinning || placeholder ? "held" : "ready"}
-          aria-hidden={spinning || placeholder ? true : undefined}
-          inert={spinning || placeholder ? true : undefined}
+          className={`${s.result} ${reduced ? s.resultFade : ""} ${spinning ? s.resultBusy : ""}`}
+          key={spinning ? "held" : `${display.restaurant.id}-${spins}`}
+          data-slot-result={spinning ? "held" : "ready"}
+          aria-hidden={spinning ? true : undefined}
+          inert={spinning ? true : undefined}
         >
-          {placeholder && (
-            <p className={s.ghostNote}>{spinning ? "Picking…" : "Spin to pick tonight's place"}</p>
-          )}
-          <p className={s.resultLabel} style={placeholder ? { visibility: "hidden" } : undefined}>
-            Go here tonight
-          </p>
-          <div
-            className="gp-card gp-card-static overflow-hidden"
-            style={placeholder ? { visibility: "hidden" } : undefined}
-          >
+          <p className={s.resultLabel}>Go here tonight</p>
+          <div className="gp-card gp-card-static overflow-hidden">
             <SwipeCard restaurant={display.restaurant} miles={display.miles} compact />
             <div className="flex flex-col gap-2 px-4 pb-4">
               <Link href={`/restaurants/${display.restaurant.id}`} className="gp-btn gp-btn-primary w-full">
@@ -268,7 +272,7 @@ export function SlotMachine({
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

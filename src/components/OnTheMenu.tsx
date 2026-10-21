@@ -52,9 +52,18 @@ export function OnTheMenu() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  function openSettings() {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSettingsOpen(true);
+  }
   function closeSettings() {
     setSettingsOpen(false);
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
+    const opener = openerRef.current;
+    openerRef.current = null;
+    window.requestAnimationFrame(() =>
+      (opener && opener.isConnected ? opener : triggerRef.current)?.focus(),
+    );
   }
   const [announce, setAnnounce] = useState("");
   const [reduced, setReduced] = useState(false);
@@ -449,7 +458,7 @@ export function OnTheMenu() {
             ref={triggerRef}
             aria-expanded={settingsOpen}
             aria-controls="menu-settings"
-            onClick={() => (settingsOpen ? closeSettings() : setSettingsOpen(true))}
+            onClick={() => (settingsOpen ? closeSettings() : openSettings())}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
@@ -503,7 +512,7 @@ export function OnTheMenu() {
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         {focus && (
-          <button type="button" className={styles.chip} onClick={() => setSettingsOpen(true)}>
+          <button type="button" className={styles.chip} onClick={openSettings}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             <span className="truncate">{locationLine}</span>
           </button>

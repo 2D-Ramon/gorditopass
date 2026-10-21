@@ -127,6 +127,9 @@
 }
 .bulbsBottom { align-items: flex-end; }
 .resultBusy { opacity: 0.35; pointer-events: none; animation: none; transition: opacity 200ms ease; }
-.ghost { position: relative; opacity: 1; }
-.ghost::after { content: ""; position: absolute; inset: 28px 0 0; border: 2px dashed #3f3f46; border-radius: 16px; }
-.ghostNote { position: absolute; left: 0; right: 0; top: 50%; z-index: 1; text-align: center; font-size: 14px; color: #a1a1aa; }
+.skeleton { opacity: 0.55; animation: none; }
+.skelCard { display: flex; align-items: center; gap: 14px; padding: 16px; }
+.skelLogo { width: 44px; height: 44px; flex-shrink: 0; border-radius: 9999px; background: #27272a; }
+.skelLines { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 8px; }
+.skelLine { display: block; height: 10px; border-radius: 6px; background: #27272a; }
+.skelDeal { display: block; height: 22px; border-radius: 8px; border-left: 3px solid rgba(249,115,22,0.5); background: rgba(249,115,22,0.08); }
