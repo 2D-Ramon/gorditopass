@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PlateRating } from "@/components/PlateRating";
+import { SwipeCard } from "@/components/on-the-menu/SwipeCard";
+import styles from "@/components/on-the-menu/on-the-menu.module.css";
 import { cityLabel, cuisineLabel } from "@/lib/data";
+import { activeDeal } from "@/components/on-the-menu/SwipeCard";
 import { CITY_CENTERS } from "@/lib/listing-map";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import { formatMiles, milesBetween } from "@/lib/miles";
@@ -12,7 +14,8 @@ import { useStore } from "@/lib/store";
 import type { Restaurant } from "@/lib/types";
 
 const RADIUS_PRESETS = [1, 3, 5, 10, 15, 25];
-const SWIPE_PX = 96;
+const SWIPE_PX = 100;
+const FLICK_PX_PER_MS = 0.6;
 const SPIN_MS = 3400;
 const ROW_REM = 5.25;
 
@@ -22,14 +25,6 @@ type Nearby = { restaurant: Restaurant; miles: number };
 type LocStatus = "idle" | "asking" | "ready" | "denied" | "unavailable";
 type Fly = "left" | "right" | null;
 
-function menuPreview(restaurant: Restaurant) {
-  return restaurant.menu.filter((item) => !item.soldOut).slice(0, 3);
-}
-
-function money(priceUsd: number) {
-  if (!priceUsd) return null;
-  return `$${priceUsd.toFixed(2)}`;
-}
 
 type NightMemory = {
   origin: Origin | null;
@@ -47,8 +42,16 @@ export function OnTheMenu() {
   const { city, isRestaurantApproved } = useStore();
   const { restaurants } = useLiveCatalog();
   const remembered = nightMemory;
-  const [origin, setOrigin] = useState<Origin | null>(remembered?.origin ?? null);
-  const [locStatus, setLocStatus] = useState<LocStatus>(remembered?.origin ? "ready" : "idle");
+  // Start on the city center so the cards show first. Location lives behind the settings button.
+  const [origin, setOrigin] = useState<Origin | null>(
+    remembered?.origin ?? { ...CITY_CENTERS[city], kind: "city" },
+  );
+  const [locStatus, setLocStatus] = useState<LocStatus>(
+    remembered?.origin?.kind === "you" ? "ready" : "idle",
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [announce, setAnnounce] = useState("");
+  const [reduced, setReduced] = useState(false);
   const [radius, setRadius] = useState(remembered?.radius ?? 5);
   const [decisions, setDecisions] = useState<Decision[]>(remembered?.decisions ?? []);
   const [view, setView] = useState<"deck" | "possibilities">(remembered?.view ?? "deck");
@@ -70,6 +73,7 @@ export function OnTheMenu() {
     y: number;
     dx: number;
     dy: number;
+    t: number;
     locked: "x" | "y" | null;
   } | null>(null);
 
@@ -82,6 +86,23 @@ export function OnTheMenu() {
       if (spinTimer.current != null) window.clearTimeout(spinTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setSettingsOpen(false);
+    }
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [settingsOpen]);
 
   useEffect(() => {
     nightMemory = { origin, radius, decisions, view, winnerId };
@@ -167,6 +188,8 @@ export function OnTheMenu() {
       if (!topId || fly || exitRef.current) return;
       exitRef.current = topId;
       const id = topId;
+      const name = deck[0]?.restaurant.name ?? "";
+      setAnnounce(choice === "yes" ? `Added ${name} to Possibilities.` : `Skipped ${name}.`);
       setFly(choice === "yes" ? "right" : "left");
       setDrag({ x: 0, y: 0, dragging: false });
       gesture.current = null;
@@ -182,7 +205,7 @@ export function OnTheMenu() {
         if (choice === "yes") setClearedNote(false);
       }, 240);
     };
-  }, [topId, fly]);
+  });
 
   function beginExit(choice: "yes" | "no") {
     chooseRef.current(choice);
@@ -190,22 +213,39 @@ export function OnTheMenu() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (view !== "deck") return;
+      if (view !== "deck" || settingsOpen) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        undoRef.current();
+        return;
+      }
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
       chooseRef.current(e.key === "ArrowRight" ? "yes" : "no");
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view]);
+  }, [view, settingsOpen]);
+
+  const undoRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    undoRef.current = undo;
+  });
 
   function undo() {
     if (fly || spinning || decisions.length === 0) return;
     const last = decisions[decisions.length - 1];
     if (winnerId === last.id) setWinnerId(null);
     setDecisions((prev) => prev.slice(0, -1));
+    setAnnounce("Undid the last swipe.");
+  }
+
+  function startOver() {
+    if (fly) return;
+    setDecisions((prev) => prev.filter((d) => d.choice === "yes"));
+    setAnnounce("Skipped places are back in the stack.");
   }
 
   function backToDeck() {
@@ -274,7 +314,7 @@ export function OnTheMenu() {
 
   function onPointerDown(e: React.PointerEvent<HTMLElement>) {
     if (fly || e.button !== 0) return;
-    gesture.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0, locked: null };
+    gesture.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0, t: performance.now(), locked: null };
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLElement>) {
@@ -303,8 +343,9 @@ export function OnTheMenu() {
       return;
     }
     if (g.locked === "x") {
-      if (g.dx >= SWIPE_PX) beginExit("yes");
-      else if (g.dx <= -SWIPE_PX) beginExit("no");
+      const speed = g.dx / Math.max(1, performance.now() - g.t);
+      if (g.dx >= SWIPE_PX || (g.dx > 30 && speed > FLICK_PX_PER_MS)) beginExit("yes");
+      else if (g.dx <= -SWIPE_PX || (g.dx < -30 && speed < -FLICK_PX_PER_MS)) beginExit("no");
       else setDrag({ x: 0, y: 0, dragging: false });
       return;
     }
@@ -317,126 +358,196 @@ export function OnTheMenu() {
   const noOpacity =
     fly === "left" ? 1 : fly === "right" ? 0 : Math.max(0, Math.min(1, -drag.x / 90));
 
+  const cardTransform = reduced
+    ? "none"
+    : fly === "right"
+      ? "translate(130%, 0) rotate(12deg)"
+      : fly === "left"
+        ? "translate(-130%, 0) rotate(-12deg)"
+        : drag.dragging
+          ? `translate(${drag.x}px, ${drag.y}px) rotate(${Math.max(-12, Math.min(12, drag.x * 0.06))}deg)`
+          : "translate(0, 0)";
+  const locationLine = focus
+    ? `Using ${focus.kind === "you" ? "your location" : `${cityName} center`} · ${radius} mi`
+    : "";
+
   return (
-    <div className="mx-auto max-w-lg px-4 py-10">
+    <div className="mx-auto w-full max-w-lg px-4 py-8 sm:py-10">
       <p className="gp-badge mb-4">Tonight only</p>
       <h1 className="gp-page-title">What&apos;s on the menu</h1>
       <p className="gp-page-sub">
-        Swipe right if you want to try it. Swipe left to pass. Yes votes land
-        in Possibilities for tonight, then a draw picks the place.
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
-        This is not saved to your account. Exit Possibilities and it clears.
-        Open a restaurant and come back, and tonight&apos;s picks are still here.
+        Swipe right on places you&apos;re interested in, left to skip. Then spin for tonight&apos;s pick.
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-2" role="tablist" aria-label="Tonight">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === "deck"}
-          className={`rounded-md px-3 py-2 text-sm font-semibold ${
-            view === "deck"
-              ? "bg-white/10 text-white"
-              : "bg-white/4 text-muted hover:text-white"
-          }`}
-          onClick={backToDeck}
-        >
-          Want to try
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === "possibilities"}
-          className={`rounded-md px-3 py-2 text-sm font-semibold ${
-            view === "possibilities"
-              ? "bg-white/10 text-white"
-              : "bg-white/4 text-muted hover:text-white"
-          }`}
-          onClick={() => setView("possibilities")}
-        >
-          Possibilities
-          {possibilities.length > 0 ? ` (${possibilities.length})` : ""}
-        </button>
+      <div className={`${styles.anchor} mt-6`}>
+        <div className="flex items-center gap-2">
+          <div
+            className="grid flex-1 grid-cols-2 gap-1 rounded-full border border-border bg-white/4 p-1"
+            role="tablist"
+            aria-label="Tonight"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "deck"}
+              className={`min-h-9 rounded-full px-3 text-sm font-semibold ${
+                view === "deck" ? "bg-white/12 text-white" : "text-muted hover:text-white"
+              }`}
+              onClick={backToDeck}
+            >
+              Want to try
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "possibilities"}
+              className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold ${
+                view === "possibilities" ? "bg-white/12 text-white" : "text-muted hover:text-white"
+              }`}
+              onClick={() => setView("possibilities")}
+            >
+              Possibilities
+              {possibilities.length > 0 && (
+                <span className="rounded-full bg-brand px-1.5 text-[11px] font-bold leading-5 text-white">
+                  {possibilities.length}
+                </span>
+              )}
+            </button>
+          </div>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            aria-label="Location and radius"
+            aria-expanded={settingsOpen}
+            aria-controls="menu-settings"
+            onClick={() => setSettingsOpen((o) => !o)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
+              <circle cx="16" cy="6" r="2" />
+              <circle cx="10" cy="12" r="2" />
+              <circle cx="18" cy="18" r="2" />
+            </svg>
+          </button>
+        </div>
+        {settingsOpen && focus && (
+          <>
+            <div className={styles.backdrop} onClick={() => setSettingsOpen(false)} aria-hidden />
+            <div id="menu-settings" role="dialog" aria-label="Places near you" className={styles.sheet}>
+              <div className={styles.grab} aria-hidden />
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-base font-bold tracking-tight">Places near you</h2>
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-sm text-muted hover:text-white"
+                  onClick={() => setSettingsOpen(false)}
+                >
+                  Done
+                </button>
+              </div>
+              <p className="mb-3 text-xs leading-relaxed text-muted">
+                Your location is used only to measure distance on this page. It is not saved.
+              </p>
+              {locStatus === "denied" && (
+                <p className="mb-3 text-sm text-orange-200/90">
+                  Location is blocked. Allow it in the browser, or use the {cityName} center.
+                </p>
+              )}
+              {locStatus === "unavailable" && (
+                <p className="mb-3 text-sm text-orange-200/90">
+                  This browser has no location. Use the {cityName} center instead.
+                </p>
+              )}
+              <RadiusControl
+                radius={radius}
+                onChange={setRadius}
+                count={inRadius.length}
+                origin={focus}
+                cityName={cityName}
+                onLocate={locate}
+                onCity={applyCityCenter}
+                locating={locStatus === "asking"}
+              />
+            </div>
+          </>
+        )}
       </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        {focus && (
+          <button type="button" className={styles.chip} onClick={() => setSettingsOpen(true)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            <span className="truncate">{locationLine}</span>
+          </button>
+        )}
+        <p className="text-xs text-muted">Not saved to your account.</p>
+      </div>
+      <p className="sr-only" aria-live="polite">{announce}</p>
 
-      {!focus ? (
-        <LocationGate
-          cityName={cityName}
-          status={locStatus}
-          onLocate={locate}
-          onCity={applyCityCenter}
-        />
-      ) : view === "deck" ? (
-        <section className="mt-6" aria-label="Swipe restaurants">
-          <RadiusControl
-            radius={radius}
-            onChange={setRadius}
-            count={inRadius.length}
-            origin={focus}
-            cityName={cityName}
-            onLocate={locate}
-            onCity={applyCityCenter}
-            locating={locStatus === "asking"}
-          />
+      {!focus ? null : view === "deck" ? (
+        <section className="mt-5" aria-label="Swipe restaurants">
           {clearedNote && (
-            <p className="mt-4 text-sm text-orange-200/90">
-              Cleared. Tonight starts over.
-            </p>
+            <p className="mb-3 text-center text-sm text-orange-200/90">Cleared. Tonight starts over.</p>
           )}
-
           {deck.length === 0 ? (
-            <div className="mt-6 gp-card gp-card-static p-6 text-center">
-              <p className="font-semibold">
+            <div className="mx-auto max-w-[380px] gp-card gp-card-static p-6 text-center">
+              <p className="text-lg font-bold">
                 {inRadius.length === 0
                   ? `No restaurants within ${radius} ${radius === 1 ? "mile" : "miles"}.`
-                  : "You’ve passed on every place in this radius."}
+                  : "That’s everyone for tonight"}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 {inRadius.length === 0
-                  ? "Widen the radius. Approved restaurants in any city count if they sit inside it."
-                  : "Widen the radius, undo a pass, or open Possibilities."}
+                  ? "Widen the radius from the settings button."
+                  : "Spin your Possibilities, or bring back the places you skipped."}
               </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {radius < 25 && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                {possibilities.length > 0 && (
                   <button
                     type="button"
-                    className="gp-btn gp-btn-secondary text-sm"
+                    className="gp-btn gp-btn-primary w-full text-sm"
+                    onClick={() => setView("possibilities")}
+                  >
+                    See your Possibilities ({possibilities.length})
+                  </button>
+                )}
+                {inRadius.length === 0 && radius < 25 && (
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-secondary w-full text-sm"
                     onClick={() => setRadius((n) => Math.min(25, n + 5))}
                   >
                     Try {Math.min(25, radius + 5)} mi
                   </button>
                 )}
-                {possibilities.length > 0 && (
+                {decisions.some((d) => d.choice === "no") && (
                   <button
                     type="button"
-                    className="gp-btn gp-btn-primary text-sm"
-                    onClick={() => setView("possibilities")}
+                    className="text-sm font-medium text-orange-200/90 hover:text-orange-100"
+                    onClick={startOver}
                   >
-                    Possibilities
+                    Start over
                   </button>
                 )}
               </div>
             </div>
           ) : (
             <>
-              <p className="mt-4 text-center text-xs text-muted">
-                {deck.length} left in this radius · closest first
-              </p>
-              <div className="relative mx-auto mt-3 max-w-md pb-3">
+              <div className={styles.stack}>
                 {deck.slice(1, 3).map((place, i) => {
                   const index = i + 1;
+                  const lift = drag.dragging || fly ? 0.5 : 0;
                   return (
                     <article
                       key={place.restaurant.id}
                       aria-hidden
-                      className="pointer-events-none absolute inset-x-0 top-0 gp-card gp-card-static overflow-hidden transition duration-200"
+                      className={`${styles.peek} gp-card gp-card-static`}
                       style={{
-                        transform: `translateY(${index * 12}px) scale(${1 - index * 0.045})`,
+                        transform: `translateY(${(index - lift) * 10}px) scale(${1 - (index - lift) * 0.05})`,
+                        filter: `brightness(${1 - index * 0.25})`,
                         zIndex: 20 - index,
                       }}
                     >
-                      <PlaceFace place={place} />
+                      <SwipeCard restaurant={place.restaurant} miles={place.miles} />
                     </article>
                   );
                 })}
@@ -444,21 +555,12 @@ export function OnTheMenu() {
                   key={top.restaurant.id}
                   role="link"
                   tabIndex={0}
-                  className={`menu-swipe relative z-30 cursor-pointer gp-card overflow-hidden hover:border-brand/50 ${
-                    drag.dragging ? "" : "transition duration-200"
-                  }`}
-                  style={{
-                    transform:
-                      fly === "right"
-                        ? "translate(120%, 0) rotate(12deg)"
-                        : fly === "left"
-                          ? "translate(-120%, 0) rotate(-12deg)"
-                          : drag.dragging
-                            ? `translate(${drag.x}px, ${drag.y}px) rotate(${Math.max(-14, Math.min(14, drag.x / 18))}deg)`
-                            : "translate(0, 0)",
-                    opacity: fly ? 0 : 1,
-                  }}
-                  aria-label={`${top.restaurant.name}, ${formatMiles(top.miles)}. Swipe right if you want to try it, left to pass. Activate to open the full restaurant page.`}
+                  data-swipe-card
+                  className={`${styles.card} gp-card gp-card-static z-30 ${drag.dragging ? "" : styles.spring}`}
+                  style={{ transform: cardTransform, opacity: fly ? 0 : 1, zIndex: 30 }}
+                  aria-label={`${top.restaurant.name}. ${cuisineLabel(top.restaurant.cuisine)}. ${
+                    top.restaurant.plateRating > 0 ? `Plate rate ${top.restaurant.plateRating.toFixed(1)}.` : "No reviews yet."
+                  } ${activeDeal(top.restaurant)?.title ?? "No active deal"}. ${formatMiles(top.miles)}. Press Enter to open the restaurant, right arrow for interested, left arrow to skip.`}
                   onPointerDown={onPointerDown}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
@@ -470,52 +572,51 @@ export function OnTheMenu() {
                     }
                   }}
                 >
-                  <span
-                    className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border-2 border-emerald-400 px-2 py-1 text-xs font-black tracking-wide text-emerald-300"
-                    style={{ opacity: yesOpacity, transform: "rotate(-12deg)" }}
-                  >
-                    WANT TO TRY
+                  <span className={`${styles.stamp} ${styles.stampYes}`} style={{ opacity: yesOpacity }}>
+                    Interested
                   </span>
-                  <span
-                    className="pointer-events-none absolute right-4 top-4 z-10 rounded-md border-2 border-red-400 px-2 py-1 text-xs font-black tracking-wide text-red-300"
-                    style={{ opacity: noOpacity, transform: "rotate(12deg)" }}
-                  >
-                    PASS
+                  <span className={`${styles.stamp} ${styles.stampNo}`} style={{ opacity: noOpacity }}>
+                    Skip
                   </span>
-                  <PlaceFace place={top} details />
+                  <SwipeCard restaurant={top.restaurant} miles={top.miles} />
                 </article>
               </div>
-              <div className="mt-4 flex items-center justify-center gap-5">
-                <button
-                  type="button"
-                  className="flex h-16 w-16 items-center justify-center rounded-full border border-red-400/50 bg-red-500/10 text-lg font-bold text-red-200"
-                  aria-label="Pass"
-                  onClick={() => beginExit("no")}
-                >
-                  ✕
-                </button>
-                <button
-                  type="button"
-                  className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15 text-lg font-bold text-emerald-200"
-                  aria-label="Want to try"
-                  onClick={() => beginExit("yes")}
-                >
-                  ✓
-                </button>
+              <div className={styles.controls}>
+                <div>
+                  <button type="button" className={`${styles.round} ${styles.skip}`} aria-label="Skip" onClick={() => beginExit("no")}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                  <span className={styles.btnLabel} aria-hidden>Skip</span>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    className={`${styles.round} ${styles.undo}`}
+                    aria-label="Undo last swipe"
+                    onClick={undo}
+                    disabled={decisions.length === 0 || Boolean(fly)}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M9 14L4 9l5-5" />
+                      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+                    </svg>
+                  </button>
+                  <span className={styles.btnLabel} aria-hidden>Undo</span>
+                </div>
+                <div>
+                  <button type="button" className={`${styles.round} ${styles.interested}`} aria-label="Interested" onClick={() => beginExit("yes")}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M12 21s-7.5-4.6-9.5-9.2C1.2 8.6 3.3 5 6.9 5c2 0 3.4 1.1 5.1 3 1.7-1.9 3.1-3 5.1-3 3.6 0 5.7 3.6 4.4 6.8C19.5 16.4 12 21 12 21z" />
+                    </svg>
+                  </button>
+                  <span className={styles.btnLabel} aria-hidden>Interested</span>
+                </div>
               </div>
               <p className="mt-3 text-center text-xs text-muted">
-                Drag to swipe. Tap the card for the full restaurant page. Right arrow is yes. Left arrow is no.
+                {deck.length} left · closest first · ← skip · → interested · tap card for details
               </p>
-              <div className="mt-3 text-center">
-                <button
-                  type="button"
-                  className="text-sm text-muted hover:text-white disabled:opacity-40"
-                  onClick={undo}
-                  disabled={decisions.length === 0 || Boolean(fly)}
-                >
-                  Undo last swipe
-                </button>
-              </div>
             </>
           )}
         </section>
@@ -642,53 +743,8 @@ export function OnTheMenu() {
             </>
           )}
         </section>
-      )}
-    </div>
-  );
-}
 
-function LocationGate({
-  cityName,
-  status,
-  onLocate,
-  onCity,
-}: {
-  cityName: string;
-  status: LocStatus;
-  onLocate: () => void;
-  onCity: () => void;
-}) {
-  return (
-    <div className="mt-6 gp-card gp-card-static p-6">
-      <h2 className="text-lg font-bold tracking-tight">Places near you</h2>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
-        Default radius is 5 miles. You can change it. Your location is used
-        only to measure distance on this page. It is not saved.
-      </p>
-      {status === "denied" && (
-        <p className="mt-3 text-sm text-orange-200/90">
-          Location is blocked. Allow it in the browser, or use the {cityName}{" "}
-          center.
-        </p>
       )}
-      {status === "unavailable" && (
-        <p className="mt-3 text-sm text-orange-200/90">
-          This browser has no location. Use the {cityName} center instead.
-        </p>
-      )}
-      <div className="mt-5 flex flex-col gap-2">
-        <button
-          type="button"
-          className="gp-btn gp-btn-primary"
-          onClick={onLocate}
-          disabled={status === "asking"}
-        >
-          {status === "asking" ? "Finding you…" : "Use my location"}
-        </button>
-        <button type="button" className="gp-btn gp-btn-secondary" onClick={onCity}>
-          Use {cityName} center
-        </button>
-      </div>
     </div>
   );
 }
@@ -850,77 +906,6 @@ function SlotReel({
   );
 }
 
-function PlaceFace({ place, details = false }: { place: Nearby; details?: boolean }) {
-  const { restaurant } = place;
-  const deal = restaurant.deals.find((d) => d.active && !d.soldOut);
-  const items = menuPreview(restaurant);
-  return (
-    <>
-      <div
-        className={`relative flex items-center justify-center text-6xl ${
-          restaurant.logoUrl ? "h-40 bg-black" : "h-36"
-        }`}
-        style={
-          restaurant.logoUrl
-            ? undefined
-            : {
-                background: `linear-gradient(145deg, ${restaurant.accent}55, #121214 72%)`,
-              }
-        }
-      >
-        {restaurant.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={restaurant.logoUrl}
-            alt=""
-            draggable={false}
-            className="h-[78%] w-[78%] object-contain"
-          />
-        ) : (
-          <span>{restaurant.emoji}</span>
-        )}
-        <span className="absolute bottom-2.5 right-2.5 rounded-md bg-black/70 px-2 py-1 text-xs font-bold text-white">
-          {formatMiles(place.miles)}
-        </span>
-      </div>
-      <div className="space-y-2 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-xl font-bold tracking-tight">{restaurant.name}</h2>
-            <p className="mt-0.5 text-xs text-muted">
-              {cuisineLabel(restaurant.cuisine)}
-              {restaurant.neighborhood ? ` · ${restaurant.neighborhood}` : ""}
-            </p>
-          </div>
-          {restaurant.plateRating > 0 && (
-            <PlateRating value={restaurant.plateRating} size="sm" />
-          )}
-        </div>
-        {restaurant.tagline && (
-          <p className="line-clamp-2 text-sm leading-relaxed text-muted">
-            {restaurant.tagline}
-          </p>
-        )}
-        {deal && <span className="gp-badge !normal-case">{deal.title}</span>}
-        {items.length > 0 && (
-          <ul className="space-y-1 border-t border-border pt-2">
-            {items.map((item) => (
-              <li key={item.id} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="truncate">{item.name}</span>
-                {money(item.priceUsd) && (
-                  <span className="shrink-0 text-muted">{money(item.priceUsd)}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {details && (
-          <p className="text-xs font-semibold text-orange-200/90">Tap for the full restaurant</p>
-        )}
-      </div>
-    </>
-  );
-}
 
 function WinnerCard({ place }: { place: Nearby }) {
   const { restaurant } = place;
