@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SwipeCard } from "@/components/on-the-menu/SwipeCard";
+import { SlotMachine } from "@/components/on-the-menu/SlotMachine";
+import { RestaurantLogo, SwipeCard } from "@/components/on-the-menu/SwipeCard";
 import styles from "@/components/on-the-menu/on-the-menu.module.css";
 import { cityLabel, cuisineLabel } from "@/lib/data";
 import { activeDeal } from "@/components/on-the-menu/SwipeCard";
@@ -17,7 +17,6 @@ const RADIUS_PRESETS = [1, 3, 5, 10, 15, 25];
 const SWIPE_PX = 100;
 const FLICK_PX_PER_MS = 0.6;
 const SPIN_MS = 3400;
-const ROW_REM = 5.25;
 
 type Origin = { lat: number; lng: number; kind: "you" | "city" };
 type Decision = { id: string; choice: "yes" | "no" };
@@ -536,14 +535,15 @@ export function OnTheMenu() {
                 {deck.slice(1, 3).map((place, i) => {
                   const index = i + 1;
                   const lift = drag.dragging || fly ? 0.5 : 0;
+                  const step = index - lift;
                   return (
                     <article
                       key={place.restaurant.id}
                       aria-hidden
                       className={`${styles.peek} gp-card gp-card-static`}
                       style={{
-                        transform: `translateY(${(index - lift) * 10}px) scale(${1 - (index - lift) * 0.05})`,
-                        filter: `brightness(${1 - index * 0.25})`,
+                        transform: `translateY(${step * 10}px) scale(${1 - step * 0.05})`,
+                        filter: `brightness(${1 - step * 0.22})`,
                         zIndex: 20 - index,
                       }}
                     >
@@ -582,16 +582,17 @@ export function OnTheMenu() {
                 </article>
               </div>
               <div className={styles.controls}>
-                <div>
-                  <button type="button" className={`${styles.round} ${styles.skip}`} aria-label="Skip" onClick={() => beginExit("no")}>
+                <div className={styles.ctrl}>
+                  <span className={styles.ctrlSlot}><button type="button" className={`${styles.round} ${styles.skip}`} aria-label="Skip" onClick={() => beginExit("no")}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
                       <path d="M6 6l12 12M18 6L6 18" />
                     </svg>
                   </button>
+                  </span>
                   <span className={styles.btnLabel} aria-hidden>Skip</span>
                 </div>
-                <div>
-                  <button
+                <div className={styles.ctrl}>
+                  <span className={styles.ctrlSlot}><button
                     type="button"
                     className={`${styles.round} ${styles.undo}`}
                     aria-label="Undo last swipe"
@@ -603,14 +604,16 @@ export function OnTheMenu() {
                       <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
                     </svg>
                   </button>
+                  </span>
                   <span className={styles.btnLabel} aria-hidden>Undo</span>
                 </div>
-                <div>
-                  <button type="button" className={`${styles.round} ${styles.interested}`} aria-label="Interested" onClick={() => beginExit("yes")}>
+                <div className={styles.ctrl}>
+                  <span className={styles.ctrlSlot}><button type="button" className={`${styles.round} ${styles.interested}`} aria-label="Interested" onClick={() => beginExit("yes")}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                       <path d="M12 21s-7.5-4.6-9.5-9.2C1.2 8.6 3.3 5 6.9 5c2 0 3.4 1.1 5.1 3 1.7-1.9 3.1-3 5.1-3 3.6 0 5.7 3.6 4.4 6.8C19.5 16.4 12 21 12 21z" />
                     </svg>
                   </button>
+                  </span>
                   <span className={styles.btnLabel} aria-hidden>Interested</span>
                 </div>
               </div>
@@ -642,30 +645,23 @@ export function OnTheMenu() {
             </div>
           ) : (
             <>
-              <div className="mt-4 gp-card gp-card-static p-4 text-center">
-                <p className="gp-section-label">Tonight&apos;s draw</p>
-                <SlotReel places={possibilities} shift={shift} spinning={spinning} />
-                <p className="sr-only" aria-live="polite">
-                  {spinning
-                    ? "Spinning"
-                    : winner
-                      ? `Winner: ${winner.restaurant.name}`
-                      : ""}
-                </p>
-                <button
-                  type="button"
-                  className="gp-btn gp-btn-primary mt-4 w-full"
-                  onClick={draw}
-                  disabled={spinning}
-                >
-                  {spinning ? "Spinning…" : winner ? "Spin again" : "Spin"}
-                </button>
-                {possibilities.length === 1 && !spinning && (
-                  <p className="mt-2 text-xs text-muted">Only one place on the list.</p>
-                )}
-              </div>
-
-              {winner && !spinning && <WinnerCard place={winner} />}
+              <SlotMachine
+                places={possibilities}
+                shift={shift}
+                spinning={spinning}
+                winner={winner}
+                spinMs={SPIN_MS}
+                reduced={reduced}
+                onSpin={draw}
+                onRemove={removeYes}
+              />
+              {possibilities.length === 1 && (
+                <div className="mt-3 text-center">
+                  <button type="button" className="text-sm font-medium text-orange-200/90 hover:text-orange-100" onClick={backToDeck}>
+                    Back to Want to try
+                  </button>
+                </div>
+              )}
 
               <ul className="mt-4 space-y-2">
                 {possibilities.map((place, index) => {
@@ -678,9 +674,7 @@ export function OnTheMenu() {
                         active ? "border-brand/60 bg-brand/10" : "border-border bg-card"
                       }`}
                     >
-                      <span className="text-xl" aria-hidden>
-                        {place.restaurant.emoji}
-                      </span>
+                      <RestaurantLogo restaurant={place.restaurant} size={32} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">
                           {place.restaurant.name}
@@ -825,113 +819,6 @@ function RadiusControl({
             ? `Use ${cityName} center instead`
             : "Use my location instead"}
       </button>
-    </div>
-  );
-}
-
-function SlotReel({
-  places,
-  shift,
-  spinning,
-}: {
-  places: Nearby[];
-  shift: number;
-  spinning: boolean;
-}) {
-  const n = places.length;
-  const rows = Math.max(n * 8, shift + 4);
-  return (
-    <div
-      className="relative mx-auto mt-4 overflow-hidden rounded-2xl border-2 border-brand/50 bg-black shadow-[inset_0_0_48px_rgba(0,0,0,0.75)]"
-      style={{ height: `${ROW_REM * 3}rem` }}
-      data-slot="reel"
-      aria-hidden
-    >
-      <span className="pointer-events-none absolute left-1.5 top-1/2 z-30 -translate-y-1/2 text-sm text-brand">
-        ▶
-      </span>
-      <span className="pointer-events-none absolute right-1.5 top-1/2 z-30 -translate-y-1/2 text-sm text-brand">
-        ◀
-      </span>
-      <div
-        className="pointer-events-none absolute inset-x-0 top-1/2 z-20 -translate-y-1/2 border-y-2 border-brand/80 bg-brand/10"
-        style={{ height: `${ROW_REM}rem` }}
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-12 bg-gradient-to-b from-black to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-black to-transparent" />
-      <div
-        data-slot-track
-        style={{
-          transform: `translateY(calc(${ROW_REM}rem - ${shift} * ${ROW_REM}rem))`,
-          transition: spinning
-            ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.72, 0.08, 1)`
-            : "none",
-        }}
-      >
-        {Array.from({ length: rows }, (_, i) => {
-          const place = places[i % n];
-          const restaurant = place.restaurant;
-          return (
-            <div
-              key={`${restaurant.id}-${i}`}
-              className="flex items-center gap-3 px-8 text-left"
-              style={{ height: `${ROW_REM}rem` }}
-              data-slot-name={restaurant.name}
-            >
-              {restaurant.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={restaurant.logoUrl}
-                  alt=""
-                  className="h-12 w-12 shrink-0 object-contain"
-                />
-              ) : (
-                <span className="w-12 shrink-0 text-center text-3xl" aria-hidden>
-                  {restaurant.emoji}
-                </span>
-              )}
-              <span className="min-w-0">
-                <span className="block truncate text-lg font-bold tracking-tight">
-                  {restaurant.name}
-                </span>
-                <span className="block truncate text-xs text-muted">
-                  {formatMiles(place.miles)} · {cuisineLabel(restaurant.cuisine)}
-                </span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-
-function WinnerCard({ place }: { place: Nearby }) {
-  const { restaurant } = place;
-  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-    `${restaurant.name}, ${restaurant.address}`,
-  )}`;
-  return (
-    <div className="mt-4 rounded-xl border border-brand/40 bg-brand/10 p-4">
-      <p className="gp-section-label text-orange-200/90">Go here tonight</p>
-      <p className="mt-1 text-lg font-bold">{restaurant.name}</p>
-      <p className="mt-1 text-sm text-muted">
-        {formatMiles(place.miles)} · {restaurant.address}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <a
-          href={directions}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="gp-btn gp-btn-primary text-sm"
-        >
-          Directions
-        </a>
-        <Link href={`/restaurants/${restaurant.id}`} className="gp-btn gp-btn-secondary text-sm">
-          Full restaurant
-        </Link>
-      </div>
     </div>
   );
 }

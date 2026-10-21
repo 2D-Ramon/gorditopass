@@ -53,7 +53,9 @@ export function SwipeCard({
         style={
           photo
             ? undefined
-            : { background: `linear-gradient(145deg, ${restaurant.accent}66, #121214 72%)` }
+            : {
+                background: `radial-gradient(120% 90% at 20% 15%, ${restaurant.accent} 0%, ${restaurant.accent}99 35%, transparent 75%), linear-gradient(160deg, ${restaurant.accent}cc, #121214 95%)`,
+              }
         }
       >
         {photo ? (
@@ -63,7 +65,7 @@ export function SwipeCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={restaurant.logoUrl} alt="" draggable={false} className={styles.heroLogo} />
         ) : (
-          <svg className={styles.heroIcon} viewBox="0 0 48 48" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg className={styles.heroIcon} style={{ color: "rgba(255,255,255,0.7)" }} viewBox="0 0 48 48" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="24" cy="26" r="13" />
             <circle cx="24" cy="26" r="8" />
             <path d="M6 8v10a3 3 0 0 0 6 0V8M9 18v24M42 8c-4 2-5 8-5 13h5v21" />
