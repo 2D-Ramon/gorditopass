@@ -45,7 +45,7 @@ const PLAN_COPY: Record<string, PlanCopy> = {
     sub: (p) => `Billed as ${money(p.priceUsd)} a year`,
     drawer: (p) => `${money(p.priceUsd)}, billed yearly`,
     bullets: (p) => [
-      `Most Foodies save the ${money(p.priceUsd)} in the first month alone`,
+      `Most Foodies can save ${money(p.priceUsd)} in the first month alone!`,
       "Lowest price per month",
       "All cities included",
       "Cancel anytime",

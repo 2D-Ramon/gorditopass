@@ -62,7 +62,7 @@ export function HomePlans() {
           <ul>
             {[
               "Cancel anytime. You keep access until the end of your paid term.",
-              `You must be 18+ to own an account. Up to ${MAX_SEATS} people per plan.`,
+              `You must be 18+ to own an account. Under 18 can be added to a plan. Up to ${MAX_SEATS} people per plan.`,
               "Redeem in store. % off applies to the member's items, not the whole table, and alcohol is excluded where required by law.",
             ].map((t) => (
               <li key={t}>

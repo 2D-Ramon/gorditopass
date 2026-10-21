@@ -2131,10 +2131,18 @@
 }
 
 /* Phone demo under How it works. Screens scroll; they do not auto-rotate. */
+.demoLead {
+  margin-top: 36px;
+  text-align: center;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--stone-300);
+}
+
 .demoBlock {
   --pw: 252px;
   --ph: 496px;
-  margin-top: 40px;
+  margin-top: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;

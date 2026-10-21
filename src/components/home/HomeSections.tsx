@@ -7,14 +7,14 @@ import { HomeDemo } from "./HomeDemo";
 import { JoinButton } from "./HomeJoin";
 import s from "./home.module.css";
 
-/** One pass, three reasons. */
+/** One pass. Three reasons. Unlimited savings. */
 export function HomePillars() {
   return (
     <section className={s.section} id="why" aria-labelledby="home-why-h">
       <div className={s.container}>
         <div className={s.sHead}>
-          <span className={`gp-section-label ${s.kicker}`}>One pass, three reasons</span>
-          <h2 id="home-why-h">Good for your wallet. Better for your city.</h2>
+          <span className={`gp-section-label ${s.kicker}`}>One pass. Three reasons. Unlimited savings</span>
+          <h2 id="home-why-h">Great for your wallet. Better for your city.</h2>
           <p>Everything {PLATFORM.name} does comes back to three ideas.</p>
         </div>
         <div className={s.pgrid}>
@@ -124,7 +124,7 @@ export function HomeHow() {
         <div className={s.sHead}>
           <span className={`gp-section-label ${s.kicker}`}>How it works</span>
           <h2 id="home-how-h">Browse. Join. Show your phone.</h2>
-          <p>Three steps, and the last one takes about five seconds at the counter.</p>
+          <p>Three simple steps:</p>
         </div>
         <ol className={s.steps}>
           <li className={s.step}>
@@ -208,6 +208,9 @@ export function HomeHow() {
             </div>
           </li>
         </ol>
+        <p className={s.demoLead}>
+          Check out the redemption process and other cool features.
+        </p>
         <HomeDemo />
       </div>
     </section>
