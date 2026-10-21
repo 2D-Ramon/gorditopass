@@ -1,11 +1,10 @@
 import { PLATFORM } from "@/lib/pricing";
 import { Icon } from "./Icon";
-import { HERO_CTA_ID, JoinButton } from "./HomeJoin";
 import s from "./home.module.css";
 
 export function HomeHero() {
   return (
-    <section className={s.hero} aria-labelledby="home-h1">
+    <section className={s.hero} id="home-hero" aria-labelledby="home-h1">
       <div className={s.container}>
         <div className={s.heroGrid}>
           <div className={s.heroCopy}>
@@ -22,29 +21,6 @@ export function HomeHero() {
               {PLATFORM.name} is a members only community for all food lovers to
               access exclusive deals and finding the best gems in town!
             </p>
-          </div>
-
-          <div className={s.heroCta}>
-            <JoinButton id={HERO_CTA_ID} pulse />
-            <div className={s.second}>
-              <a className={s.link} href="#deals">
-                Browse deals free
-              </a>
-            </div>
-            <div className={s.facts} aria-label="Quick facts">
-              <span>
-                <Icon name="store" size={16} />
-                Redeem in store
-              </span>
-              <span>
-                <Icon name="check" size={16} />
-                Cancel anytime
-              </span>
-              <span>
-                <Icon name="check" size={16} />
-                18+
-              </span>
-            </div>
           </div>
         </div>
       </div>

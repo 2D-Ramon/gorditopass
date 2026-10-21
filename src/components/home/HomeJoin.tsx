@@ -42,8 +42,6 @@ export function useJoin() {
   return ctx;
 }
 
-export const HERO_CTA_ID = "home-hero-cta";
-
 /**
  * Shared state for the home page join flow: selected plan, the join drawer
  * and the sticky mobile CTA bar.
@@ -209,8 +207,8 @@ function StickyBar({ wanted }: { wanted: boolean }) {
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 899px)");
     const update = () => {
-      const hero = document.getElementById(HERO_CTA_ID);
-      setPast(hero ? hero.getBoundingClientRect().bottom < 0 : false);
+      const hero = document.getElementById("home-hero");
+      setPast(hero ? hero.getBoundingClientRect().bottom < 0 : window.scrollY > 48);
       setMobile(mq.matches);
     };
     update();

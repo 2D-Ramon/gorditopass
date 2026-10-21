@@ -82,7 +82,7 @@
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "copy" "cta";
+  grid-template-areas: "copy";
   gap: 20px;
 }
 
@@ -2068,7 +2068,7 @@
 @media (min-width: 900px) {
   .heroGrid {
     grid-template-columns: minmax(0, 42rem);
-    grid-template-areas: "copy" "cta";
+    grid-template-areas: "copy";
     justify-content: start;
     row-gap: 8px;
     align-items: start;
