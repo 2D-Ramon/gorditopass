@@ -61,8 +61,8 @@ export function HomePillars() {
             </div>
             <h3>Exclusive Deals and Savings</h3>
             <p>
-              Members-only deals at neighborhood restaurants: a free item or 20%+
-              off, set by the restaurant. Show your live QR in store and staff does
+              Members-only deals at neighborhood restaurants: a free item or a %,
+              set by the restaurant. Show your live QR in store and staff does
               the rest.
             </p>
             <div className={s.pcVis}>
