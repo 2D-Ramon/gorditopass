@@ -132,3 +132,5 @@
 
 .ctrl { display: flex; flex-direction: column; align-items: center; }
 .ctrlSlot { height: 56px; display: flex; align-items: center; justify-content: center; }
+.dealHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
+.dealHead .dealTag { margin-bottom: 0; }

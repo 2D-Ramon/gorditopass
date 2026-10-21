@@ -2,6 +2,8 @@ import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel } from "@/lib/data";
 import { formatMiles } from "@/lib/miles";
 import type { Restaurant } from "@/lib/types";
+import home from "@/components/home/home.module.css";
+import { dealTag } from "./dealTag";
 import styles from "./on-the-menu.module.css";
 
 export function initials(name: string) {
@@ -46,6 +48,7 @@ export function SwipeCard({
 }) {
   const deal = activeDeal(restaurant);
   const photo = heroPhoto(restaurant);
+  const tag = deal ? dealTag(deal.type) : null;
   return (
     <div className={`${styles.face} ${compact ? styles.faceCompact : ""}`}>
       <div
@@ -98,7 +101,20 @@ export function SwipeCard({
         </div>
         {deal ? (
           <div className={styles.deal}>
-            <p className={styles.dealLabel}>Member deal</p>
+            <div className={styles.dealHead}>
+              <p className={styles.dealLabel}>Member deal</p>
+              {tag && (
+                <span
+                  className={`${home.type} ${styles.dealTag}`}
+                  data-type={tag.kind}
+                  data-deal-tag={tag.kind}
+                  // The home sheet scopes this token to its own root; same value here.
+                  style={{ "--orange-300": "#fdba74" } as React.CSSProperties}
+                >
+                  {tag.label}
+                </span>
+              )}
+            </div>
             <p className={styles.dealTitle}>{deal.title}</p>
             <p className={styles.dealFine}>Members redeem in store</p>
           </div>
