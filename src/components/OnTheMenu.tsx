@@ -31,6 +31,7 @@ type NightMemory = {
   decisions: Decision[];
   view: "deck" | "possibilities";
   winnerId: string | null;
+  shift: number;
 };
 
 /** Survives a trip to a restaurant page in this tab. A reload or exit clears it. */
@@ -49,6 +50,12 @@ export function OnTheMenu() {
     remembered?.origin?.kind === "you" ? "ready" : "idle",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  function closeSettings() {
+    setSettingsOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }
   const [announce, setAnnounce] = useState("");
   const [reduced, setReduced] = useState(false);
   const [radius, setRadius] = useState(remembered?.radius ?? 5);
@@ -56,7 +63,7 @@ export function OnTheMenu() {
   const [view, setView] = useState<"deck" | "possibilities">(remembered?.view ?? "deck");
   const [drag, setDrag] = useState({ x: 0, y: 0, dragging: false });
   const [fly, setFly] = useState<Fly>(null);
-  const [shift, setShift] = useState(0);
+  const [shift, setShift] = useState(remembered?.shift ?? 0);
   const [spinning, setSpinning] = useState(false);
   const [winnerId, setWinnerId] = useState<string | null>(remembered?.winnerId ?? null);
   const [exitArmed, setExitArmed] = useState(false);
@@ -97,15 +104,35 @@ export function OnTheMenu() {
   useEffect(() => {
     if (!settingsOpen) return;
     function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setSettingsOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeSettings();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const items = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     }
+    dialogRef.current?.querySelector<HTMLElement>("button, input")?.focus();
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [settingsOpen]);
 
   useEffect(() => {
-    nightMemory = { origin, radius, decisions, view, winnerId };
-  }, [origin, radius, decisions, view, winnerId]);
+    nightMemory = { origin, radius, decisions, view, winnerId, shift: spinning ? 0 : shift };
+  }, [origin, radius, decisions, view, winnerId, shift, spinning]);
 
   const cityName = cityLabel(city);
 
@@ -213,6 +240,8 @@ export function OnTheMenu() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (view !== "deck" || settingsOpen) return;
+      if (e.altKey || e.metaKey || e.ctrlKey) return;
+      if ((e.target as HTMLElement | null)?.isContentEditable) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "Backspace") {
@@ -417,9 +446,10 @@ export function OnTheMenu() {
             type="button"
             className={styles.iconBtn}
             aria-label="Location and radius"
+            ref={triggerRef}
             aria-expanded={settingsOpen}
             aria-controls="menu-settings"
-            onClick={() => setSettingsOpen((o) => !o)}
+            onClick={() => (settingsOpen ? closeSettings() : setSettingsOpen(true))}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
@@ -431,15 +461,15 @@ export function OnTheMenu() {
         </div>
         {settingsOpen && focus && (
           <>
-            <div className={styles.backdrop} onClick={() => setSettingsOpen(false)} aria-hidden />
-            <div id="menu-settings" role="dialog" aria-label="Places near you" className={styles.sheet}>
+            <div className={styles.backdrop} onClick={closeSettings} aria-hidden />
+            <div id="menu-settings" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Places near you" className={styles.sheet}>
               <div className={styles.grab} aria-hidden />
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-base font-bold tracking-tight">Places near you</h2>
                 <button
                   type="button"
                   className="rounded-md px-2 py-1 text-sm text-muted hover:text-white"
-                  onClick={() => setSettingsOpen(false)}
+                  onClick={closeSettings}
                 >
                   Done
                 </button>
@@ -542,7 +572,7 @@ export function OnTheMenu() {
                       aria-hidden
                       className={`${styles.peek} gp-card gp-card-static`}
                       style={{
-                        transform: `translateY(${step * 10}px) scale(${1 - step * 0.05})`,
+                        transform: `translateY(${step * 14}px) scale(${1 - step * 0.05})`,
                         filter: `brightness(${1 - step * 0.22})`,
                         zIndex: 20 - index,
                       }}

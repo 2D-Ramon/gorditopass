@@ -47,7 +47,20 @@ export function SlotMachine({
   const dragged = useRef(false);
 
   const won = Boolean(winner) && !spinning && spins > 0;
-  const rows = Math.max(n * 8, shift + 4);
+  const landed = Boolean(winner) && !spinning;
+  // At rest with a winner, sit on the winner's row. This also restores the reels after Back.
+  const winnerRow = winner ? places.findIndex((p) => p.restaurant.id === winner.restaurant.id) : -1;
+  const shown = !spinning && winnerRow >= 0 ? winnerRow : shift;
+  // Keep the last result card in place (faded, inert) while a new spin runs, so nothing jumps.
+  const [held, setHeld] = useState<Place | null>(winner);
+  const heldValid = held && places.some((p) => p.restaurant.id === held.restaurant.id) ? held : null;
+  if (!spinning && (winner?.restaurant.id ?? null) !== (held?.restaurant.id ?? null)) {
+    setHeld(winner);
+  }
+  // Before any result, a hidden copy of a card reserves the result's height so the list never jumps.
+  const display = spinning ? (heldValid ?? places[0] ?? null) : (winner ?? (n >= 2 ? places[0] : null));
+  const placeholder = spinning ? !heldValid : !winner;
+  const rows = Math.max(n * 8, shown + 4);
   // Show the landed row in the middle of a 2-row-tall window.
   const offset = CELL / 2;
 
@@ -96,7 +109,7 @@ export function SlotMachine({
       <div
         className={`${s.cabinet} ${won ? s.won : ""} ${reduced ? s.reduced : ""}`}
         data-slot-machine
-        data-state={spinning ? "spinning" : won ? "won" : "idle"}
+        data-state={spinning ? "spinning" : landed ? "won" : "idle"}
       >
         <div className={s.marquee}>
           <div className={s.bulbs} aria-hidden>
@@ -126,7 +139,7 @@ export function SlotMachine({
                       className={`${s.track} ${spinning && !reduced ? s.blurring : ""}`}
                       data-reel={r}
                       style={{
-                        transform: `translateY(${offset - shift * CELL}px)`,
+                        transform: `translateY(${offset - shown * CELL}px)`,
                         transition:
                           spinning && !reduced
                             ? `transform ${dur}ms cubic-bezier(0.18, 0.72, 0.22, 1.05)`
@@ -142,7 +155,7 @@ export function SlotMachine({
                               key={`${restaurant.id}-${i}`}
                               className={s.cell}
                               style={{ height: CELL }}
-                              data-slot-name={i === shift ? restaurant.name : undefined}
+                              data-slot-name={i === shown ? restaurant.name : undefined}
                             >
                               <RestaurantLogo restaurant={restaurant} size={36} />
                               <span className={s.cellName}>{shortName(restaurant.name)}</span>
@@ -195,7 +208,7 @@ export function SlotMachine({
 
         <div className={s.tray}>
           <button type="button" className={s.spin} onClick={spin} disabled={!canSpin} data-spin>
-            {spinning ? "Spinning…" : won ? "Spin again" : "Spin"}
+            {spinning ? "Spinning…" : landed ? "Spin again" : "Spin"}
           </button>
         </div>
 
@@ -222,34 +235,36 @@ export function SlotMachine({
         {spinning ? "Spinning" : winner && spins > 0 ? `Tonight's pick: ${winner.restaurant.name}` : ""}
       </p>
 
-      {winner && !spinning && (
-        <div className={`${s.result} ${reduced ? s.resultFade : ""}`} key={`${winner.restaurant.id}-${spins}`} data-slot-result>
-          <p className={s.resultLabel}>Go here tonight</p>
-          <div className="gp-card gp-card-static overflow-hidden">
-            <SwipeCard restaurant={winner.restaurant} miles={winner.miles} compact />
+      {display && (
+        <div
+          className={`${s.result} ${reduced ? s.resultFade : ""} ${spinning || placeholder ? s.resultBusy : ""} ${placeholder ? s.ghost : ""}`}
+          key={spinning || placeholder ? "held" : `${display.restaurant.id}-${spins}`}
+          data-slot-result={spinning || placeholder ? "held" : "ready"}
+          aria-hidden={spinning || placeholder ? true : undefined}
+          inert={spinning || placeholder ? true : undefined}
+        >
+          {placeholder && (
+            <p className={s.ghostNote}>{spinning ? "Picking…" : "Spin to pick tonight's place"}</p>
+          )}
+          <p className={s.resultLabel} style={placeholder ? { visibility: "hidden" } : undefined}>
+            Go here tonight
+          </p>
+          <div
+            className="gp-card gp-card-static overflow-hidden"
+            style={placeholder ? { visibility: "hidden" } : undefined}
+          >
+            <SwipeCard restaurant={display.restaurant} miles={display.miles} compact />
             <div className="flex flex-col gap-2 px-4 pb-4">
-              <Link href={`/restaurants/${winner.restaurant.id}`} className="gp-btn gp-btn-primary w-full">
+              <Link href={`/restaurants/${display.restaurant.id}`} className="gp-btn gp-btn-primary w-full">
                 Let&apos;s go
               </Link>
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                    `${winner.restaurant.name}, ${winner.restaurant.address}`,
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="gp-btn gp-btn-secondary text-sm"
-                >
-                  Directions
-                </a>
-                <button
-                  type="button"
-                  className="gp-btn gp-btn-ghost text-sm text-muted"
-                  onClick={() => onRemove(winner.restaurant.id)}
-                >
-                  Remove
-                </button>
-              </div>
+              <button
+                type="button"
+                className="gp-btn gp-btn-secondary w-full text-sm"
+                onClick={() => onRemove(display.restaurant.id)}
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>

@@ -126,3 +126,7 @@
   .result { animation: fadeIn 200ms ease; }
 }
 .bulbsBottom { align-items: flex-end; }
+.resultBusy { opacity: 0.35; pointer-events: none; animation: none; transition: opacity 200ms ease; }
+.ghost { position: relative; opacity: 1; }
+.ghost::after { content: ""; position: absolute; inset: 28px 0 0; border: 2px dashed #3f3f46; border-radius: 16px; }
+.ghostNote { position: absolute; left: 0; right: 0; top: 50%; z-index: 1; text-align: center; font-size: 14px; color: #a1a1aa; }
