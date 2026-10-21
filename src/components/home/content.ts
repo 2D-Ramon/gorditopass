@@ -39,13 +39,12 @@ const PLAN_COPY: Record<string, PlanCopy> = {
   six_month: {
     sub: (p) => `Billed as ${money(p.priceUsd)} every 6 months`,
     drawer: (p) => `${money(p.priceUsd)}, billed every six months`,
-    bullets: () => ["Pay once for six months", "All cities included", "Cancel anytime"],
+    bullets: () => ["All cities included", "Cancel anytime"],
   },
   annual: {
     sub: (p) => `Billed as ${money(p.priceUsd)} a year`,
     drawer: (p) => `${money(p.priceUsd)}, billed yearly`,
     bullets: (p) => [
-      "Biggest savings",
       `Most Foodies save the ${money(p.priceUsd)} in the first month alone`,
       "Lowest price per month",
       "All cities included",

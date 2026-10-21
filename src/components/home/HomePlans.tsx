@@ -14,9 +14,6 @@ export function HomePlans() {
         <div className={s.sHead}>
           <span className={`gp-section-label ${s.kicker}`}>Plans</span>
           <h2 id="home-plans-h">Pick a plan. Cancel anytime.</h2>
-          <p>
-            Same pass on every plan. The longer plans cost less per month.
-          </p>
         </div>
         <fieldset className={s.plans}>
           <legend className={s.srOnly}>Choose a plan</legend>
@@ -66,7 +63,6 @@ export function HomePlans() {
             {[
               "Cancel anytime. You keep access until the end of your paid term.",
               `You must be 18+ to own an account. Up to ${MAX_SEATS} people per plan.`,
-              "No free trial. Browsing deals is free.",
               "Redeem in store. % off applies to the member's items, not the whole table, and alcohol is excluded where required by law.",
             ].map((t) => (
               <li key={t}>

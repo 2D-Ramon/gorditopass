@@ -1803,6 +1803,21 @@
   max-width: 44rem;
 }
 
+.moreFaq {
+  margin-top: 14px;
+}
+
+.moreFaq a {
+  font-weight: 600;
+  color: var(--orange-200);
+}
+
+.moreFaq a:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .faqSide {
   position: relative;
   overflow: hidden;

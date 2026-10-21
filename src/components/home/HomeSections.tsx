@@ -264,7 +264,7 @@ const FAQ = [
   },
   {
     q: "What does \u201c% off\u201d cover?",
-    a: "A % off deal applies to the member's own items, not the whole table. Alcohol is excluded where the law requires it. Free-item deals are set by each restaurant.",
+    a: "A % off deal applies to the member's own items, not the whole table. Alcohol is excluded where the law requires it.",
   },
   {
     q: "Can I cancel anytime?",
@@ -296,6 +296,9 @@ export function HomeFaq() {
                 </details>
               ))}
             </div>
+            <p className={s.moreFaq}>
+              <Link href="/faq">More questions?</Link>
+            </p>
           </div>
           <aside className={s.faqSide}>
             <h3>Ready to try it?</h3>
