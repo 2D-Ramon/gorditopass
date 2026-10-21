@@ -13,7 +13,7 @@ export function HomePillars() {
     <section className={s.section} id="why" aria-labelledby="home-why-h">
       <div className={s.container}>
         <div className={s.sHead}>
-          <span className={`gp-section-label ${s.kicker}`}>One pass. Three reasons. Unlimited savings</span>
+          <span className={`gp-section-label ${s.kicker} ${s.kickerLg} ${s.kickerHero}`}><span className={s.kickerLine}>One pass.</span>{" "}<span className={s.kickerLine}>Three reasons.</span>{" "}<span className={s.kickerLine}>Unlimited <span className={s.hot}>savings</span></span></span>
           <h2 id="home-why-h">Great for your wallet. Better for your city.</h2>
           <p>Everything {PLATFORM.name} does comes back to three ideas.</p>
         </div>
@@ -122,7 +122,7 @@ export function HomeHow() {
     <section className={`${s.section} ${s.onDark}`} id="how" aria-labelledby="home-how-h">
       <div className={s.container}>
         <div className={s.sHead}>
-          <span className={`gp-section-label ${s.kicker}`}>How it works</span>
+          <span className={`gp-section-label ${s.kicker} ${s.kickerLg}`}>How it <span className={s.hot}>works</span></span>
           <h2 id="home-how-h">Browse. Join. Redeem.</h2>
           <p>Three simple steps:</p>
         </div>
@@ -223,7 +223,7 @@ export function HomeShare() {
     <section className={s.section} id="share" aria-labelledby="home-share-h">
       <div className={s.container}>
         <div className={s.sHead}>
-          <span className={`gp-section-label ${s.kicker}`}>Share the love</span>
+          <span className={`gp-section-label ${s.kicker} ${s.kickerLg}`}>Share the <span className={s.hot}>love</span></span>
           <h2 id="home-share-h">Good food is better passed around.</h2>
         </div>
         <div className={s.shareGrid}>
@@ -283,7 +283,7 @@ export function HomeFaq() {
         <div className={s.faqWrap}>
           <div>
             <div className={s.sHead} style={{ marginBottom: 20 }}>
-              <span className={`gp-section-label ${s.kicker}`}>FAQ</span>
+              <span className={`gp-section-label ${s.kicker} ${s.kickerLg}`}><span className={s.hot}>FAQ</span></span>
               <h2 id="home-faq-h">Good questions</h2>
             </div>
             <div className={s.faq}>

@@ -103,7 +103,8 @@
 
 .h1 .line { display: block; }
 
-.h1 .hot {
+.h1 .hot,
+.kickerLg .hot {
   background: linear-gradient(to right, #f97316, #fbbf24, #ea580c);
   -webkit-background-clip: text;
   background-clip: text;
@@ -900,6 +901,46 @@
 .kicker {
   display: inline-block;
   margin-bottom: 10px;
+}
+
+.kickerLg {
+  font-size: 1.125rem; /* text-lg (was 0.7rem) */
+  font-weight: 800; /* font-extrabold */
+  line-height: 1.75rem;
+  letter-spacing: 0.08em;
+}
+
+.kickerLg .hot {
+  display: inline;
+}
+
+@media (min-width: 640px) {
+  .kickerLg {
+    font-size: 1.25rem; /* sm:text-xl */
+    line-height: 1.75rem;
+  }
+}
+
+/* First home label: headline-sized, sentence case via CSS only (words unchanged). */
+.kickerHero,
+.kickerHero.kickerLg {
+  display: block;
+  margin-bottom: 14px;
+  font-size: clamp(2.125rem, 5vw + 0.5rem, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: var(--fg);
+}
+
+.kickerLine {
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .kickerLine {
+    display: inline;
+  }
 }
 
 .sHead h2 {

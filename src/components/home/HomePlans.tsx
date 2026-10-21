@@ -12,7 +12,7 @@ export function HomePlans() {
     <section className={`${s.section} ${s.onDark}`} id="plans" aria-labelledby="home-plans-h">
       <div className={s.container}>
         <div className={s.sHead}>
-          <span className={`gp-section-label ${s.kicker}`}>Plans</span>
+          <span className={`gp-section-label ${s.kicker} ${s.kickerLg}`}><span className={s.hot}>Plans</span></span>
           <h2 id="home-plans-h">Pick a plan. Cancel anytime.</h2>
         </div>
         <fieldset className={s.plans}>
