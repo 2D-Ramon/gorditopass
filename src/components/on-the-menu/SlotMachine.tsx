@@ -232,9 +232,16 @@ export function SlotMachine({
                 Let&apos;s go
               </Link>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" className="gp-btn gp-btn-secondary text-sm" onClick={spin} disabled={!canSpin}>
-                  Spin again
-                </button>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                    `${winner.restaurant.name}, ${winner.restaurant.address}`,
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gp-btn gp-btn-secondary text-sm"
+                >
+                  Directions
+                </a>
                 <button
                   type="button"
                   className="gp-btn gp-btn-ghost text-sm text-muted"
@@ -243,16 +250,6 @@ export function SlotMachine({
                   Remove
                 </button>
               </div>
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                  `${winner.restaurant.name}, ${winner.restaurant.address}`,
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center text-xs font-medium text-orange-200/90 hover:text-orange-100"
-              >
-                Directions
-              </a>
             </div>
           </div>
         </div>
