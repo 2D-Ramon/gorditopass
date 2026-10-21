@@ -82,7 +82,7 @@
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "copy" "stage" "cta" "pillars";
+  grid-template-areas: "copy" "cta";
   gap: 20px;
 }
 
@@ -2052,11 +2052,10 @@
 
 @media (min-width: 900px) {
   .heroGrid {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
-    grid-template-areas: "copy stage" "cta stage" "pillars stage";
-    grid-template-rows: auto auto 1fr;
-    column-gap: 48px;
-    row-gap: 0;
+    grid-template-columns: minmax(0, 42rem);
+    grid-template-areas: "copy" "cta";
+    justify-content: start;
+    row-gap: 8px;
     align-items: start;
   }
   .heroCta { margin-top: 28px; align-items: flex-start; }
@@ -2114,4 +2113,104 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Phone demo under How it works. Screens scroll; they do not auto-rotate. */
+.demoBlock {
+  --pw: 252px;
+  --ph: 496px;
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.demoHint {
+  font-size: 14px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.demoPhone {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin: 0;
+}
+
+.reel {
+  position: absolute;
+  inset: 9px;
+  z-index: 1;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 31px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.reel::-webkit-scrollbar { display: none; }
+
+.reel .screen {
+  position: relative;
+  inset: auto;
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.demoDots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.demoDot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border-strong);
+  cursor: pointer;
+}
+
+.demoDot[aria-current="true"] {
+  width: 22px;
+  background: var(--brand);
+}
+
+.demoCaption {
+  width: min(100%, 28rem);
+  text-align: center;
+}
+
+.demoCaption h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.demoCaption p {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--stone-300);
+}
+
+@media (min-width: 900px) {
+  .demoBlock {
+    --pw: 292px;
+    --ph: 572px;
+  }
+  .demoPhone { bottom: auto; }
+}
+
+@media (min-width: 1200px) {
+  .demoBlock { --pw: 300px; --ph: 588px; }
 }

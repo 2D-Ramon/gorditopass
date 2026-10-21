@@ -3,6 +3,7 @@ import { PLATFORM } from "@/lib/pricing";
 import { FoodTile } from "./FoodTile";
 import { Icon } from "./Icon";
 import { MAX_SEATS, MONTHLY_PER_MONTH } from "./content";
+import { HomeDemo } from "./HomeDemo";
 import { JoinButton } from "./HomeJoin";
 import s from "./home.module.css";
 
@@ -207,6 +208,7 @@ export function HomeHow() {
             </div>
           </li>
         </ol>
+        <HomeDemo />
       </div>
     </section>
   );
