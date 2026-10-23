@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function StaffScanPage() {
   const [code, setCode] = useState("");
@@ -56,12 +57,11 @@ export default function StaffScanPage() {
         </label>
         <label className="block text-sm">
           Staff PIN
-          <input
+          <PasswordInput
             required
             inputMode="numeric"
             maxLength={6}
-            type="password"
-            className="gp-input mt-1 font-mono tracking-widest"
+            className="font-mono tracking-widest"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             placeholder="4–6 digits"

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { createBrowserClient } from "@/lib/supabase";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
@@ -127,10 +128,8 @@ export default function LoginPage() {
           </label>
           <label className="block text-sm">
             Password
-            <input
+            <PasswordInput
               required
-              type="password"
-              className="gp-input mt-1"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { PasswordInput } from "@/components/PasswordInput";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { OpsHub, type OpsTab } from "./OpsHub";
 import { CITIES, cityLabel, cuisineLabel, RESTAURANTS } from "@/lib/data";
@@ -418,12 +419,11 @@ export default function AdminPage() {
           </label>
           <label className="block text-sm">
             Password
-            <input
+            <PasswordInput
               required
-              type="password"
-              className="gp-input mt-1"
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
+              autoComplete="current-password"
             />
           </label>
           {loginErr && <p className="text-sm text-red-300">{loginErr}</p>}

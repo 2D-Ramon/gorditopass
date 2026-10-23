@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -651,11 +652,9 @@ function MembershipInner() {
                 {i === 0 && !user && (
                   <label className="block text-sm">
                     Password for this login (8+) *
-                    <input
+                    <PasswordInput
                       required
                       minLength={8}
-                      type="password"
-                      className="gp-input mt-1"
                       value={primaryPassword}
                       onChange={(e) => setPrimaryPassword(e.target.value)}
                       autoComplete="new-password"

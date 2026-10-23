@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 import Link from "next/link";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import { asCity } from "@/lib/listing-map";
@@ -115,12 +116,11 @@ function PartnerSignIn() {
         </label>
         <label className="block text-sm">
           Password
-          <input
+          <PasswordInput
             required
-            type="password"
-            className="gp-input mt-1"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
           />
         </label>
         {err && <p className="text-sm text-red-300">{err}</p>}

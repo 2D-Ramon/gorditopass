@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 import Link from "next/link";
 import { CITIES, RESTAURANTS, cuisineLabel } from "@/lib/data";
 import { campaignTargetLabel, unpackCampaign, type CampaignTarget } from "@/lib/ops-audience";
@@ -184,9 +185,7 @@ function ConnectPanel({
           <form className="mt-4 space-y-3" onSubmit={onUnlock}>
             <label className="block text-sm">
               Unlock with your ops secret
-              <input
-                type="password"
-                className="gp-input mt-1"
+              <PasswordInput
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
                 autoComplete="off"
@@ -304,12 +303,11 @@ function OwnerSetupForm() {
       </p>
       <label className="block text-sm">
         Ops secret (same as unlock)
-        <input
+        <PasswordInput
           required
-          type="password"
-          className="gp-input mt-1"
           value={form.secret}
           onChange={(e) => setForm({ ...form, secret: e.target.value })}
+          autoComplete="off"
         />
       </label>
       <label className="block text-sm">
@@ -333,13 +331,12 @@ function OwnerSetupForm() {
       </label>
       <label className="block text-sm">
         Password (8+)
-        <input
+        <PasswordInput
           required
           minLength={8}
-          type="password"
-          className="gp-input mt-1"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          autoComplete="new-password"
         />
       </label>
       <button type="submit" className="gp-btn gp-btn-primary text-sm">
@@ -472,13 +469,12 @@ function AdminsPanel({
         </label>
         <label className="block text-sm">
           Temporary password (8+)
-          <input
+          <PasswordInput
             required
             minLength={8}
-            type="password"
-            className="gp-input mt-1"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
+            autoComplete="new-password"
           />
         </label>
         <fieldset className="space-y-2">
