@@ -11,6 +11,7 @@ import {
   hashPassword,
   loadAdminsTable,
   loadOwner,
+  signInDatabaseError,
   toPublicAdmin,
   verifyPassword,
 } from "@/lib/ops-admins";
@@ -114,13 +115,25 @@ export async function POST(req: Request) {
         { status: 503 },
       );
     }
+    if (table.error) {
+      return NextResponse.json(
+        { error: signInDatabaseError({ message: table.error }) },
+        { status: 503 },
+      );
+    }
     const { data, error } = await supabase
       .from("ops_admins")
       .select("*")
       .eq("email", email)
       .eq("active", true)
       .maybeSingle();
-    if (error || !data || !verifyPassword(password, String(data.password_hash))) {
+    if (error) {
+      return NextResponse.json(
+        { error: signInDatabaseError(error) },
+        { status: 503 },
+      );
+    }
+    if (!data || !verifyPassword(password, String(data.password_hash))) {
       return NextResponse.json(
         { error: "Email or password is incorrect." },
         { status: 401 },

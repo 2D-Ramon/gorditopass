@@ -9,6 +9,17 @@ import { useStore } from "@/lib/store";
 
 type Mode = "password" | "magic";
 
+function signInFailureMessage(message: string) {
+  if (
+    /fetch failed|failed to fetch|network|enotfound|timeout|unreachable/i.test(
+      message,
+    )
+  ) {
+    return "The sign-in database is unreachable right now. Try again in a few minutes.";
+  }
+  return message;
+}
+
 /**
  * Recommended auth model (demo):
  * - One person = one email login (never share passwords across seats)
@@ -89,7 +100,7 @@ export default function LoginPage() {
                 password,
               });
               if (error) {
-                setErr(error.message);
+                setErr(signInFailureMessage(error.message));
                 return;
               }
               goAccount();
@@ -149,7 +160,7 @@ export default function LoginPage() {
                 options: { emailRedirectTo: `${window.location.origin}/account` },
               });
               if (error) {
-                setErr(error.message);
+                setErr(signInFailureMessage(error.message));
                 return;
               }
               setMsg("Check your email for a sign-in link.");

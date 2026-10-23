@@ -57,6 +57,23 @@ export function adminHas(
   return Boolean(admin[permission]);
 }
 
+/** Database or network failure, not a wrong password. */
+export function signInDatabaseError(error: {
+  message?: string;
+  code?: string;
+} | null): string | null {
+  if (!error) return null;
+  const msg = `${error.code ?? ""} ${error.message ?? ""}`;
+  if (
+    /fetch failed|enotfound|econnrefused|etimedout|eai_again|getaddrinfo|network|socket|unreachable|timeout|502|503|522|non-existent domain/i.test(
+      msg,
+    )
+  ) {
+    return "The sign-in database is unreachable right now. Try again in a few minutes.";
+  }
+  return "Sign-in could not check that account. Try again in a few minutes.";
+}
+
 export async function loadAdminsTable(supabase: SupabaseClient): Promise<{
   ok: boolean;
   missing: boolean;
