@@ -571,25 +571,6 @@ export function OnTheMenu() {
           ) : (
             <>
               <div className={styles.stack}>
-                {deck.slice(1, 3).map((place, i) => {
-                  const index = i + 1;
-                  const lift = drag.dragging || fly ? 0.5 : 0;
-                  const step = index - lift;
-                  return (
-                    <article
-                      key={place.restaurant.id}
-                      aria-hidden
-                      className={`${styles.peek} gp-card gp-card-static`}
-                      style={{
-                        transform: `translateY(${step * 14}px) scale(${1 - step * 0.05})`,
-                        filter: `brightness(${1 - step * 0.22})`,
-                        zIndex: 20 - index,
-                      }}
-                    >
-                      <SwipeCard restaurant={place.restaurant} miles={place.miles} />
-                    </article>
-                  );
-                })}
                 <article
                   key={top.restaurant.id}
                   role="link"
