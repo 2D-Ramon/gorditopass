@@ -209,7 +209,7 @@ export function HomeHow() {
           </li>
         </ol>
         <p className={s.demoLead}>
-          Check out the redemption process and other cool features.
+          Scroll the phone for profiles, badges, feed, events, and On the Menu.
         </p>
         <HomeDemo />
       </div>

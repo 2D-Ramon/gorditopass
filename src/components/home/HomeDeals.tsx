@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RestaurantProfileCard } from "@/components/RestaurantProfileCard";
 import { CITIES } from "@/lib/data";
 import { useStore } from "@/lib/store";
-import { FoodTile } from "./FoodTile";
 import { Icon } from "./Icon";
-import { SAMPLE_DEALS } from "./content";
+import { SAMPLE_DEALS, sampleDealAsRestaurant } from "./content";
 import { useJoin } from "./HomeJoin";
 import s from "./home.module.css";
 
-/** "Deals this week": one set of sample deal tickets in a scroll-snap row. */
+/** "Deals this week": sample restaurant profile cards in a scroll-snap row. */
 export function HomeDeals() {
   const { city } = useStore();
   const { openJoin } = useJoin();
@@ -20,6 +20,10 @@ export function HomeDeals() {
   const carRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
+  const samples = useMemo(
+    () => SAMPLE_DEALS.map((d) => ({ deal: d, restaurant: sampleDealAsRestaurant(d) })),
+    [],
+  );
 
   const update = useCallback(() => {
     const car = carRef.current;
@@ -106,23 +110,18 @@ export function HomeDeals() {
             }
           }}
         >
-          {SAMPLE_DEALS.map((d) => (
-            <div key={d.restaurant} className={s.tkWrap}>
-              <article className={s.ticket}>
-                <FoodTile food={d.food} sample sizes="(min-width: 600px) 300px, 78vw" />
-                <span className={s.lock} title="Join to redeem">
-                  <Icon name="lock" size={15} strokeWidth={2.4} />
-                  <span className={s.srOnly}>Members only</span>
+          {samples.map(({ deal: d, restaurant }) => (
+            <div key={d.restaurant} className={s.profileWrap}>
+              <article className={`gp-card gp-card-static ${s.profileCard}`}>
+                <span className={s.pillStatic} style={{ position: "absolute", top: 10, left: 10, zIndex: 3 }}>
+                  Sample
                 </span>
-                <div className={s.tkBody}>
-                  <span className={s.type} data-type={d.type}>
-                    {d.typeLabel}
-                  </span>
-                  <div className={s.tkDeal}>{d.deal}</div>
-                  <div className={s.tkRest}>{d.restaurant}</div>
-                  <div className={s.tkHood}>{d.hood}</div>
-                </div>
-                <div className={s.tkStub}>
+                <RestaurantProfileCard
+                  restaurant={restaurant}
+                  compact
+                  headingLevel={3}
+                />
+                <div className={s.profileStub}>
                   <span>Redeem in store</span>
                   <button type="button" className={s.stubBtn} onClick={openJoin}>
                     <Icon name="lock" size={16} />

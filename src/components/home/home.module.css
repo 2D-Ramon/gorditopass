@@ -1513,6 +1513,37 @@
   color: #fff;
 }
 
+/* Unified restaurant profile cards in the sample-deals carousel */
+.profileWrap {
+  position: relative;
+  flex: 0 0 78%;
+  scroll-snap-align: start;
+  transition: transform 0.2s;
+}
+.profileWrap:hover { transform: translateY(-3px); }
+.profileCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.profileStub {
+  height: 62px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 16px;
+  gap: 8px;
+}
+.profileStub > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--orange-300);
+}
+
+
 /* plans */
 .plans {
   display: grid;
@@ -2093,13 +2124,16 @@
 
 @media (max-width: 599px) {
   .tkStub > span { display: none; }
+  .profileStub > span { display: none; }
   .stubBtn { flex: 1; justify-content: center; margin-right: 8px; }
   .tkStub { padding-left: 8px; }
+  .profileStub { padding-left: 8px; }
   .corner { display: none; }
 }
 
 @media (min-width: 600px) {
   .tkWrap { flex-basis: 300px; }
+  .profileWrap { flex-basis: 300px; }
   .shareGrid,
   .steps { grid-template-columns: repeat(2, 1fr); }
   .h1 { font-size: 48px; }
@@ -2277,4 +2311,31 @@
 
 @media (min-width: 1200px) {
   .demoBlock { --pw: 300px; --ph: 588px; }
+}
+
+/* HIW screenshot slides */
+.screenShot {
+  padding: 36px 0 0;
+  gap: 0;
+  background: #09090b;
+}
+.screenShot .demoLabel {
+  position: absolute;
+  top: 40px;
+  left: 12px;
+  z-index: 2;
+  margin: 0;
+  pointer-events: none;
+}
+.screenImg {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 0 0 22px 22px;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
 }

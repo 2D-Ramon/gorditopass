@@ -4,7 +4,7 @@ import {
   monthlyRate,
   PLATFORM,
 } from "@/lib/pricing";
-import type { MembershipPlan } from "@/lib/types";
+import type { Cuisine, DealType, MembershipPlan, Restaurant } from "@/lib/types";
 
 /**
  * Copy and illustrative content for the home page (Concept 1b).
@@ -135,3 +135,92 @@ export const SAMPLE_DISCOVER = [
   { food: "bbq" as const, cuisine: "Texas · BBQ", name: "Pit Row Smokehouse", plates: 5 },
   { food: "pizza" as const, cuisine: "Italian · Pizza", name: "Slice Alley", plates: 3 },
 ];
+
+
+/** Map home sample ticket kinds to catalog deal types. */
+const SAMPLE_DEAL_TYPE: Record<SampleDeal["type"], DealType> = {
+  free: "free_item",
+  off: "percent_off",
+  bogo: "bogo",
+};
+
+const SAMPLE_CUISINE: Record<FoodKey, Cuisine> = {
+  burger: "american",
+  tacos: "mexican",
+  pizza: "pizza",
+  bbq: "bbq",
+  icecream: "american",
+  wings: "wings",
+  ramen: "japanese",
+};
+
+const SAMPLE_ACCENT: Record<FoodKey, string> = {
+  burger: "#f97316",
+  tacos: "#ea580c",
+  pizza: "#dc2626",
+  bbq: "#b45309",
+  icecream: "#db2777",
+  wings: "#c2410c",
+  ramen: "#0d9488",
+};
+
+/** Illustrative plate rates for sample cards (not live reviews). */
+const SAMPLE_PLATES: Record<string, number> = {
+  "Corner Burger Co.": 4.6,
+  "Casa Lupita": 4.8,
+  "Slice Alley": 4.3,
+  "Pit Row Smokehouse": 4.9,
+  "Scoop Lane": 4.5,
+  "Wing Basket": 4.4,
+  "Noodle Hall": 4.7,
+};
+
+/** Turn a home sample deal into a Restaurant so the shared profile card can render it. */
+export function sampleDealAsRestaurant(d: SampleDeal): Restaurant {
+  const img = FOOD_IMAGES[d.food].src;
+  const id = `sample-${d.restaurant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return {
+    id,
+    name: d.restaurant,
+    slug: id.replace(/^sample-/, ""),
+    city: "dallas",
+    neighborhood: d.hood,
+    cuisine: SAMPLE_CUISINE[d.food],
+    tagline: "",
+    story: "",
+    hours: "",
+    address: d.hood,
+    lat: 0,
+    lng: 0,
+    emoji: "",
+    accent: SAMPLE_ACCENT[d.food],
+    plateRating: SAMPLE_PLATES[d.restaurant] ?? 4.5,
+    reviewCount: 0,
+    deals: [
+      {
+        id: `${id}-deal`,
+        restaurantId: id,
+        title: d.deal,
+        description: "",
+        type: SAMPLE_DEAL_TYPE[d.type],
+        value: d.type === "off" ? 25 : null,
+        memberOnly: true,
+        excludesAlcohol: true,
+        active: true,
+      },
+    ],
+    menu: [
+      {
+        id: `${id}-menu`,
+        name: FOOD_IMAGES[d.food].alt,
+        description: "",
+        priceUsd: 0,
+        category: "Sample",
+        imageUrl: img,
+      },
+    ],
+    acceptsReservations: false,
+    acceptsOnlineOrders: false,
+    approved: true,
+  };
+}

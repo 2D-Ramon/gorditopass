@@ -139,11 +139,7 @@ export function HomeFeatured() {
               className="w-[min(280px,78vw)] shrink-0 select-none"
               aria-hidden={i >= featured.length}
             >
-              <RestaurantCard
-                restaurant={r}
-                highlightPromo
-                showDirections={false}
-              />
+              <RestaurantCard restaurant={r} />
             </div>
           ))}
         </div>
