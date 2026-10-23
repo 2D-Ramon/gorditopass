@@ -90,11 +90,6 @@ export const HOME_PLANS: HomePlan[] = [...MEMBERSHIP_PLANS]
 export const DEFAULT_PLAN_ID: HomePlan["id"] =
   HOME_PLANS.find((p) => p.best)?.id ?? HOME_PLANS[0].id;
 
-const plan = (id: string) => HOME_PLANS.find((p) => p.id === id);
-
-
-export const MONTHLY_PER_MONTH = plan("monthly")?.perMonth ?? "";
-
 export type FoodKey =
   | "burger"
   | "tacos"

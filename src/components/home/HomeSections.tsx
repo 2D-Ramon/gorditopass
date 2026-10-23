@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PLATFORM } from "@/lib/pricing";
 import { FoodTile } from "./FoodTile";
 import { Icon } from "./Icon";
-import { MAX_SEATS, MONTHLY_PER_MONTH } from "./content";
+import { FROM_PRICE_CTA, MAX_SEATS } from "./content";
 import { HomeDemo } from "./HomeDemo";
 import { JoinButton } from "./HomeJoin";
 import s from "./home.module.css";
@@ -155,7 +155,7 @@ export function HomeHow() {
             <div className={s.stepLabel}>Subscribe</div>
             <h3>Pick a plan</h3>
             <p>
-              From {MONTHLY_PER_MONTH}. Cancel anytime. Up to {MAX_SEATS} people per
+              From {FROM_PRICE_CTA}. Cancel anytime. Up to {MAX_SEATS} people per
               plan.
             </p>
             <div className={s.mini} aria-hidden>
