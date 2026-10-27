@@ -2102,6 +2102,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (data.user) applyLiveBundle(data);
             return;
           }
+          if (res.status === 404 || res.status === 422) {
+            // Not a saveable listing: undo the optimistic toggle.
+            setFavorites((cur) =>
+              removing ? [...cur, restaurantId] : cur.filter((x) => x !== restaurantId),
+            );
+            return;
+          }
           // No points or badges for Favorite / Will try (Tudy).
         })();
         return next;

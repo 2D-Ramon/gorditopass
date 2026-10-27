@@ -31,39 +31,24 @@ export async function POST(req: Request) {
       .eq("member_id", profile.id)
       .eq("restaurant_id", restaurantId);
   } else {
-    const { data: existing } = await sb
+    // Only real listings (incl. seeded test listings); never write listings here.
+    const { data: listing } = await sb
       .from("listings")
       .select("approved, banned, tagline")
       .eq("id", restaurantId)
       .maybeSingle();
-    if (existing && !isLiveListing(existing)) {
-      return NextResponse.json(
-        { error: "This restaurant is not available." },
-        { status: 404 },
-      );
+    if (!listing) {
+      return getRestaurant(restaurantId)
+        ? NextResponse.json(
+            { error: "This restaurant can't be saved yet.", code: "not_listed" },
+            { status: 422 },
+          )
+        : NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
     }
-    const seed = getRestaurant(restaurantId);
-    if (seed && !existing) {
-      await sb.from("listings").upsert(
-        {
-          id: seed.id,
-          name: seed.name,
-          slug: seed.slug,
-          city: seed.city,
-          neighborhood: seed.neighborhood,
-          cuisine: seed.cuisine,
-          tagline: seed.tagline,
-          story: seed.story,
-          hours: seed.hours,
-          address: seed.address,
-          lat: seed.lat,
-          lng: seed.lng,
-          emoji: seed.emoji,
-          accent: seed.accent,
-          approved: true,
-          banned: false,
-        },
-        { onConflict: "id" },
+    if (!isLiveListing(listing)) {
+      return NextResponse.json(
+        { error: "This restaurant is not available.", code: "not_live" },
+        { status: 422 },
       );
     }
     const { error } = await sb.from("member_favorites").insert({
