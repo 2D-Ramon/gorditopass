@@ -8,6 +8,7 @@ import { cuisineLabel } from "@/lib/data";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import type { LiveListingRow } from "@/lib/listing-map";
 import { MENU_CATEGORIES } from "@/lib/pricing";
+import { useHeartFavorites } from "@/lib/heart-favorites";
 import { isPartnerContentLive, useStore } from "@/lib/store";
 import type { Restaurant, Review } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export default function RestaurantDetailPage() {
     getRestaurantStory,
   } = useStore();
 
+  const { hearts, toggleHeart } = useHeartFavorites();
   const [rateOpen, setRateOpen] = useState(false);
   const [plates, setPlates] = useState(5);
   const [rateText, setRateText] = useState("");
@@ -155,6 +157,7 @@ export default function RestaurantDetailPage() {
   }
 
   const isFav = favorites.includes(restaurant.id);
+  const isHeart = hearts.includes(restaurant.id);
   const isFollowing = following.includes(restaurant.id);
   const story = getRestaurantStory(restaurant.id).trim();
   const canRate = Boolean(user?.role === "diner" && user.isMember);
@@ -225,6 +228,17 @@ export default function RestaurantDetailPage() {
                   onClick={() => toggleFavorite(restaurant.id)}
                 >
                   {isFav ? "★ Will try" : "☆ Will try"}
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-secondary text-sm !py-2"
+                  aria-pressed={isHeart}
+                  onClick={() => toggleHeart(restaurant.id)}
+                >
+                  <span aria-hidden="true" className={isHeart ? "text-brand" : ""}>
+                    {isHeart ? "♥" : "♡"}
+                  </span>{" "}
+                  {isHeart ? "Favorited" : "Favorite"}
                 </button>
                 <button
                   type="button"

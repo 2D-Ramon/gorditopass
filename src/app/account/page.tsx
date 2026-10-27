@@ -13,6 +13,7 @@ import {
   REWARDS,
 } from "@/lib/pricing";
 import { PASSPORTS, passportProgress } from "@/lib/passports";
+import { useHeartFavorites } from "@/lib/heart-favorites";
 import { isLocalDemoHost } from "@/lib/public-site";
 import { useStore } from "@/lib/store";
 import type { StaffRole } from "@/lib/types";
@@ -1531,6 +1532,8 @@ function AccountInner() {
         </div>
       )}
 
+      {isDiner && tab === "profile" && <FavoritesSection />}
+
       <div className="mt-8 flex flex-wrap gap-2">
         {user.isMember && isDiner && (
           <button
@@ -1603,5 +1606,38 @@ export default function AccountPage() {
     >
       <AccountInner />
     </Suspense>
+  );
+}
+
+/** MOCK: heart Favorites, kept apart from Will try. */
+function FavoritesSection() {
+  const { hearts, toggleHeart } = useHeartFavorites();
+  return (
+    <div className="mt-6 gp-card gp-card-static p-5">
+      <p className="gp-section-label">Favorites</p>
+      {hearts.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">
+          Tap ♡ Favorite on a restaurant page to keep it here.
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-sm">
+          {hearts.map((id) => (
+            <li key={id} className="flex items-center justify-between gap-3">
+              <Link href={`/restaurants/${id}`} className="text-brand underline">
+                {getRestaurant(id)?.name ?? id}
+              </Link>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-white"
+                aria-label={`Remove ${getRestaurant(id)?.name ?? id} from Favorites`}
+                onClick={() => toggleHeart(id)}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
