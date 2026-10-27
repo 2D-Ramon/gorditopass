@@ -10,6 +10,22 @@ create table if not exists public.member_loved_restaurants (
 create index if not exists member_loved_restaurants_member_idx
   on public.member_loved_restaurants (member_id, created_at desc);
 
--- Same as member_favorites: RLS on, no anon/authenticated policies; API uses service_role.
+-- RLS on (like member_favorites). The API uses service_role; own-row policies below.
 alter table public.member_loved_restaurants enable row level security;
 grant all on public.member_loved_restaurants to service_role;
+
+-- Members (Supabase auth) may read/add/remove only their own rows.
+-- profiles.id = auth.users.id, so member_id maps directly to auth.uid().
+grant select, insert, delete on public.member_loved_restaurants to authenticated;
+
+drop policy if exists loved_select_own on public.member_loved_restaurants;
+create policy loved_select_own on public.member_loved_restaurants
+  for select to authenticated using (member_id = auth.uid());
+
+drop policy if exists loved_insert_own on public.member_loved_restaurants;
+create policy loved_insert_own on public.member_loved_restaurants
+  for insert to authenticated with check (member_id = auth.uid());
+
+drop policy if exists loved_delete_own on public.member_loved_restaurants;
+create policy loved_delete_own on public.member_loved_restaurants
+  for delete to authenticated using (member_id = auth.uid());

@@ -2088,11 +2088,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? prev.filter((id) => id !== restaurantId)
           : [...prev, restaurantId];
         void (async () => {
-          const { authedFetch } = await import("./authed");
-          const res = await authedFetch("/api/me/favorite", {
-            method: "POST",
-            body: JSON.stringify({ restaurantId }),
-          });
+          const { authedFetch, getAccessToken } = await import("./authed");
+          // Demo / mock sign-in has no Supabase session: keep it local, skip the 401.
+          const token = await getAccessToken();
+          if (!token) return;
+          const res = await authedFetch(
+            "/api/me/favorite",
+            { method: "POST", body: JSON.stringify({ restaurantId }) },
+            token,
+          );
           if (res.ok) {
             const data = (await res.json()) as LiveMemberBundle;
             if (data.user) applyLiveBundle(data);

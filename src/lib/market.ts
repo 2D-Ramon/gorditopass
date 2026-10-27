@@ -2,7 +2,16 @@ import { asCity } from "./listing-map";
 import { createOpsClient } from "./supabase";
 import type { MembershipPlanId, MockUser, StaffRole } from "./types";
 import { MEMBERSHIP_PLANS, PLATFORM, makeReferralCode } from "./pricing";
+/** Signed-in member from a Bearer token, or null (missing/bogus/expired token, auth outage). Never throws. */
 export async function userFromRequest(req: Request): Promise<ProfileRow | null> {
+  try {
+    return await userFromRequestUnsafe(req);
+  } catch {
+    return null;
+  }
+}
+
+async function userFromRequestUnsafe(req: Request): Promise<ProfileRow | null> {
   const header = req.headers.get("authorization") || "";
   const token = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
