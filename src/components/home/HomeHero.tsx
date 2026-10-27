@@ -1,4 +1,3 @@
-import { PLATFORM } from "@/lib/pricing";
 import { Icon } from "./Icon";
 import s from "./home.module.css";
 
@@ -13,13 +12,24 @@ export function HomeHero() {
               Member pass for neighborhood restaurants
             </p>
             <h1 id="home-h1" className={s.h1}>
-              <span className={s.line}>Eat local.</span>{" "}
-              <span className={`${s.line} ${s.hot}`}>Pay less.</span>{" "}
-              <span className={s.line}>Try something new.</span>
+              <span className={s.line}>Get your</span>{" "}
+              <span className={s.line}>
+                <span className={s.hot}>Gordito</span> on.
+              </span>
             </h1>
             <p className={s.sub}>
-              {PLATFORM.name} is a members only community for all food lovers to
-              access exclusive deals and finding the best gems in town!
+              <span className={s.subLine}>
+                <Icon name="pin" className={s.subIcon} />
+                Discover
+              </span>{" "}
+              <span className={s.subLine}>
+                <Icon name="dollar" className={s.subIcon} />
+                save
+              </span>{" "}
+              <span className={s.subLine}>
+                <Icon name="handHeart" className={s.subIcon} />
+                support local
+              </span>
             </p>
           </div>
         </div>

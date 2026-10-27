@@ -75,8 +75,8 @@
 .hero {
   position: relative;
   overflow: clip;
-  padding-top: 40px;
-  padding-bottom: 24px;
+  padding-top: 32px;
+  padding-bottom: 8px;
 }
 
 .heroGrid {
@@ -94,14 +94,26 @@
 }
 
 .h1 {
-  font-size: 36px;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: clamp(3.25rem, 8.5vw + 1rem, 8.5rem);
+  line-height: 0.98;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
 
 .h1 .line { display: block; }
+.sub .subLine {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+.sub .subIcon {
+  width: 0.82em;
+  height: 0.82em;
+  color: var(--brand);
+  opacity: 0.78;
+}
 
 .h1 .hot,
 .kickerLg .hot {
@@ -114,10 +126,12 @@
 }
 
 .sub {
-  margin-top: 16px;
-  font-size: 17px;
-  line-height: 1.6;
-  max-width: 30em;
+  margin-top: clamp(14px, 1.6vw, 24px);
+  font-size: clamp(2.25rem, 4vw + 1rem, 4.5rem);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  max-width: none;
   color: var(--fg-muted);
 }
 
@@ -2136,13 +2150,12 @@
   .profileWrap { flex-basis: 300px; }
   .shareGrid,
   .steps { grid-template-columns: repeat(2, 1fr); }
-  .h1 { font-size: 48px; }
-  .hero { padding-top: 64px; }
+  .hero { padding-top: 48px; }
 }
 
 @media (min-width: 900px) {
   .heroGrid {
-    grid-template-columns: minmax(0, 42rem);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "copy";
     justify-content: start;
     row-gap: 8px;
@@ -2339,3 +2352,4 @@
   -webkit-user-drag: none;
   pointer-events: none;
 }
+.hero + .section { padding-top: 40px; }
