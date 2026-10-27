@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRestaurant } from "@/lib/data";
 import { isLiveListing } from "@/lib/listing-status";
-import { POINT_ACTIONS } from "@/lib/pricing";
-import { addPoints, userFromRequest } from "@/lib/market";
+import { userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
 import { createOpsClient } from "@/lib/supabase";
 
@@ -77,7 +76,6 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
-    await addPoints(profile.id, POINT_ACTIONS.favorite.points, POINT_ACTIONS.favorite.label);
   }
   const newBadges = await recomputeMember(profile.id);
   const bundle = await snapshotAfter(profile.id, { newBadges });

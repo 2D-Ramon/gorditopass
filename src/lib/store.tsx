@@ -1820,11 +1820,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const evaluateBadges = useCallback(
     (overrides?: {
       redemptions?: Redemption[];
-      favorites?: string[];
       userReviews?: Review[];
     }): string[] => {
       const redList = overrides?.redemptions ?? redemptions;
-      const favList = overrides?.favorites ?? favorites;
       const revList = overrides?.userReviews ?? userReviews;
       let unlocked: string[] = [];
       setUser((u) => {
@@ -1842,7 +1840,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
           rewards_claimed: u.rewardsClaimed ?? 0,
           household: u.familySeats ?? 1,
-          favorites: favList.length,
           referrals: u.referralCount ?? 0,
         };
         const have = new Set(u.badges ?? []);
@@ -1860,7 +1857,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           else if (r.type === "rewards_claimed")
             ok = stats.rewards_claimed >= r.min;
           else if (r.type === "household") ok = stats.household >= r.min;
-          else if (r.type === "favorites") ok = stats.favorites >= r.min;
           else if (r.type === "referrals") ok = stats.referrals >= r.min;
           if (ok) {
             have.add(b.id);
@@ -1882,7 +1878,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       return unlocked;
     },
-    [redemptions, userReviews, favorites],
+    [redemptions, userReviews],
   );
 
   const evaluatePassports = useCallback((redListOverride?: Redemption[]) => {

@@ -38,7 +38,6 @@ export type MemberStats = {
   savings_ytd: number;
   rewards_claimed: number;
   household: number;
-  favorites: number;
   referrals: number;
 };
 
@@ -49,7 +48,7 @@ function ytdStartIso() {
 export async function loadMemberStats(memberId: string): Promise<MemberStats> {
   const sb = createOpsClient();
   const p = await loadProfile(memberId);
-  const [reds, reviews, posts, favs, seats] = await Promise.all([
+  const [reds, reviews, posts, seats] = await Promise.all([
     rows<{ savings_usd: number | null; used_at: string | null }>(
       sb
         .from("redeem_codes")
@@ -62,9 +61,6 @@ export async function loadMemberStats(memberId: string): Promise<MemberStats> {
     ),
     rows<{ id: string }>(
       sb.from("city_posts").select("id").eq("member_id", memberId),
-    ),
-    rows<{ restaurant_id: string }>(
-      sb.from("member_favorites").select("restaurant_id").eq("member_id", memberId),
     ),
     rows<{ id: string }>(
       sb.from("household_seats").select("id").eq("primary_member_id", memberId),
@@ -82,7 +78,6 @@ export async function loadMemberStats(memberId: string): Promise<MemberStats> {
     savings_ytd: savingsYtd,
     rewards_claimed: p?.rewards_claimed ?? 0,
     household: Math.max(p?.family_seats ?? 1, seats.length || 1),
-    favorites: favs.length,
     referrals: p?.referral_count ?? 0,
   };
 }
@@ -105,7 +100,6 @@ export async function recomputeMember(memberId: string): Promise<string[]> {
     else if (r.type === "savings_ytd") ok = stats.savings_ytd >= r.min;
     else if (r.type === "rewards_claimed") ok = stats.rewards_claimed >= r.min;
     else if (r.type === "household") ok = stats.household >= r.min;
-    else if (r.type === "favorites") ok = stats.favorites >= r.min;
     else if (r.type === "referrals") ok = stats.referrals >= r.min;
     if (ok) {
       have.add(b.id);
