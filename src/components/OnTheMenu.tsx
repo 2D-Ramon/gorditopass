@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { SlotMachine } from "@/components/on-the-menu/SlotMachine";
 import { RestaurantLogo, SwipeCard } from "@/components/on-the-menu/SwipeCard";
 import styles from "@/components/on-the-menu/on-the-menu.module.css";
@@ -14,6 +14,57 @@ import { useStore } from "@/lib/store";
 import type { Restaurant } from "@/lib/types";
 
 const RADIUS_PRESETS = [1, 3, 5, 10, 15, 25];
+const DEFAULT_RADIUS = 5;
+
+/**
+ * Swipe Taste radius preference. Browser-only today (localStorage).
+ * To make it account-backed later, swap loadRadius/saveRadius for store/API
+ * calls; the rest of the page only uses useRadiusPref().
+ */
+const RADIUS_KEY = "gordito.swipeTaste.radiusMi";
+const radiusListeners = new Set<() => void>();
+
+function validRadius(value: unknown): number {
+  const n = typeof value === "string" ? Number(value) : value;
+  return typeof n === "number" && RADIUS_PRESETS.includes(n) ? n : DEFAULT_RADIUS;
+}
+
+function loadRadius(): number {
+  try {
+    return validRadius(window.localStorage.getItem(RADIUS_KEY));
+  } catch {
+    return DEFAULT_RADIUS;
+  }
+}
+
+function saveRadius(miles: number) {
+  try {
+    window.localStorage.setItem(RADIUS_KEY, String(miles));
+  } catch {
+    // Storage blocked (private mode): keep the default for next time.
+  }
+  radiusListeners.forEach((fn) => fn());
+}
+
+function subscribeRadius(fn: () => void) {
+  radiusListeners.add(fn);
+  return () => {
+    radiusListeners.delete(fn);
+  };
+}
+
+/** Next preset up (the old +5 could land on 20, which is not a preset). */
+function nextRadius(miles: number): number {
+  return RADIUS_PRESETS.find((p) => p > miles) ?? RADIUS_PRESETS[RADIUS_PRESETS.length - 1];
+}
+
+function useRadiusPref() {
+  const radius = useSyncExternalStore(subscribeRadius, loadRadius, () => DEFAULT_RADIUS);
+  const setRadius = useCallback((next: number | ((prev: number) => number)) => {
+    saveRadius(validRadius(typeof next === "function" ? next(loadRadius()) : next));
+  }, []);
+  return [radius, setRadius] as const;
+}
 const SWIPE_PX = 100;
 const FLICK_PX_PER_MS = 0.6;
 const SPIN_MS = 3400;
@@ -67,7 +118,7 @@ export function OnTheMenu() {
   }
   const [announce, setAnnounce] = useState("");
   const [reduced, setReduced] = useState(false);
-  const [radius, setRadius] = useState(remembered?.radius ?? 5);
+  const [radius, setRadius] = useRadiusPref();
   const [decisions, setDecisions] = useState<Decision[]>(remembered?.decisions ?? []);
   const [view, setView] = useState<"deck" | "possibilities">(remembered?.view ?? "deck");
   const [drag, setDrag] = useState({ x: 0, y: 0, dragging: false });
@@ -224,7 +275,7 @@ export function OnTheMenu() {
       exitRef.current = topId;
       const id = topId;
       const name = deck[0]?.restaurant.name ?? "";
-      setAnnounce(choice === "yes" ? `Added ${name} to Possibilities.` : `Skipped ${name}.`);
+      setAnnounce(choice === "yes" ? `Added ${name} to Spin & Eat.` : `Skipped ${name}.`);
       setFly(choice === "yes" ? "right" : "left");
       setDrag({ x: 0, y: 0, dragging: false });
       gesture.current = null;
@@ -411,7 +462,7 @@ export function OnTheMenu() {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-8 sm:py-10">
       <p className="gp-badge mb-4">Tonight only</p>
-      <h1 className="gp-page-title">What&apos;s on the menu</h1>
+      <h1 className="gp-page-title">Swipe &amp; Dine</h1>
       <p className="gp-page-sub">
         Swipe right on places you&apos;re interested in, left to skip. Then spin for tonight&apos;s pick.
       </p>
@@ -432,7 +483,7 @@ export function OnTheMenu() {
               }`}
               onClick={backToDeck}
             >
-              Want to try
+              Swipe Taste
             </button>
             <button
               type="button"
@@ -443,7 +494,7 @@ export function OnTheMenu() {
               }`}
               onClick={() => setView("possibilities")}
             >
-              Possibilities
+              Spin &amp; Eat
               {possibilities.length > 0 && (
                 <span className="rounded-full bg-brand px-1.5 text-[11px] font-bold leading-5 text-white">
                   {possibilities.length}
@@ -536,7 +587,7 @@ export function OnTheMenu() {
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 {inRadius.length === 0
                   ? "Widen the radius from the settings button."
-                  : "Spin your Possibilities, or bring back the places you skipped."}
+                  : "Head to Spin & Eat, or bring back the places you skipped."}
               </p>
               <div className="mt-4 flex flex-col items-center gap-2">
                 {possibilities.length > 0 && (
@@ -545,16 +596,16 @@ export function OnTheMenu() {
                     className="gp-btn gp-btn-primary w-full text-sm"
                     onClick={() => setView("possibilities")}
                   >
-                    See your Possibilities ({possibilities.length})
+                    Go to Spin &amp; Eat ({possibilities.length})
                   </button>
                 )}
                 {inRadius.length === 0 && radius < 25 && (
                   <button
                     type="button"
                     className="gp-btn gp-btn-secondary w-full text-sm"
-                    onClick={() => setRadius((n) => Math.min(25, n + 5))}
+                    onClick={() => setRadius(nextRadius(radius))}
                   >
-                    Try {Math.min(25, radius + 5)} mi
+                    Try {nextRadius(radius)} mi
                   </button>
                 )}
                 {decisions.some((d) => d.choice === "no") && (
@@ -644,14 +695,14 @@ export function OnTheMenu() {
           )}
         </section>
       ) : (
-        <section className="mt-6" aria-label="Possibilities">
+        <section className="mt-6" aria-label="Spin & Eat">
           <p className="text-sm leading-relaxed text-muted">
             Places you said yes to for tonight. Spin the slots to pick one.
             Nothing here is saved to your account.
           </p>
           {possibilities.length === 0 ? (
             <div className="mt-4 gp-card gp-card-static p-6 text-center">
-              <p className="font-semibold">No possibilities yet.</p>
+              <p className="font-semibold">Nothing in Spin &amp; Eat yet.</p>
               <p className="mt-2 text-sm text-muted">
                 Swipe right on a place you want to try.
               </p>
@@ -678,7 +729,7 @@ export function OnTheMenu() {
               {possibilities.length === 1 && (
                 <div className="mt-3 text-center">
                   <button type="button" className="text-sm font-medium text-orange-200/90 hover:text-orange-100" onClick={backToDeck}>
-                    Back to Want to try
+                    Back to Swipe Taste
                   </button>
                 </div>
               )}

@@ -221,9 +221,10 @@ export default function RestaurantDetailPage() {
                 <button
                   type="button"
                   className="gp-btn gp-btn-secondary text-sm !py-2"
+                  aria-pressed={isFav}
                   onClick={() => toggleFavorite(restaurant.id)}
                 >
-                  {isFav ? "★ Saved" : "☆ Want to try"}
+                  {isFav ? "★ Will try" : "☆ Will try"}
                 </button>
                 <button
                   type="button"

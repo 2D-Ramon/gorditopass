@@ -41,16 +41,16 @@ const SCREENS = [
   },
   {
     id: "want",
-    title: "Want to try",
+    title: "Swipe Taste",
     body: "Swipe right to save a spot, left to skip.",
-    label: "On the Menu · Want to try",
+    label: "Swipe & Dine · Swipe Taste",
     src: "/home-demo/slide-06-want-to-try.png",
   },
   {
     id: "possibilities",
-    title: "Possibilities",
+    title: "Spin & Eat",
     body: "Spin the slots when you can’t decide where to eat.",
-    label: "On the Menu · Possibilities",
+    label: "Swipe & Dine · Spin & Eat",
     src: "/home-demo/slide-07-possibilities.png",
   },
 ] as const;

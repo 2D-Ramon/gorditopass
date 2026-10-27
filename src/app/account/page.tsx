@@ -1515,7 +1515,7 @@ function AccountInner() {
 
       {isDiner && favorites.length > 0 && tab === "profile" && (
         <div className="mt-6 gp-card gp-card-static p-5">
-          <p className="gp-section-label">Want to try</p>
+          <p className="gp-section-label">Will try</p>
           <ul className="mt-2 space-y-1 text-sm">
             {favorites.map((id) => (
               <li key={id}>

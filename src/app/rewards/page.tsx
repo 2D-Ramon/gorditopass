@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   BADGES,
-  POINT_ACTIONS,
+  VISIBLE_POINT_ACTIONS,
   REWARD_CATALOG,
   REWARDS,
 } from "@/lib/pricing";
@@ -29,7 +29,7 @@ export default function RewardsPage() {
       <p className="gp-badge mb-4">Members</p>
       <h1 className="gp-page-title">Rewards & redemptions</h1>
       <p className="gp-page-sub">
-        Earn points for deals, reviews, favorites, and passports. Claim free
+        Earn points for deals, reviews, and passports. Claim free
         items when you hit the threshold. Track every stamp and badge.
       </p>
 
@@ -109,7 +109,7 @@ export default function RewardsPage() {
           <section className="mt-10">
             <h2 className="text-lg font-semibold">How to earn points</h2>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {Object.values(POINT_ACTIONS).map((a) => (
+              {VISIBLE_POINT_ACTIONS.map((a) => (
                 <li
                   key={a.label}
                   className="rounded-lg border border-border bg-elevated/40 px-3 py-2 text-sm"

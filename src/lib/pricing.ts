@@ -63,6 +63,11 @@ export const POINT_ACTIONS = {
   first_redeem: { points: 25, label: "First redeem bonus" },
   review: { points: 15, label: "Rate the plate / review" },
   feed_post: { points: 10, label: "Post in city feed" },
+  /**
+   * No points for Favorite / Will try (Tudy). Kept only because
+   * /api/me/favorite still awards it server-side; hidden from the rewards page
+   * and no longer awarded by the client. Remove once the server stops using it.
+   */
   favorite: { points: 5, label: "Favorite a restaurant" },
   order: { points: 10, label: "Place an online order" },
   profile_complete: { points: 20, label: "Complete your profile" },
@@ -71,6 +76,11 @@ export const POINT_ACTIONS = {
   referral_referrer: { points: 40, label: "Referral reward (you referred)" },
   referral_friend: { points: 40, label: "Referral welcome bonus" },
 } as const;
+
+/** Point actions shown to members (excludes retired ones still referenced server-side). */
+export const VISIBLE_POINT_ACTIONS = Object.entries(POINT_ACTIONS)
+  .filter(([key]) => key !== "favorite")
+  .map(([, action]) => action);
 
 /** Referral program defaults (member → member) */
 export const REFERRAL = {
@@ -316,13 +326,6 @@ export const BADGES: BadgeDef[] = [
     description: "Add family / friends seats",
     emoji: "👨‍👩‍👧‍👦",
     rule: { type: "household", min: 2 },
-  },
-  {
-    id: "explorer",
-    name: "Explorer",
-    description: "Favorite 3 restaurants",
-    emoji: "🗺️",
-    rule: { type: "favorites", min: 3 },
   },
   {
     id: "plus_one",

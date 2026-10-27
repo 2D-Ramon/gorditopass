@@ -94,7 +94,7 @@ export function HomePillars() {
             <h3>Discover New Foods</h3>
             <p>
               Try places and cuisines you haven&apos;t. Save spots to your
-              want-to-try list, read plate reviews (1 to 5 plates), and see what
+              will-try list, read plate reviews (1 to 5 plates), and see what
               your city is eating.
             </p>
             <div className={s.pcVis}>
@@ -209,7 +209,7 @@ export function HomeHow() {
           </li>
         </ol>
         <p className={s.demoLead}>
-          Scroll the phone for profiles, badges, feed, events, and On the Menu.
+          Scroll the phone for profiles, badges, feed, events, and Swipe &amp; Dine.
         </p>
         <HomeDemo />
       </div>

@@ -2102,15 +2102,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (data.user) applyLiveBundle(data);
             return;
           }
-          if (!removing) {
-            awardPoints("favorite");
-            evaluateBadges({ favorites: next });
-          }
+          // No points or badges for Favorite / Will try (Tudy).
         })();
         return next;
       });
     },
-    [awardPoints, evaluateBadges, user, applyLiveBundle],
+    [user, applyLiveBundle],
   );
 
   const toggleFollow = useCallback(
