@@ -24,7 +24,7 @@ Paste the prompt below into a new Grok turn. Do not stop until every score is 10
 
 ### Still open (next cycle)
 
-- Support inbox is a personal Gmail until a GorditoPass domain mailbox exists
+- Support inbox is thegorditopass@gmail.com until a GorditoPass domain mailbox exists
 - Contact has no stored ticket history / SLA
 - Restaurant cards still use cuisine emoji, not photos
 - Home featured marquee duplicates cards (loop technique)
