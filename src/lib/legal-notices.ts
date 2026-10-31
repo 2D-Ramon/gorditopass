@@ -185,7 +185,7 @@ export async function processMember(
       .order("sent_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const sw = decideDecemberSweep(f, last?.sent_at ? Date.parse(last.sent_at as string) : null, nowMs);
+    const sw = decideDecemberSweep(f, last?.sent_at ? Date.parse(last.sent_at as string) : null, nowMs, anchor);
     if (sw.due) {
       out.push({
         type: "annual_reminder",

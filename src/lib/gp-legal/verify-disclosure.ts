@@ -68,17 +68,3 @@ export function verifyDisclosure(
   }
   return { ok: true };
 }
-
-/** Optional SMS opt-in from checkout. Returns null when not opted in; throws nothing. */
-export function parseSmsOptIn(raw: unknown): { phone: string; key: string; label: string } | { error: string } | null {
-  const r = (raw ?? null) as { checked?: unknown; phone?: unknown; consent_key_version?: unknown; label_text?: unknown } | null;
-  if (!r || r.checked !== true) return null;
-  const digits = String(r.phone ?? "").replace(/[^\d+]/g, "");
-  const e164 = /^\+\d{10,15}$/.test(digits) ? digits : /^\d{10}$/.test(digits) ? `+1${digits}` : /^1\d{10}$/.test(digits) ? `+${digits}` : null;
-  if (!e164) return { error: "Enter a valid mobile number for texts, or leave the text option unchecked." };
-  const key = String(r.consent_key_version ?? "");
-  if (!/^sms@\d+$/.test(key) || !isCurrentKey(key)) return { error: RELOAD };
-  const label = fillDisclosure((DISCLOSURES as Record<string, { checkboxLabel: string }>)[key].checkboxLabel, { brand: PLATFORM.name });
-  if (typeof r.label_text === "string" && r.label_text !== label) return { error: RELOAD };
-  return { phone: e164, key, label };
-}

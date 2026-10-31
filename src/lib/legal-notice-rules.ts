@@ -21,6 +21,10 @@ export const WINDOWS = {
 export const PROMO_NOTICE_MIN_LENGTH_DAYS = 30; // "> 30 days"
 export const SWEEP_TZ = "America/Chicago";
 export const RENEWAL_REMINDER_MIN_MONTHS = 6;
+/** Monthly members who joined within this many days (as of send) get no yearly/sweep reminder; next calendar year instead. */
+export const NEW_MONTHLY_GRACE_DAYS = 60;
+const isNewMonthly = (s: { intervalMonths: number | null }, anchorMs: number | null, nowMs: number) =>
+  (s.intervalMonths ?? 0) < RENEWAL_REMINDER_MIN_MONTHS && anchorMs != null && nowMs - anchorMs < NEW_MONTHLY_GRACE_DAYS * DAY_MS;
 
 export type Window = { min: number; max: number; target: number; alertAt: number };
 export type Decision =
@@ -84,6 +88,7 @@ export function decideAnnualReminder(s: SubFacts, anchorMs: number | null, nowMs
   const now = chicagoParts(nowMs);
   const a = chicagoParts(anchorMs);
   if (a.year >= now.year) return { due: false, reason: "join_year" };
+  if (isNewMonthly(s, anchorMs, nowMs)) return { due: false, reason: "joined_recently" };
   if (now.month * 100 + now.day < a.month * 100 + a.day) return { due: false, reason: "before_join_day" };
   return { due: true, periodKey: `cal-${now.year}`, days: 0 };
 }
@@ -99,10 +104,11 @@ export function chicagoParts(ms: number) {
  * Dec 1 sweep: on/after Dec 1 (Chicago), any live, non-canceling member with no renewal_reminder
  * or annual_reminder SENT in this calendar year (Chicago) gets an annual_reminder (key cal-YYYY).
  */
-export function decideDecemberSweep(s: SubFacts, lastReminderSentMs: number | null, nowMs: number): Decision {
+export function decideDecemberSweep(s: SubFacts, lastReminderSentMs: number | null, nowMs: number, anchorMs: number | null = null): Decision {
   const now = chicagoParts(nowMs);
   if (now.month !== 12) return { due: false, reason: "not_december" };
   if (!LIVE.has(s.status) || s.cancelAtPeriodEnd) return { due: false, reason: "not_renewing" };
+  if (isNewMonthly(s, anchorMs, nowMs)) return { due: false, reason: "joined_recently" };
   if (lastReminderSentMs && chicagoParts(lastReminderSentMs).year === now.year) return { due: false, reason: "had_one_this_year" };
   return { due: true, periodKey: `cal-${now.year}`, days: 0 };
 }

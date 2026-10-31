@@ -44,12 +44,6 @@ export const DISCLOSURES = {
   "tos@1": { text: "", checkboxLabel: "I agree to the Terms of use and acknowledge the Privacy notice." },
   // FSE (server-required at checkout): prominent offers disclaimer, shown next to the pay button.
   "offers@1": { text: "Offers and partners change anytime. No guarantee.", checkboxLabel: "" },
-  // FSE: optional SMS opt-in, unchecked by default, separate checkbox. Recorded only; no SMS is sent yet.
-  "sms@1": {
-    text: "",
-    checkboxLabel:
-      "Optional: text me {brand} offers and account updates at this number. Up to 4 msgs/month. Msg & data rates may apply. Consent is not a condition of purchase.",
-  },
 } as const satisfies Record<string, DisclosureEntry>;
 
 export type DisclosureKey = keyof typeof DISCLOSURES;
@@ -61,7 +55,6 @@ export function disclosureKey(mode: "checkout" | "resume", plan: MembershipPlanI
 
 export const TOS_KEY: DisclosureKey = "tos@1";
 export const OFFERS_KEY: DisclosureKey = "offers@1";
-export const SMS_KEY: DisclosureKey = "sms@1";
 
 /**
  * FSE versioning: several @N of one family coexist; only the HIGHEST @N is accepted by
