@@ -22,7 +22,9 @@ create unique index if not exists notices_sent_user_type_period
 alter table public.consent_events add column if not exists tos_key_version text;
 alter table public.consent_events add column if not exists offers_key_version text;
 
--- ---------- SMS consents (record only; no sending / STOP-HELP / 10DLC yet) ----------
+-- ---------- SMS consents: DORMANT ----------
+-- Nothing reads or writes this table yet (checkout does not collect phone or SMS consent).
+-- Kept for a future SMS program; before use: consent UI + disclosure key, provider/10DLC, STOP/HELP.
 create table if not exists public.sms_consents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,  -- no FK: retention

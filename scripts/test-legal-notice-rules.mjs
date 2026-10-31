@@ -39,6 +39,15 @@ eq("sweep Nov30 23:30 Chicago is Nov", R.decideDecemberSweep(sub({}), null, Date
 eq("sweep Dec1 Chicago", R.decideDecemberSweep(sub({}), null, Date.parse("2026-12-01T14:00:00Z")).periodKey, "cal-2026");
 eq("sweep had one", R.decideDecemberSweep(sub({}), Date.parse("2026-03-01T00:00:00Z"), Date.parse("2026-12-01T14:00:00Z")).reason, "had_one_this_year");
 eq("sweep last year's doesn't count", R.decideDecemberSweep(sub({}), Date.parse("2025-12-05T00:00:00Z"), Date.parse("2026-12-01T14:00:00Z")).due, true);
+// New monthly members (< 60 days) skipped by sweep + yearly; annual plans not affected
+const dec5 = Date.parse("2026-12-05T15:00:00Z");
+eq("sweep skips monthly joined 30d ago", R.decideDecemberSweep(sub({ intervalMonths: 1 }), null, dec5, dec5 - 30*D).reason, "joined_recently");
+eq("sweep skips monthly joined 59.9d ago", R.decideDecemberSweep(sub({ intervalMonths: 1 }), null, dec5, dec5 - 59.9*D).reason, "joined_recently");
+eq("sweep sends monthly joined 60d ago", R.decideDecemberSweep(sub({ intervalMonths: 1 }), null, dec5, dec5 - 60*D).due, true);
+eq("sweep sends annual joined 30d ago", R.decideDecemberSweep(sub({ intervalMonths: 12 }), null, dec5, dec5 - 30*D).due, true);
+eq("sweep no anchor still sends", R.decideDecemberSweep(sub({ intervalMonths: 1 }), null, dec5).due, true);
+eq("yearly skips monthly joined 40d ago (prev year)", R.decideAnnualReminder(mo, Date.parse("2025-12-20T18:00:00Z"), Date.parse("2026-01-29T18:00:00Z")).reason, "joined_recently");
+eq("yearly next-year after grace", R.decideAnnualReminder(mo, Date.parse("2025-11-20T18:00:00Z"), Date.parse("2026-11-20T18:00:00Z")).periodKey, "cal-2026");
 // Trial conversion
 const tr = (len, d) => sub({ status: "trialing", convertsToPaid: true, amountCents: 999, trialStartMs: NOW + d*D - len*D, trialEndMs: NOW + d*D, periodEndMs: NOW + d*D });
 eq("trial 31d at 10", R.decideTrialConversion(tr(31, 10), NOW).due, true);

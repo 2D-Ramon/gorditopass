@@ -17,7 +17,7 @@ import {
 } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
 import { parseConsent } from "@/lib/consent";
-import { parseSmsOptIn, verifyDisclosure } from "@/lib/gp-legal/verify-disclosure";
+import { verifyDisclosure } from "@/lib/gp-legal/verify-disclosure";
 import { clientIp } from "@/lib/legal";
 
 export async function POST(req: Request) {
@@ -54,8 +54,6 @@ export async function POST(req: Request) {
     referral_code?: string;
     access_code?: string;
     consent?: unknown;
-    /** Optional, unchecked by default: { checked: true, phone, consent_key_version: "sms@1", label_text } */
-    sms_consent?: unknown;
   } | null;
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === body?.planId);
   if (!plan) return NextResponse.json({ error: "Pick a plan." }, { status: 400 });
@@ -143,8 +141,6 @@ export async function POST(req: Request) {
   if (!disclosure.ok) {
     return NextResponse.json({ error: disclosure.error, code: disclosure.code }, { status: 422 });
   }
-  const sms = parseSmsOptIn(body?.sms_consent);
-  if (sms && "error" in sms) return NextResponse.json({ error: sms.error, code: "sms_consent_invalid" }, { status: 422 });
   const { data: consentRow, error: consentErr } = await sb
     .from("consent_events")
     .insert({
@@ -162,19 +158,6 @@ export async function POST(req: Request) {
     .single();
   if (consentErr || !consentRow) {
     return NextResponse.json({ error: "Could not record consent." }, { status: 500 });
-  }
-  if (sms) {
-    // Record only. No SMS is sent: provider, 10DLC, STOP/HELP handling are future work.
-    await sb.from("sms_consents").insert({
-      user_id: profile.id,
-      phone_e164: sms.phone,
-      consent_key_version: sms.key,
-      consent_text: sms.label,
-      source: "checkout",
-      consent_event_id: consentRow.id,
-      ip: clientIp(req),
-      user_agent: req.headers.get("user-agent"),
-    });
   }
 
   const stripe = new Stripe(key);

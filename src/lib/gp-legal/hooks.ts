@@ -25,8 +25,6 @@ export type ConsentPayload = {
   tosKeyVersion?: string;
   /** DISCLOSURES key of the offers disclaimer rendered on the page (OFFERS_KEY). Required at checkout. */
   offersKeyVersion?: string;
-  /** Optional SMS opt-in (unchecked by default). Recorded at checkout only; nothing is texted yet. */
-  smsOptIn?: { phone: string; consentKeyVersion: string; labelText: string } | null;
   priceCents: number; // display only; server prices from pricing.ts / Stripe
   currency: "usd";
   intervalMonths: number;
@@ -102,13 +100,13 @@ export async function buildConsentInput(p: ConsentPayload): Promise<ConsentInput
   };
 }
 
-const pendingConsent = new Map<string, { planId: MembershipPlanId; input: ConsentInput; sms: ConsentPayload["smsOptIn"] }>();
+const pendingConsent = new Map<string, { planId: MembershipPlanId; input: ConsentInput}>();
 
 /** Call only after BOTH boxes are checked. Returns a local handle; nothing is sent yet. */
 export async function logCheckoutConsent(p: ConsentPayload): Promise<ConsentResult> {
   const input = await buildConsentInput(p);
   const consentId = crypto.randomUUID();
-  pendingConsent.set(consentId, { planId: p.planId, input, sms: p.smsOptIn ?? null });
+  pendingConsent.set(consentId, { planId: p.planId, input });
   return { consentId };
 }
 
@@ -124,9 +122,6 @@ export async function createCheckoutSession(consentId: string, planId: Membershi
       planId,
       seats: 1,
       consent: held.input,
-      ...(held.sms
-        ? { sms_consent: { checked: true, phone: held.sms.phone, consent_key_version: held.sms.consentKeyVersion, label_text: held.sms.labelText } }
-        : {}),
     }),
   });
   pendingConsent.delete(consentId);
