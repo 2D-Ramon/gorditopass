@@ -37,7 +37,7 @@ export function CancelFlow() {
     try {
       setDone(await cancelMembership({ retentionOfferShown: false }));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Cancel failed. Please try again or email support.");
+      setErr(e instanceof Error ? e.message : "Cancel failed. Please try again from Account > Membership > Cancel.");
     } finally {
       setBusy(false);
     }

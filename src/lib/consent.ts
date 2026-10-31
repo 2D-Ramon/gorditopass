@@ -10,16 +10,20 @@ export type ConsentInput = {
   state_of_residence?: string | null;
   screenshot_ref?: string | null;
   tos_checked?: boolean;
+  /** DISCLOSURES key of the ToS label shown. Default "tos@1". */
+  tos_key_version?: string | null;
+  /** DISCLOSURES key of the offers disclaimer shown ("offers@1"). Required at checkout. */
+  offers_key_version?: string | null;
 };
 
 const str = (v: unknown, max = 2000) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 
-export function parseConsent(raw: unknown):
+export function parseConsent(raw: unknown, opts: { requireTos?: boolean } = {}):
   | { ok: true; value: Omit<ConsentInput, "tos_checked" | "checkbox_checked"> & { checkbox_checked: true } }
   | { ok: false; error: string } {
   const c = (raw ?? {}) as Record<string, unknown>;
   if (c.checkbox_checked !== true) return { ok: false, error: "Please agree to automatic renewal to continue." };
-  if (c.tos_checked === false) return { ok: false, error: "Please accept the Terms to continue." };
+  if (c.tos_checked === false || (opts.requireTos && c.tos_checked !== true)) return { ok: false, error: "Please accept the Terms to continue." };
   const version = str(c.disclosure_key_version, 200);
   const sha = str(c.disclosure_text_sha256, 128);
   const label = str(c.checkbox_label_text);
@@ -34,10 +38,12 @@ export function parseConsent(raw: unknown):
       checkbox_label_text: label,
       checkbox_checked: true,
       page_url: str(c.page_url, 1000),
-      renewal_date_shown: renewal && !isNaN(Date.parse(renewal)) ? renewal.slice(0, 10) : null,
+      renewal_date_shown: renewal && /^\d{4}-\d{2}-\d{2}/.test(renewal) && !isNaN(Date.parse(renewal.slice(0, 10))) ? renewal.slice(0, 10) : null,
       locale: str(c.locale, 20),
       state_of_residence: str(c.state_of_residence, 40),
       screenshot_ref: str(c.screenshot_ref, 500),
+      tos_key_version: str(c.tos_key_version, 100) ?? "tos@1",
+      offers_key_version: str(c.offers_key_version, 100),
     },
   };
 }

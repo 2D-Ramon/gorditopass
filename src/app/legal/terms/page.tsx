@@ -130,13 +130,8 @@ export default function TermsPage() {
             {SELLABLE_PLANS.map((pl) => `${pl.name} (${planDisclosure(pl.id).price})`).join(", ")},
             charged per seat, up to {MAX_FAMILY_SEATS} seats. A plan works in every city we
             launch. Membership renews for the same term unless you cancel.
-            Cancel from your account billing page or by emailing{" "}
-            <a
-              href={`mailto:${PLATFORM.supportEmail}`}
-              className="text-brand underline"
-            >
-              {PLATFORM.supportEmail}
-            </a>
+            Cancel online at Account &gt; Membership &gt; Cancel (
+            <Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>)
             . After you cancel, access continues until the term you already
             paid for ends. We do not pro-rate unused days. We may give a code
             for one person, a set number of people, or an open promotion that
@@ -178,8 +173,8 @@ export default function TermsPage() {
           <p>
             For plans of one year or longer we email a reminder 15-45 days before each renewal. We give 7-30
             days&apos; notice of any price change, with a link to cancel. Cancel anytime online at Account &gt;
-            Membership &gt; Cancel (<Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>)
-            or by emailing {PLATFORM.supportEmail}. See the{" "}
+            Membership &gt; Cancel (<Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>).
+            See the{" "}
             <Link href={REFUNDS_PATH} className="text-brand underline">Refund Policy</Link>.
           </p>
           <p>

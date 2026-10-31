@@ -79,7 +79,7 @@ export function MembershipPanel() {
             Request refund
           </Link>
         </div>
-        <p className="mt-3 text-sm text-stone-300">You can also cancel by emailing {PLATFORM.supportEmail}.</p>
+        <p className="mt-3 text-sm text-stone-300">To cancel: Account &gt; Membership &gt; Cancel.</p>
       </section>
     </div>
   );

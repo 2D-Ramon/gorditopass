@@ -7,7 +7,8 @@ import {
 } from "@/lib/partner-insights";
 
 function firstName(row: { first_name?: string | null; email?: string | null }) {
-  return (row.first_name || "").trim() || (row.email || "Member").split("@")[0];
+  // Never fall back to the email local part: this payload is partner-facing (no member PII beyond first name + last initial).
+  return (row.first_name || "").trim() || "Member";
 }
 
 export type RestaurantInsightsBody = InsightsPayload & {

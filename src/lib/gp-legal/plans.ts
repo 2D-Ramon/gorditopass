@@ -9,7 +9,7 @@ export type PlanDisclosure = {
   adverb: string; // "every month" ...
   renewalDate: Date;
   renewalDateText: string;
-  /** Pre-renewal reminder 15-45 days out: spec 04 requires it for initial terms >= 1 year (§17602(b)(2)). */
+  /** Pre-renewal reminder 15-45 days out (DRAFT rule set: 6-month and annual terms; monthly gets a yearly reminder). */
   sendsReminder: boolean;
 };
 
@@ -40,7 +40,7 @@ export function planDisclosure(id: MembershipPlanId, now = new Date()): PlanDisc
     adverb: plan.months === 1 ? "every month" : plan.months === 12 ? "every year" : `every ${every}`,
     renewalDate,
     renewalDateText: renewalDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-    sendsReminder: plan.months >= 12,
+    sendsReminder: plan.months >= 6,
   };
 }
 

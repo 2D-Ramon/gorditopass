@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/authed";
+import { safeNext } from "@/lib/safe-next";
 
 /** Client-side gate: Supabase sessions live in the browser, so the check runs here. */
 export function RequireLogin({ children }: { children: React.ReactNode }) {
@@ -15,7 +16,7 @@ export function RequireLogin({ children }: { children: React.ReactNode }) {
       if (!live) return;
       if (t) setOk(true);
       else {
-        const next = pathname + (typeof window !== "undefined" ? window.location.search : "");
+        const next = safeNext(pathname + (typeof window !== "undefined" ? window.location.search : ""), "/");
         router.replace(`/login?next=${encodeURIComponent(next)}`);
       }
     });

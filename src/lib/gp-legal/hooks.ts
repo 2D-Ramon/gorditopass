@@ -21,6 +21,12 @@ export type ConsentPayload = {
   disclosureText?: string;
   checkboxLabelText: string; // exact auto-renew label shown
   tosLabelText: string;
+  /** DISCLOSURES key of the ToS checkbox label shown (default "tos@1"). */
+  tosKeyVersion?: string;
+  /** DISCLOSURES key of the offers disclaimer rendered on the page (OFFERS_KEY). Required at checkout. */
+  offersKeyVersion?: string;
+  /** Optional SMS opt-in (unchecked by default). Recorded at checkout only; nothing is texted yet. */
+  smsOptIn?: { phone: string; consentKeyVersion: string; labelText: string } | null;
   priceCents: number; // display only; server prices from pricing.ts / Stripe
   currency: "usd";
   intervalMonths: number;
@@ -57,6 +63,14 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function localYmd(v: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function shownDisclosureText(p: ConsentPayload): string {
   if (p.disclosureText?.trim()) return p.disclosureText;
   if (typeof document !== "undefined") {
@@ -79,19 +93,22 @@ export async function buildConsentInput(p: ConsentPayload): Promise<ConsentInput
     checkbox_checked: true,
     tos_checked: true,
     page_url: p.pageUrl,
-    renewal_date_shown: p.renewalDateShown,
+    // Local calendar date the user saw (the server rebuilds the canonical text from it).
+    renewal_date_shown: localYmd(p.renewalDateShown),
+    tos_key_version: p.tosKeyVersion ?? "tos@1",
+    offers_key_version: p.offersKeyVersion ?? null,
     locale: p.locale,
     state_of_residence: p.stateOfResidence ?? null,
   };
 }
 
-const pendingConsent = new Map<string, { planId: MembershipPlanId; input: ConsentInput }>();
+const pendingConsent = new Map<string, { planId: MembershipPlanId; input: ConsentInput; sms: ConsentPayload["smsOptIn"] }>();
 
 /** Call only after BOTH boxes are checked. Returns a local handle; nothing is sent yet. */
 export async function logCheckoutConsent(p: ConsentPayload): Promise<ConsentResult> {
   const input = await buildConsentInput(p);
   const consentId = crypto.randomUUID();
-  pendingConsent.set(consentId, { planId: p.planId, input });
+  pendingConsent.set(consentId, { planId: p.planId, input, sms: p.smsOptIn ?? null });
   return { consentId };
 }
 
@@ -103,7 +120,14 @@ export async function createCheckoutSession(consentId: string, planId: Membershi
   }
   const res = await call<{ url?: string; comp?: boolean }>("/api/membership/checkout", {
     method: "POST",
-    body: JSON.stringify({ planId, seats: 1, consent: held.input }),
+    body: JSON.stringify({
+      planId,
+      seats: 1,
+      consent: held.input,
+      ...(held.sms
+        ? { sms_consent: { checked: true, phone: held.sms.phone, consent_key_version: held.sms.consentKeyVersion, label_text: held.sms.labelText } }
+        : {}),
+    }),
   });
   pendingConsent.delete(consentId);
   if (!res.url) throw new GpApiError("Checkout did not return a payment page.", 502);
