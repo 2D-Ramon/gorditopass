@@ -4,8 +4,20 @@ import { moderationBlock } from "@/lib/moderation";
 import { getDeal } from "@/lib/data";
 import { estimateDealValue } from "@/lib/deal-value";
 import { userFromRequest } from "@/lib/market";
-import { SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
+
+type DbError = { code?: string; message?: string } | null;
+
+/** Table not created yet (migration not applied). */
+function isMissingTable(error: DbError) {
+  if (!error) return false;
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    (/does not exist|could not find/i.test(error.message ?? "") &&
+      /listing_deals|listings|redeem_codes/i.test(error.message ?? ""))
+  );
+}
 
 function sixDigit() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -25,91 +37,31 @@ export async function POST(req: Request) {
   const sb = createOpsClient();
   const blocked = await moderationBlock(sb, profile.id, "redeem");
   if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
-  let { data: deal } = await sb
+  const { data: deal, error: dealErr } = await sb
     .from("listing_deals")
     .select("*")
     .eq("id", dealId)
     .eq("hidden", false)
     .maybeSingle();
-
-  if (!deal) {
-    const seed = getDeal(dealId);
-    if (!seed || !seed.deal.active) {
-      return NextResponse.json({ error: "This deal is not live." }, { status: 404 });
-    }
-    const { data: existing } = await sb
-      .from("listings")
-      .select("approved, banned, tagline")
-      .eq("id", seed.restaurant.id)
-      .maybeSingle();
-    if (existing && !isLiveListing(existing)) {
+  if (dealErr) {
+    if (isMissingTable(dealErr)) {
       return NextResponse.json(
-        { error: "This restaurant is not accepting member visits right now." },
-        { status: 404 },
+        { error: "Redemption is not available yet.", code: "redeem_unavailable" },
+        { status: 503 },
       );
     }
-    await sb.from("listings").upsert(
-      {
-        id: seed.restaurant.id,
-        name: seed.restaurant.name,
-        slug: seed.restaurant.slug,
-        city: seed.restaurant.city,
-        neighborhood: seed.restaurant.neighborhood,
-        cuisine: seed.restaurant.cuisine,
-        tagline: seed.restaurant.tagline,
-        story: seed.restaurant.story,
-        hours: seed.restaurant.hours,
-        address: seed.restaurant.address,
-        lat: seed.restaurant.lat,
-        lng: seed.restaurant.lng,
-        emoji: seed.restaurant.emoji,
-        accent: seed.restaurant.accent,
-        approved: true,
-        banned: false,
-      },
-      { onConflict: "id" },
-    );
-    await sb.from("listing_deals").upsert(
-      {
-        id: seed.deal.id,
-        restaurant_id: seed.deal.restaurantId,
-        title: seed.deal.title,
-        description: seed.deal.description,
-        type: seed.deal.type,
-        value: seed.deal.value,
-        active: true,
-        hidden: false,
-        status: "approved",
-      },
-      { onConflict: "id" },
-    );
-    deal = {
-      id: seed.deal.id,
-      restaurant_id: seed.deal.restaurantId,
-      title: seed.deal.title,
-      type: seed.deal.type,
-      value: seed.deal.value,
-      regular_price_usd: seed.restaurant.menu[0]?.priceUsd ?? null,
-      active: true,
-    };
-    const { data: pinRow } = await sb
-      .from("listing_staff")
-      .select("name")
-      .eq("restaurant_id", seed.deal.restaurantId)
-      .eq("email", SCAN_PIN_EMAIL)
-      .maybeSingle();
-    if (!pinRow) {
-      await sb.from("listing_staff").upsert(
-        {
-          restaurant_id: seed.deal.restaurantId,
-          email: SCAN_PIN_EMAIL,
-          name: "1234",
-          staff_role: "employee",
-          active: true,
-        },
-        { onConflict: "restaurant_id,email" },
-      );
-    }
+    return NextResponse.json({ error: "Could not load this deal." }, { status: 500 });
+  }
+
+  // Never writes listings/deals/staff on the fly: only deals that already exist in the DB
+  // can be redeemed (same pattern as /api/me/loved and /api/me/favorite).
+  if (!deal) {
+    return getDeal(dealId)
+      ? NextResponse.json(
+          { error: "This deal is not live yet.", code: "not_listed" },
+          { status: 422 },
+        )
+      : NextResponse.json({ error: "This deal is not live." }, { status: 404 });
   }
 
   if (deal.active === false || deal.sold_out === true) {
