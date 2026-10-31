@@ -59,7 +59,7 @@ export default function PricingPage() {
           Family / friends: up to {MAX_FAMILY_SEATS} seats, cost still per
           person.
         </li>
-        <li>No free trial — start monthly if you want flexibility.</li>
+        <li>Start monthly if you want flexibility.</li>
         <li>Gift memberships supported (coming in product flow).</li>
         <li>Cancel anytime; access until paid term ends.</li>
         <li>
