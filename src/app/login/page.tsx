@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { currentNext } from "@/lib/safe-next";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+const noopSubscribe = () => () => {};
 import { PasswordInput } from "@/components/PasswordInput";
 import { createBrowserClient } from "@/lib/supabase";
 import { isLocalDemoHost } from "@/lib/public-site";
@@ -42,8 +44,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  const [localDemo, setLocalDemo] = useState(false);
-  useEffect(() => setLocalDemo(isLocalDemoHost()), []);
+  // Server/hydration render: false; client: hostname check (same result as the old effect).
+  const localDemo = useSyncExternalStore(noopSubscribe, isLocalDemoHost, () => false);
 
   function goAccount() {
     router.push(currentNext("/account"));

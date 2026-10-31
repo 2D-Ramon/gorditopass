@@ -1,16 +1,14 @@
 import type Stripe from "stripe";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { PLATFORM } from "@/lib/pricing";
 
 /** Template versions logged in notices_sent.template_version. Bump with legal.en.json. */
 export const TEMPLATE_VERSIONS = {
-  renewal_reminder: "email.renewal_reminder@1",
+  renewal_reminder: "email.renewal_reminder@2",
+  annual_reminder: "email.annual_reminder@1",
+  trial_conversion: "email.trial_conversion@1",
   cancel_confirm: "email.cancel_confirm@1",
 } as const;
 
-export const REMINDER_TARGET_DAYS = 30;
-export const REMINDER_MIN_DAYS = 15;
-export const REMINDER_MAX_DAYS = 45;
 
 /** Cron auth. Fails closed: no CRON_SECRET configured => 401. */
 export function cronAuthorized(req: Request) {
@@ -83,10 +81,6 @@ export function subIntervalMonths(sub: Stripe.Subscription): number | null {
   return null; // week/day: not a membership term
 }
 
-/** Pre-renewal reminder only for terms of 12+ months (matches UI `sendsReminder: plan.months >= 12`). */
-export function sendsRenewalReminder(sub: Stripe.Subscription): boolean {
-  return (subIntervalMonths(sub) ?? 0) >= 12;
-}
 
 export function confirmationNumber() {
   const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -110,75 +104,18 @@ export async function sendEmail(to: string, subject: string, html: string) {
   return { ok: true as const, id: json.id ?? null };
 }
 
-const esc = (s: string) =>
+export const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const money = (cents: number | null, cur = "usd") =>
+export const money = (cents: number | null, cur = "usd") =>
   cents == null ? "" : new Intl.NumberFormat("en-US", { style: "currency", currency: cur.toUpperCase() }).format(cents / 100);
-const day = (iso: string) =>
+export const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
-
-/** Placeholder copy; final text comes from legal.en.json (email.renewal_reminder.*). */
-export function renewalReminderEmail(o: { renewalDate: string; amountCents: number | null; currency?: string }) {
-  const url = `${appUrl()}/account/membership`;
-  return {
-    subject: `Your GorditoPass membership renews on ${day(o.renewalDate)}`,
-    html: `<p>Your GorditoPass membership will automatically renew on <strong>${esc(day(o.renewalDate))}</strong>${
-      o.amountCents != null ? ` and you will be charged <strong>${esc(money(o.amountCents, o.currency))}</strong>` : ""
-    } unless you cancel before then.</p><p>To cancel online: <a href="${url}/cancel">${url}/cancel</a>. Manage your membership: <a href="${url}">${url}</a>. Questions: ${esc(PLATFORM.supportEmail)}.</p>`,
-  };
-}
 
 export function cancelConfirmEmail(o: { confirmationNumber: string; accessEndsAt: string | null }) {
   return {
     subject: `GorditoPass cancellation confirmed (${o.confirmationNumber})`,
     html: `<p>Your GorditoPass membership has been canceled. Confirmation number: <strong>${esc(o.confirmationNumber)}</strong>.</p>${
       o.accessEndsAt ? `<p>You keep access until <strong>${esc(day(o.accessEndsAt))}</strong>. You will not be charged again.</p>` : ""
-    }<p>Changed your mind? Resume at <a href="${appUrl()}/account/membership">${appUrl()}/account/membership</a>. Questions: ${esc(PLATFORM.supportEmail)}.</p>`,
+    }<p>Changed your mind? Resume at <a href="${appUrl()}/account/membership">${appUrl()}/account/membership</a>. Other questions: ${esc(PLATFORM.supportEmail)}.</p>`,
   };
-}
-
-/**
- * Queue-then-send a renewal reminder. Idempotent through the unique index
- * notices_sent_one_reminder_per_period (user_id, subscription_id, renewal_date).
- */
-export async function sendRenewalReminder(
-  sb: SupabaseClient,
-  o: { userId: string; email: string; subscriptionId: string | null; renewalDate: string; amountCents: number | null; currency?: string },
-): Promise<"sent" | "already" | "queued" | "failed"> {
-  const renewal = o.renewalDate.slice(0, 10);
-  const { data: existing } = await sb
-    .from("notices_sent")
-    .select("id, status")
-    .eq("user_id", o.userId)
-    .eq("type", "renewal_reminder")
-    .eq("renewal_date", renewal)
-    .eq("subscription_id", o.subscriptionId ?? "")
-    .maybeSingle();
-  let id = existing?.id as string | undefined;
-  if (existing?.status === "sent") return "already";
-  if (!id) {
-    const { data: row, error } = await sb
-      .from("notices_sent")
-      .insert({
-        user_id: o.userId,
-        subscription_id: o.subscriptionId ?? "",
-        type: "renewal_reminder",
-        template_version: TEMPLATE_VERSIONS.renewal_reminder,
-        renewal_date: renewal,
-        amount_cents: o.amountCents,
-        status: "queued",
-      })
-      .select("id")
-      .single();
-    if (error) return error.code === "23505" ? "already" : "failed"; // raced another run
-    id = row.id;
-  }
-  const mail = renewalReminderEmail(o);
-  const r = await sendEmail(o.email, mail.subject, mail.html);
-  if (r.ok) {
-    await sb.from("notices_sent").update({ status: "sent", sent_at: new Date().toISOString(), provider_message_id: r.id }).eq("id", id);
-    return "sent";
-  }
-  await sb.from("notices_sent").update({ status: r.queued ? "queued" : "failed", error: r.error }).eq("id", id);
-  return r.queued ? "queued" : "failed";
 }

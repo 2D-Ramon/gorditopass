@@ -4,6 +4,7 @@ import { userFromRequest } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
 import { clientIp, periodEnd, sameOriginJson, subAmountCents } from "@/lib/legal";
 import { parseConsent } from "@/lib/consent";
+import { verifyDisclosure } from "@/lib/gp-legal/verify-disclosure";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { consent?: unknown } | null;
   const consent = parseConsent(body?.consent);
   if (!consent.ok) return NextResponse.json({ error: consent.error, code: "consent_required" }, { status: 422 });
+  const disclosure = verifyDisclosure(consent.value, "resume", profile.plan_id);
+  if (!disclosure.ok) return NextResponse.json({ error: disclosure.error, code: disclosure.code }, { status: 422 });
 
   const stripe = new Stripe(key);
   let sub = await stripe.subscriptions.retrieve(subId).catch(() => null);

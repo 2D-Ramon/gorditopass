@@ -5,7 +5,7 @@
       "schedule": "0 14 * * 1"
     },
     {
-      "path": "/api/cron/renewal-reminders",
+      "path": "/api/cron/legal-notices",
       "schedule": "0 14 * * *"
     },
     {

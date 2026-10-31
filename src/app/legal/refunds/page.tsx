@@ -22,8 +22,7 @@ export default function RefundsPage() {
           <h2 className="font-semibold text-white">1. Cancel anytime</h2>
           <p className="mt-2">
             Cancel online at Account &gt; Membership &gt; Cancel (
-            <Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>) or email{" "}
-            {PLATFORM.supportEmail}. Canceling stops future renewals. {SITE_STANCE.cancelTiming}{" "}
+            <Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>). Canceling stops future renewals. {SITE_STANCE.cancelTiming}{" "}
             {SITE_STANCE.proration}
           </p>
         </section>
