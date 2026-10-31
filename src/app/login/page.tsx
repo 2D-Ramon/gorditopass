@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { currentNext } from "@/lib/safe-next";
 import { useEffect, useState } from "react";
 import { PasswordInput } from "@/components/PasswordInput";
 import { createBrowserClient } from "@/lib/supabase";
@@ -45,7 +46,7 @@ export default function LoginPage() {
   useEffect(() => setLocalDemo(isLocalDemoHost()), []);
 
   function goAccount() {
-    router.push("/account");
+    router.push(currentNext("/account"));
   }
 
   return (
@@ -156,7 +157,7 @@ export default function LoginPage() {
             if (sb) {
               const { error } = await sb.auth.signInWithOtp({
                 email,
-                options: { emailRedirectTo: `${window.location.origin}/account` },
+                options: { emailRedirectTo: `${window.location.origin}${currentNext("/account")}` },
               });
               if (error) {
                 setErr(signInFailureMessage(error.message));
