@@ -8,8 +8,7 @@ export default function CitiesPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold">Cities</h1>
       <p className="mt-2 text-muted">
-        Launching city by city. Monthly & 6-month plans are home-city;
-        annual unlocks every live city.
+        Launching city by city. Every plan covers every live city.
       </p>
       <ul className="mt-8 space-y-3">
         {CITIES.map((c) => (
