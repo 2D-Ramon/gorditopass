@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { DraftBanner, DraftSection, Ph } from "@/components/gp-legal/DraftBanner";
+import { GP_PLACEHOLDERS as P } from "@/lib/gp-legal/placeholders";
 import { PLATFORM } from "@/lib/pricing";
 
 export const metadata = { title: "Privacy" };
@@ -6,6 +8,7 @@ export const metadata = { title: "Privacy" };
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      <DraftBanner note="Preview: draft billing/consent-record copy (spec 06) is merged as §10 below, marked DRAFT." />
       <h1 className="text-3xl font-bold">Privacy notice</h1>
       <p className="mt-4 text-sm leading-relaxed text-muted">
         When you use {PLATFORM.name}, you trust us with personal information.
@@ -244,6 +247,25 @@ export default function PrivacyPage() {
             .
           </p>
         </section>
+        <DraftSection title="10. Membership billing and auto-renewal records">
+          <p>
+            Card payments are processed by Stripe (https://stripe.com/privacy). We receive card brand, last 4,
+            expiry, billing country/ZIP and transaction IDs, not full card numbers. Account and database
+            hosting use Supabase (https://supabase.com/privacy), data region <Ph>[REGION]</Ph>. Email delivery:{" "}
+            <Ph>[EMAIL PROVIDER]</Ph>. Analytics: <Ph>[PROVIDER or none]</Ph>.
+          </p>
+          <p>
+            When you agree to automatic renewal we record the time, IP address, browser, the exact terms and
+            version shown, plan and price. We keep billing and auto-renewal consent records for at least 3
+            years or 1 year after your membership ends, whichever is longer, and as tax law requires.
+          </p>
+          <p>
+            California rights (if CCPA/CPRA applies: <Ph>[ATTORNEY TO CONFIRM THRESHOLD]</Ph>): know/access,
+            delete, correct, opt out of sale/sharing, limit use of sensitive PI. Requests:{" "}
+            <Ph>[PRIVACY_EMAIL]</Ph>. We <Ph>[do not sell or share]</Ph> personal information. Controller:{" "}
+            <Ph>{P.ENTITY_NAME}</Ph>, <Ph>{P.MAILING_ADDRESS}</Ph>.
+          </p>
+        </DraftSection>
       </div>
     </div>
   );

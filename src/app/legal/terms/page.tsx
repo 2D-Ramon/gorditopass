@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { PLATFORM } from "@/lib/pricing";
+import { DraftBanner, DraftSection, Ph } from "@/components/gp-legal/DraftBanner";
+import { CANCEL_PATH, GP_PLACEHOLDERS as P, REFUNDS_PATH } from "@/lib/gp-legal/placeholders";
+import { planDisclosure, SELLABLE_PLANS } from "@/lib/gp-legal/plans";
+import { MAX_FAMILY_SEATS, PLATFORM } from "@/lib/pricing";
 
 export const metadata = { title: "Terms" };
 
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      <DraftBanner note="Preview: draft auto-renewal copy (spec 05) is merged into §5 below, marked DRAFT." />
       <h1 className="text-3xl font-bold">Terms of use</h1>
       <p className="mt-4 text-sm text-muted">
         Last updated September 28, 2026. These terms are an agreement between
@@ -122,8 +126,9 @@ export default function TermsPage() {
         <section>
           <h2 className="font-semibold text-white">5. Membership and payment</h2>
           <p className="mt-2">
-            Paid plans are Monthly ($7), 6 months ($36), and Annual ($60),
-            charged per seat, up to 6 seats. A plan works in every city we
+            Paid plans are{" "}
+            {SELLABLE_PLANS.map((pl) => `${pl.name} (${planDisclosure(pl.id).price})`).join(", ")},
+            charged per seat, up to {MAX_FAMILY_SEATS} seats. A plan works in every city we
             launch. Membership renews for the same term unless you cancel.
             Cancel from your account billing page or by emailing{" "}
             <a
@@ -155,6 +160,34 @@ export default function TermsPage() {
             right.
           </p>
         </section>
+
+        <DraftSection title="5a. Automatic renewal and cancellation">
+          <p className="font-bold uppercase text-white">
+            Your membership automatically renews at the end of each term for the same term length, and we will
+            charge your payment method the then-current price for that plan until you cancel.
+          </p>
+          <p>
+            Current prices:{" "}
+            {SELLABLE_PLANS.map((pl) => {
+              const d = planDisclosure(pl.id);
+              return `${pl.name} ${d.price} per ${d.every}`;
+            }).join("; ")}{" "}
+            per seat, plus applicable tax (<Ph>{P.TAX}</Ph>). You agree to these auto-renewal terms separately at
+            checkout; nothing in these terms limits or contradicts that consent.
+          </p>
+          <p>
+            For plans of one year or longer we email a reminder 15-45 days before each renewal. We give 7-30
+            days&apos; notice of any price change, with a link to cancel. Cancel anytime online at Account &gt;
+            Membership &gt; Cancel (<Link href={CANCEL_PATH} className="text-brand underline">{CANCEL_PATH}</Link>)
+            or by emailing {PLATFORM.supportEmail}. See the{" "}
+            <Link href={REFUNDS_PATH} className="text-brand underline">Refund Policy</Link>.
+          </p>
+          <p>
+            Operator: <Ph>{P.ENTITY_NAME}</Ph>, a <Ph>{P.STATE}</Ph> <Ph>{P.ENTITY_TYPE}</Ph>,{" "}
+            <Ph>{P.MAILING_ADDRESS}</Ph>. Governing law: <Ph>[STATE]</Ph>. Arbitration / class waiver:{" "}
+            <Ph>[ATTORNEY DECISION]</Ph>.
+          </p>
+        </DraftSection>
 
         <section>
           <h2 className="font-semibold text-white">

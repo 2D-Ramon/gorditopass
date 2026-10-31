@@ -9,7 +9,7 @@ import {
 } from "@/lib/market";
 import { recomputeMember } from "@/lib/member-state";
 import { createOpsClient } from "@/lib/supabase";
-import { periodEnd, sendRenewalReminder, subAmountCents } from "@/lib/legal";
+import { periodEnd, sendRenewalReminder, sendsRenewalReminder, subAmountCents } from "@/lib/legal";
 
 export async function POST(req: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         .maybeSingle();
       const sub = await stripe.subscriptions.retrieve(subId).catch(() => null);
       const end = sub ? periodEnd(sub) : null;
-      if (holder && sub && end && !sub.cancel_at_period_end) {
+      if (holder && sub && end && !sub.cancel_at_period_end && sendsRenewalReminder(sub)) {
         const days = (end * 1000 - Date.now()) / 86_400_000;
         if (days >= 15 && days <= 45) {
           await sendRenewalReminder(sb, {

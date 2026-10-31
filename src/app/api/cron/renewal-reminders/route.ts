@@ -8,6 +8,7 @@ import {
   cronAuthorized,
   periodEnd,
   sendRenewalReminder,
+  sendsRenewalReminder,
   subAmountCents,
 } from "@/lib/legal";
 
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
       counts.not_due += 1;
       continue;
     }
+    if (!sendsRenewalReminder(sub)) { counts.not_due += 1; continue; } // monthly / 6-month: no reminder
     const end = periodEnd(sub);
     if (!end) { counts.not_due += 1; continue; }
     const days = (end * 1000 - now) / DAY;

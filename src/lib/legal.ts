@@ -73,6 +73,21 @@ export function subAmountCents(sub: Stripe.Subscription): number | null {
   return total || null;
 }
 
+/** Billing term in months from the subscription's recurring price (e.g. year -> 12, month x6 -> 6). */
+export function subIntervalMonths(sub: Stripe.Subscription): number | null {
+  const r = sub.items?.data?.[0]?.price?.recurring;
+  if (!r) return null;
+  const n = r.interval_count ?? 1;
+  if (r.interval === "year") return 12 * n;
+  if (r.interval === "month") return n;
+  return null; // week/day: not a membership term
+}
+
+/** Pre-renewal reminder only for terms of 12+ months (matches UI `sendsReminder: plan.months >= 12`). */
+export function sendsRenewalReminder(sub: Stripe.Subscription): boolean {
+  return (subIntervalMonths(sub) ?? 0) >= 12;
+}
+
 export function confirmationNumber() {
   const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(8));
