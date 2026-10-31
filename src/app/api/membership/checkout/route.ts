@@ -16,6 +16,8 @@ import {
   userFromRequest,
 } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
+import { parseConsent } from "@/lib/consent";
+import { clientIp } from "@/lib/legal";
 
 export async function POST(req: Request) {
   const profile = await userFromRequest(req);
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
     sms_opt_in?: boolean;
     referral_code?: string;
     access_code?: string;
+    consent?: unknown;
   } | null;
   const plan = MEMBERSHIP_PLANS.find((p) => p.id === body?.planId);
   if (!plan) return NextResponse.json({ error: "Pick a plan." }, { status: 400 });
@@ -128,6 +131,30 @@ export async function POST(req: Request) {
     appliedCode = code.code;
   }
 
+  // Spec §3/§8: consent_events row is written BEFORE the Checkout Session is created.
+  const consent = parseConsent(body?.consent);
+  if (!consent.ok) {
+    return NextResponse.json({ error: consent.error, code: "consent_required" }, { status: 422 });
+  }
+  const { data: consentRow, error: consentErr } = await sb
+    .from("consent_events")
+    .insert({
+      ...consent.value,
+      kind: "signup",
+      user_id: profile.id,
+      email: profile.email,
+      ip: clientIp(req),
+      user_agent: req.headers.get("user-agent"),
+      price_cents: unitAmount * seats,
+      currency: "usd",
+      interval: plan.months === 12 ? "year" : `${plan.months} month`,
+    })
+    .select("id")
+    .single();
+  if (consentErr || !consentRow) {
+    return NextResponse.json({ error: "Could not record consent." }, { status: 500 });
+  }
+
   const stripe = new Stripe(key);
   const interval =
     plan.months === 12 ? { interval: "year" as const, interval_count: 1 } : { interval: "month" as const, interval_count: plan.months };
@@ -139,6 +166,7 @@ export async function POST(req: Request) {
     metadata: {
       pending_id: pending.id,
       plan_id: plan.id,
+      consent_id: consentRow.id,
       ...(appliedCode ? { access_code: appliedCode } : {}),
     },
     line_items: [
@@ -155,6 +183,14 @@ export async function POST(req: Request) {
         },
       },
     ],
+    subscription_data: { metadata: { consent_id: consentRow.id, user_id: profile.id } },
+    ...(process.env.STRIPE_SUBMIT_TEXT?.trim()
+      ? { custom_text: { submit: { message: process.env.STRIPE_SUBMIT_TEXT.trim().slice(0, 1200) } } }
+      : {}),
+    // Requires a Terms of Service URL in Stripe Dashboard > Settings > Public details.
+    ...(process.env.STRIPE_REQUIRE_TOS_CONSENT === "1"
+      ? { consent_collection: { terms_of_service: "required" as const } }
+      : {}),
     success_url: `${appUrl}/membership?paid=1`,
     cancel_url: `${appUrl}/membership?canceled=1`,
   });
@@ -162,5 +198,10 @@ export async function POST(req: Request) {
     .from("pending_memberships")
     .update({ stripe_session_id: session.id })
     .eq("id", pending.id);
+  await sb
+    .from("consent_events")
+    .update({ stripe_checkout_session_id: session.id })
+    .eq("id", consentRow.id)
+    .is("stripe_checkout_session_id", null);
   return NextResponse.json({ url: session.url });
 }

@@ -9,6 +9,7 @@ import {
 } from "@/lib/market";
 import { recomputeMember } from "@/lib/member-state";
 import { createOpsClient } from "@/lib/supabase";
+import { periodEnd, sendRenewalReminder, subAmountCents } from "@/lib/legal";
 
 export async function POST(req: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -31,6 +32,57 @@ export async function POST(req: Request) {
   }
 
   const sb = createOpsClient();
+  // Spec §7: store raw event ids. Recorded only (handlers below are already idempotent),
+  // so a missing table never blocks billing.
+  await sb.from("stripe_events").upsert({ id: event.id, type: event.type }, { onConflict: "id", ignoreDuplicates: true });
+
+  if (event.type === "checkout.session.completed") {
+    const s = event.data.object as Stripe.Checkout.Session;
+    const consentId = s.metadata?.consent_id;
+    if (consentId) {
+      const subId = typeof s.subscription === "string" ? s.subscription : s.subscription?.id;
+      const custId = typeof s.customer === "string" ? s.customer : s.customer?.id;
+      await sb
+        .from("consent_events")
+        .update({
+          stripe_checkout_session_id: s.id,
+          stripe_customer_id: custId ?? null,
+          stripe_subscription_id: subId ?? null,
+        })
+        .eq("id", consentId)
+        .is("stripe_subscription_id", null);
+    }
+  }
+
+  if (event.type === "invoice.upcoming") {
+    // Backup for the daily cron (spec §4): send the reminder if not yet sent.
+    const inv = event.data.object as Stripe.Invoice;
+    const raw = (inv as unknown as { subscription?: string | { id: string } }).subscription ??
+      (inv as unknown as { parent?: { subscription_details?: { subscription?: string | { id: string } } } }).parent?.subscription_details?.subscription;
+    const subId = typeof raw === "string" ? raw : raw?.id;
+    if (subId) {
+      const { data: holder } = await sb
+        .from("profiles")
+        .select("id, email")
+        .eq("stripe_subscription_id", subId)
+        .maybeSingle();
+      const sub = await stripe.subscriptions.retrieve(subId).catch(() => null);
+      const end = sub ? periodEnd(sub) : null;
+      if (holder && sub && end && !sub.cancel_at_period_end) {
+        const days = (end * 1000 - Date.now()) / 86_400_000;
+        if (days >= 15 && days <= 45) {
+          await sendRenewalReminder(sb, {
+            userId: holder.id,
+            email: holder.email,
+            subscriptionId: sub.id,
+            renewalDate: new Date(end * 1000).toISOString(),
+            amountCents: inv.amount_due ?? subAmountCents(sub),
+            currency: inv.currency,
+          });
+        }
+      }
+    }
+  }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
@@ -184,6 +236,7 @@ export async function POST(req: Request) {
       .update({
         is_member: active || Boolean(compStill),
         stripe_subscription_id: sub.id,
+        membership_cancel_at_period_end: Boolean(sub.cancel_at_period_end),
       })
       .eq("stripe_subscription_id", sub.id);
   }
