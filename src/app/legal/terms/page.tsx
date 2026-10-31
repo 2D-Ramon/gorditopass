@@ -180,9 +180,10 @@ export default function TermsPage() {
           <h2 className="font-semibold text-white">7. Restaurant partners</h2>
           <p className="mt-2">
             A restaurant is listed only after we approve the application. There
-            is no listing fee. The restaurant pays a 1% fee on orders placed
-            online through {PLATFORM.name}. The fee is deducted automatically
-            at online checkout and paid to {PLATFORM.name} through Stripe.
+            is no listing fee. Once online ordering launches, the restaurant
+            will pay a 1% fee on orders placed online through {PLATFORM.name}.
+            The fee will be deducted automatically at online checkout and paid
+            to {PLATFORM.name} through Stripe.
             In-store redemptions carry no fee. We do not charge a delivery-app
             commission. Franchise offers are
             capped at 12% off.

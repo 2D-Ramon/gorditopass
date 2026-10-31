@@ -80,7 +80,7 @@ export default function PricingPage() {
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           No listing fee. No fee on in-store redemptions. 1% of online
-          orders, deducted automatically at checkout. Optional marketing packages
+          orders once online ordering launches. Optional marketing packages
           later. Hands-on onboarding available for a fee by quote.
         </p>
         <Link

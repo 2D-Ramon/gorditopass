@@ -20,7 +20,7 @@ export default function ForRestaurantsPage() {
           {
             icon: "dollar",
             title: "Keep the sale",
-            body: "Free to join. No listing fee. No fee on in-store sales. No up to 35% in delivery services. We only charge 1% of online orders.",
+            body: "Free to join. No listing fee. No fee on in-store sales. No up to 35% in delivery services. We only charge 1% of online orders once online ordering launches.",
           },
           {
             icon: "megaphone",
@@ -87,8 +87,9 @@ export default function ForRestaurantsPage() {
         </li>
         <li className="leading-relaxed">
           We want you to keep your doors open! No listing fee, Free to sign
-          up, No fees for in-store sales. We charge 1% of online orders and
-          have optional paid marketing services.
+          up, No fees for in-store sales. We will charge 1% of online orders
+          once online ordering launches, and have optional paid marketing
+          services.
         </li>
       </ol>
 

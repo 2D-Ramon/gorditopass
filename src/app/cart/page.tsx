@@ -72,7 +72,7 @@ export default function CartPage() {
         </div>
         <div className="mt-1 flex justify-between text-sm text-muted">
           <span>Platform fee note</span>
-          <span>1% paid by the restaurant, deducted at checkout</span>
+          <span>1% restaurant fee begins when online ordering launches (preview, no charge)</span>
         </div>
         <div className="mt-3 flex justify-between text-lg font-bold">
           <span>Total</span>
