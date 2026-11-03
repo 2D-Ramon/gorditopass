@@ -59,7 +59,7 @@ export function CancelFlow() {
             You won&apos;t be charged again. Access ends <strong>{fmtDate(done.accessEndsAt)}</strong>.
             Confirmation #<strong className="font-mono">{done.confirmationNumber}</strong>. {refundLine}
           </p>
-          <p className="mt-2 text-sm text-stone-300">We&apos;ve emailed a confirmation. Questions: {PLATFORM.supportEmail}.</p>
+          <p className="mt-2 text-sm text-stone-300">{done.emailSent ? <>We&apos;ve emailed a confirmation.</> : <>Save your confirmation number.</>} Questions: {PLATFORM.supportEmail}.</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link href={`/join/review?resume=1${summary?.planId ? `&plan=${summary.planId}` : ""}`}
               className="rounded-lg border border-white/25 px-4 py-2.5 text-center font-semibold">

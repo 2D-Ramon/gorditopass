@@ -230,80 +230,10 @@ function MembershipInner() {
       return;
     }
 
-    void (async () => {
-      setPaying(true);
-      try {
-        const { createBrowserClient } = await import("@/lib/supabase");
-        const { authedFetch } = await import("@/lib/authed");
-        const sb = createBrowserClient();
-        if (sb && !user) {
-          const reg = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: primary.email,
-              password: primaryPassword,
-              first_name: primary.firstName,
-              last_name: primary.lastName,
-              phone: primary.phone,
-              role: "diner",
-              email_opt_in: emailOptIn,
-              sms_opt_in: smsOptIn,
-            }),
-          });
-          const regJson = await reg.json();
-          if (!reg.ok) {
-            setIntakeError(regJson.error ?? "Could not create account.");
-            setPaying(false);
-            return;
-          }
-          const { error } = await sb.auth.signInWithPassword({
-            email: primary.email,
-            password: primaryPassword,
-          });
-          if (error) {
-            setIntakeError(error.message);
-            setPaying(false);
-            return;
-          }
-        }
-        const pay = await authedFetch("/api/membership/checkout", {
-          method: "POST",
-          body: JSON.stringify({
-            planId,
-            seats,
-            members: finalized,
-            email_opt_in: emailOptIn,
-            sms_opt_in: smsOptIn,
-            referral_code: referralCode.trim() || undefined,
-            access_code: accessCode.trim() || undefined,
-          }),
-        });
-        const payJson = await pay.json();
-        if (pay.ok && payJson.comp) {
-          clearCart();
-          window.location.href = "/account";
-          return;
-        }
-        if (pay.ok && payJson.url) {
-          clearCart();
-          window.location.href = payJson.url;
-          return;
-        }
-        setIntakeError(payJson.error ?? "Could not start checkout.");
-        if (!sb) {
-          activateMembership(
-            planId,
-            seats,
-            finalized,
-            referralCode.trim() || undefined,
-          );
-          setStep("done");
-        }
-      } finally {
-        setPaying(false);
-      }
-    })();
+    // Auto-renew consent lives in the single /join/review flow (RequireLogin -> sign up/in,
+    // then consent, then checkout). No account or pending row is created here before consent.
+    setPaying(true);
+    window.location.href = `/join/review?plan=${encodeURIComponent(planId)}`;
   }
 
   return (

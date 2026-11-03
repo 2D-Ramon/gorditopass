@@ -68,25 +68,26 @@ export async function POST(req: Request) {
   }
 
   const sb = createOpsClient();
-  const { data: pending, error: pendErr } = await sb
-    .from("pending_memberships")
-    .insert({
-      profile_id: profile.id,
-      plan_id: plan.id,
-      seats,
-      members: body?.members ?? [],
-      email_opt_in: Boolean(body?.email_opt_in),
-      sms_opt_in: Boolean(body?.sms_opt_in),
-      referral_code: body?.referral_code || null,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-  if (pendErr || !pending) {
-    return NextResponse.json(
-      { error: pendErr?.message ?? "Could not start checkout." },
-      { status: 500 },
-    );
+
+  // Already-active members (not canceled) can't start a second subscription.
+  if (profile.is_member && (!profile.membership_renews_at || new Date(profile.membership_renews_at).getTime() > Date.now())) {
+    let canceled = false;
+    if (profile.stripe_subscription_id) {
+      const { data: open } = await sb
+        .from("cancellations")
+        .select("id")
+        .eq("user_id", profile.id)
+        .eq("subscription_id", profile.stripe_subscription_id)
+        .is("superseded_at", null)
+        .maybeSingle();
+      canceled = Boolean(open);
+    }
+    if (!canceled) {
+      return NextResponse.json(
+        { error: "You already have an active membership.", code: "already_member" },
+        { status: 409 },
+      );
+    }
   }
 
   let unitAmount = plan.priceUsd * 100;
@@ -142,6 +143,28 @@ export async function POST(req: Request) {
   if (!disclosure.ok) {
     return NextResponse.json({ error: disclosure.error, code: disclosure.code }, { status: 422 });
   }
+  // Pending row only after consent is valid, so a 422 never leaves an orphan.
+  const { data: pending, error: pendErr } = await sb
+    .from("pending_memberships")
+    .insert({
+      profile_id: profile.id,
+      plan_id: plan.id,
+      seats,
+      members: body?.members ?? [],
+      email_opt_in: Boolean(body?.email_opt_in),
+      sms_opt_in: Boolean(body?.sms_opt_in),
+      referral_code: body?.referral_code || null,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+  if (pendErr || !pending) {
+    return NextResponse.json(
+      { error: pendErr?.message ?? "Could not start checkout." },
+      { status: 500 },
+    );
+  }
+
   const { data: consentRow, error: consentErr } = await sb
     .from("consent_events")
     .insert({

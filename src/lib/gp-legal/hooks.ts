@@ -36,7 +36,7 @@ export type ConsentPayload = {
 
 export type ConsentResult = { consentId: string };
 export type CheckoutResult = { checkoutUrl: string };
-export type CancelResult = { confirmationNumber: string; accessEndsAt: string; alreadyCanceled?: boolean };
+export type CancelResult = { confirmationNumber: string; accessEndsAt: string; alreadyCanceled?: boolean; emailSent?: boolean };
 
 /** Thrown for any failed call. `status === 401` means the user must sign in again. */
 export class GpApiError extends Error {
@@ -131,7 +131,7 @@ export async function createCheckoutSession(consentId: string, planId: Membershi
 
 /** POST /api/membership/cancel. Safe to retry (returns the same confirmation). */
 export async function cancelMembership(opts: { retentionOfferShown: boolean; retentionOfferAccepted?: boolean }): Promise<CancelResult> {
-  const r = await call<{ confirmation_number: string; access_ends_at: string; already_canceled: boolean }>(
+  const r = await call<{ confirmation_number: string; access_ends_at: string; already_canceled: boolean; email_sent?: boolean }>(
     "/api/membership/cancel",
     {
       method: "POST",
@@ -141,7 +141,7 @@ export async function cancelMembership(opts: { retentionOfferShown: boolean; ret
       }),
     },
   );
-  return { confirmationNumber: r.confirmation_number, accessEndsAt: r.access_ends_at, alreadyCanceled: r.already_canceled };
+  return { confirmationNumber: r.confirmation_number, accessEndsAt: r.access_ends_at, alreadyCanceled: r.already_canceled, emailSent: Boolean(r.email_sent) };
 }
 
 /** POST /api/membership/resume. Requires fresh consent captured on the review screen. */

@@ -49,10 +49,19 @@ export async function POST(req: Request) {
     .is("superseded_at", null)
     .maybeSingle();
   if (open) {
+    const { data: prior } = await sb
+      .from("notices_sent")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("subscription_id", subId)
+      .eq("type", "cancel_confirm")
+      .eq("status", "sent")
+      .limit(1);
     return NextResponse.json({
       confirmation_number: open.confirmation_number,
       access_ends_at: open.effective_at,
       already_canceled: true,
+      email_sent: Boolean(prior && prior.length),
     });
   }
 
@@ -109,7 +118,7 @@ export async function POST(req: Request) {
 
   const mail = cancelConfirmEmail({ confirmationNumber: confirmation, accessEndsAt });
   const sent = await sendEmail(profile.email, mail.subject, mail.html);
-  await sb.from("notices_sent").insert({
+  const { error: noticeErr } = await sb.from("notices_sent").insert({
     user_id: profile.id,
     subscription_id: subId,
     type: "cancel_confirm",
@@ -124,5 +133,7 @@ export async function POST(req: Request) {
     confirmation_number: confirmation,
     access_ends_at: accessEndsAt,
     already_canceled: false,
+    // Only claim "we emailed you" when the send succeeded and was logged in notices_sent.
+    email_sent: Boolean(sent.ok && !noticeErr),
   });
 }
