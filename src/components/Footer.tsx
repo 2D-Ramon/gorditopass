@@ -53,7 +53,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${PLATFORM.name} on ${s.name} (opens in new tab)`}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-stone-300 transition-colors hover:border-brand hover:text-brand"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-stone-300 transition-colors hover:border-brand hover:text-brand"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true" focusable="false">
                     <path d={s.path} />
