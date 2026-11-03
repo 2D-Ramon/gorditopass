@@ -354,7 +354,8 @@ interface StoreValue {
   ) => Review;
   getPlateRate: (restaurantId: string) => { rating: number; count: number };
   getReviewsForRestaurant: (restaurantId: string) => Review[];
-  isRestaurantApproved: (restaurantId: string) => boolean;
+  /** Admin override wins, then the live (DB-merged) approved value when given, then the static seed. */
+  isRestaurantApproved: (restaurantId: string, liveApproved?: boolean) => boolean;
   checkoutDemo: () => { orderId: string; total: number };
   savingsWeek: number;
   savingsMonth: number;
@@ -1801,9 +1802,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const isRestaurantApproved = useCallback(
-    (restaurantId: string) => {
+    (restaurantId: string, liveApproved?: boolean) => {
       const override = restaurantApprovalOverrides[restaurantId];
       if (override !== undefined) return override;
+      // Live listing (DB merged over seed) beats the static data.ts flag.
+      if (typeof liveApproved === "boolean") return liveApproved;
       const seed = RESTAURANTS.find((r) => r.id === restaurantId);
       if (seed) return seed.approved;
       // Partners created from applications are not in the demo seed list.

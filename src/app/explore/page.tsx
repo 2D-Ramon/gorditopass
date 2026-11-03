@@ -40,7 +40,7 @@ export default function ExplorePage() {
 
   const list = useMemo(() => {
     return restaurants.filter((r) => {
-      if (!isRestaurantApproved(r.id) || !r.approved) return false;
+      if (!isRestaurantApproved(r.id, r.approved)) return false;
       if (r.city !== city) return false;
       if (cuisine !== "all" && r.cuisine !== cuisine) return false;
       if (q) {
