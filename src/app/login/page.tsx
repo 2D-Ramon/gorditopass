@@ -13,7 +13,19 @@ import { useStore } from "@/lib/store";
 
 type Mode = "password" | "magic";
 
-function signInFailureMessage(message: string) {
+const RATE_LIMIT_MESSAGE =
+  "Too many login emails. Please wait a minute and try again.";
+
+function signInFailureMessage(message: string | undefined, status?: number) {
+  if (
+    status === 429 ||
+    /rate limit|too many requests|over_email_send_rate_limit|for security purposes/i.test(
+      message ?? "",
+    )
+  ) {
+    return RATE_LIMIT_MESSAGE;
+  }
+  if (!message) return "Sign-in failed. Please try again.";
   if (
     /fetch failed|failed to fetch|network|enotfound|timeout|unreachable/i.test(
       message,
@@ -162,7 +174,7 @@ export default function LoginPage() {
                 options: { emailRedirectTo: `${window.location.origin}${currentNext("/account")}` },
               });
               if (error) {
-                setErr(signInFailureMessage(error.message));
+                setErr(signInFailureMessage(error.message, error.status));
                 return;
               }
               setMsg("Check your email for a sign-in link.");
