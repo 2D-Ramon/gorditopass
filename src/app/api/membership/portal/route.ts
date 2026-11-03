@@ -1,3 +1,4 @@
+import { requestOrigin } from "@/lib/legal";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { userFromRequest } from "@/lib/market";
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     );
   }
   const stripe = new Stripe(key);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gorditopass.vercel.app";
+  const appUrl = requestOrigin(req);
   const portal = await stripe.billingPortal.sessions.create({
     customer: profile.stripe_customer_id,
     return_url: `${appUrl}/account`,

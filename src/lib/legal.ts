@@ -56,6 +56,23 @@ export function appUrl() {
   ).replace(/\/$/, "");
 }
 
+/**
+ * Origin for links handed to Stripe from server routes. On Vercel Preview, use the
+ * request host so each preview redirects back to itself, but only when that host is
+ * one Vercel assigned to this deployment (VERCEL_URL / VERCEL_BRANCH_URL). Anything
+ * else (spoofed Host, Production, local) falls back to appUrl().
+ */
+export function requestOrigin(req: Request) {
+  if (process.env.VERCEL_ENV === "preview") {
+    const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").split(",")[0].trim().toLowerCase();
+    const allowed = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+      .filter((v): v is string => !!v)
+      .map((v) => v.toLowerCase());
+    if (host && allowed.includes(host)) return `https://${host}`;
+  }
+  return appUrl();
+}
+
 /** Current period end (unix seconds) across Stripe API versions (item-level since 2025). */
 export function periodEnd(sub: Stripe.Subscription): number | null {
   const item = sub.items?.data?.[0] as { current_period_end?: number } | undefined;

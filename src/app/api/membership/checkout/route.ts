@@ -1,3 +1,4 @@
+import { requestOrigin } from "@/lib/legal";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { MEMBERSHIP_PLANS, PLATFORM } from "@/lib/pricing";
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
   const stripe = new Stripe(key);
   const interval =
     plan.months === 12 ? { interval: "year" as const, interval_count: 1 } : { interval: "month" as const, interval_count: plan.months };
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gorditopass.vercel.app";
+  const appUrl = requestOrigin(req);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: profile.email,
