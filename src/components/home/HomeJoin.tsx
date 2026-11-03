@@ -150,7 +150,7 @@ export function HomeJoinProvider({ children }: { children: React.ReactNode }) {
           </Link>
           <p className={s.small}>
             You must be 18+ to own an account. Up to {MAX_SEATS} people per
-            plan. No free trial. Redeem in store.
+            plan. Start monthly if you want flexibility. Redeem in store.
           </p>
           <p className={s.small}>
             Already a member?{" "}

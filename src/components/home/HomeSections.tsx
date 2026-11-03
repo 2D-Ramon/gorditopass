@@ -271,7 +271,7 @@ const FAQ = [
   },
   {
     q: "Can I cancel anytime?",
-    a: `Yes. Cancel anytime and keep access until the end of your paid term. There's no free trial, so the monthly plan is the low-commitment way to start. Accounts are for people 18+, and a plan can cover up to ${MAX_SEATS} people.`,
+    a: `Yes. Cancel anytime and keep access until the end of your paid term. Start monthly if you want flexibility. Accounts are for people 18+, and a plan can cover up to ${MAX_SEATS} people.`,
   },
 ];
 
