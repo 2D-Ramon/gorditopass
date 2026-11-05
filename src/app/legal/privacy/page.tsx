@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <Link href="/legal/terms" className="text-brand underline">
           Terms of use
         </Link>
-        . Last updated September 28, 2026.
+        . Last updated November 4, 2026.
       </p>
 
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-stone-300">
@@ -84,12 +84,10 @@ export default function PrivacyPage() {
             Information from other people
           </h3>
           <p className="mt-2">
-            If a member refers you, we receive the name and contact details
-            they submit with the referral code. If an adult adds you as a seat
-            on a family plan, we receive the details that adult enters. A
-            restaurant may tell us that a code was honored or that an order had
-            a problem. Our payment provider confirms whether a membership
-            charge succeeded. We do not buy marketing lists.
+            If an adult adds you as a seat on a family plan, we receive the details
+            that adult enters. A restaurant may tell us that a code was honored or
+            that an order had a problem. Our payment provider confirms whether a
+            membership charge succeeded. We do not buy marketing lists.
           </p>
         </section>
 
@@ -137,10 +135,24 @@ export default function PrivacyPage() {
             5. When we share it
           </h2>
           <p className="mt-2">
-            A restaurant sees what it needs to honor your visit: that you are a
-            member, the offer, and the code you present. For an online order it
-            also sees the items and the name on the order. It does not receive
-            our member list.
+            <strong>Restaurants.</strong> When you redeem in store, the
+            restaurant sees what it needs to honor your visit: that you are
+            a member, the offer, the code you present, your first name and
+            last initial, and your visit and redemption history at that
+            restaurant. Its partner dashboard shows the same first name,
+            last initial, and visit history at that restaurant only. For an
+            online order, the restaurant also sees your full name and the
+            items ordered so it can hand off your pickup. Restaurants never
+            receive your email, phone number, home address, or payment
+            details, never see your activity at other restaurants, and do
+            not receive our member list. Our restaurant terms prohibit
+            restaurants from collecting, copying, exporting, or storing your
+            information outside GorditoPass, or using it for marketing.
+            Restaurants do not text, email, or call you through GorditoPass.
+            If you opt in, GorditoPass may send you messages about a
+            restaurant, including sponsored messages that the restaurant
+            pays for. GorditoPass always sends these messages, and they are
+            labeled as sponsored. We do not sell your information.
           </p>
           <p className="mt-2">
             People we authorize to run {PLATFORM.name} can open a member

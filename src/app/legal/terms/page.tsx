@@ -8,7 +8,7 @@ export default function TermsPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-3xl font-bold">Terms of use</h1>
       <p className="mt-4 text-sm text-muted">
-        Last updated September 28, 2026. These terms are an agreement between
+        Last updated November 4, 2026. These terms are an agreement between
         you and {PLATFORM.name}. They cover the website, member tools, and
         restaurant listings. The{" "}
         <Link href="/legal/privacy" className="text-brand underline">
@@ -168,11 +168,17 @@ export default function TermsPage() {
             law requires it.
           </p>
           <p className="mt-2">
-            Redeem in store by showing your rotating member code, or online
-            where that restaurant allows it. Codes are personal. Do not share
-            them. Staff confirm the code and apply the deal on the restaurant’s
-            own checkout. Once a restaurant has started an online order, it may
-            not be possible to cancel it.
+            Redeem in store by showing your rotating member code, or online where
+            that restaurant allows it. Codes are personal. Do not share them. Staff
+            confirm the code and apply the deal on the restaurant’s own checkout.
+            Once a restaurant has started an online order, it may not be possible to
+            cancel it. When you redeem in store, the restaurant sees your first
+            name, last initial, and your visit history at that restaurant. For an
+            online order, it sees your full name and the items so it can hand off
+            your pickup. Restaurants never get your contact information, may not use
+            your information for marketing, and do not message you. Any sponsored
+            message is sent by GorditoPass, and only if you opted in. See the
+            Privacy notice, section 5.
           </p>
         </section>
 
