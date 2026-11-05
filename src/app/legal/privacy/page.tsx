@@ -148,7 +148,11 @@ export default function PrivacyPage() {
             not receive our member list. Our restaurant terms prohibit
             restaurants from collecting, copying, exporting, or storing your
             information outside GorditoPass, or using it for marketing.
-            Restaurants do not text, email, or call you through GorditoPass.
+            Restaurants never receive your phone number, email, or address and
+            cannot text, email, or call you. Partner restaurants may send you
+            messages inside the GorditoPass app only; those messages are
+            delivered by GorditoPass, are subject to our rules, and may be
+            reviewed for misuse. GorditoPass keeps a record of these messages.
             If you opt in, GorditoPass may send you messages about a
             restaurant, including sponsored messages that the restaurant
             pays for. GorditoPass always sends these messages, and they are

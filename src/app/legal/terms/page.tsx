@@ -175,8 +175,12 @@ export default function TermsPage() {
             cancel it. When you redeem in store, the restaurant sees your first
             name, last initial, and your visit history at that restaurant. For an
             online order, it sees your full name and the items so it can hand off
-            your pickup. Restaurants never get your contact information, may not use
-            your information for marketing, and do not message you. Any sponsored
+            your pickup. Restaurants never get your contact information and may not use
+            your information for marketing. Restaurants cannot text, email, or
+            call you. They may send in-app messages through GorditoPass, which
+            must follow our partner rules (no requests for your contact or
+            payment info, no spam, no offensive content). Report misuse to
+            thegorditopass@gmail.com. Any sponsored
             message is sent by GorditoPass, and only if you opted in. See the
             Privacy notice, section 5.
           </p>

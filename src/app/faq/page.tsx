@@ -21,6 +21,10 @@ const FOODIE_FAQS = [
     a: RESTAURANT_SEES_COPY,
   },
   {
+    q: "What does a restaurant see on an online order?",
+    a: "For online orders, the restaurant sees your full name so it can hand off your pickup.",
+  },
+  {
     q: "How do I redeem a deal?",
     a: "Open the restaurant page, tap Redeem, and show the code to staff. They confirm on their phone. Codes rotate so a screenshot will not work for long. If staff cannot confirm, contact us from this site — do not share your password.",
   },
