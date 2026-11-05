@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { asCity } from "@/lib/listing-map";
-import { userFromRequest } from "@/lib/market";
+import { requirePartner } from "@/app/api/partner/_guard";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function GET(req: Request) {
-  const profile = await userFromRequest(req);
-  if (!profile?.restaurant_id) {
-    return NextResponse.json({ error: "Partner sign-in required." }, { status: 401 });
-  }
+  const { profile, error: guardError } = await requirePartner(req);
+  if (!profile) return guardError!;
   const sb = createOpsClient();
   const { data } = await sb
     .from("listing_jobs")
@@ -18,10 +16,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const profile = await userFromRequest(req);
-  if (!profile?.restaurant_id || profile.role !== "restaurant") {
-    return NextResponse.json({ error: "Partner sign-in required." }, { status: 401 });
-  }
+  const { profile, error: guardError } = await requirePartner(req);
+  if (!profile) return guardError!;
   if (profile.staff_role === "employee") {
     return NextResponse.json({ error: "Employees cannot manage jobs." }, { status: 403 });
   }

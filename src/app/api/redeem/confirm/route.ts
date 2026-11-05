@@ -1,3 +1,4 @@
+import { hasActiveStaffRow } from "@/app/api/partner/_guard";
 import { NextResponse } from "next/server";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, unlockRedeemBadges, userFromRequest } from "@/lib/market";
@@ -13,7 +14,10 @@ export async function POST(req: Request) {
   const code = String(body?.code ?? "").replace(/\D/g, "");
   const pin = String(body?.pin ?? "").replace(/\D/g, "");
   if (code.length !== 6) {
-    return NextResponse.json({ error: "Enter the 6-digit code." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Enter the 6-digit code." },
+      { status: 400 },
+    );
   }
   const sb = createOpsClient();
   const { data: row } = await sb
@@ -45,17 +49,16 @@ export async function POST(req: Request) {
         { status: 401 },
       );
     }
-    let restaurantId = staff.restaurant_id;
-    if (!restaurantId) {
-      const { data: staffRow } = await sb
-        .from("listing_staff")
-        .select("restaurant_id")
-        .eq("email", staff.email)
-        .eq("active", true)
-        .maybeSingle();
-      restaurantId = staffRow?.restaurant_id ?? null;
+    // Signed-in staff may confirm only for their own restaurant, and only
+    // while they hold an ACTIVE listing_staff row for it.
+    const restaurantId = staff.restaurant_id;
+    if (!restaurantId || !(await hasActiveStaffRow(staff))) {
+      return NextResponse.json(
+        { error: "Your access to this restaurant is not active." },
+        { status: 403 },
+      );
     }
-    if (restaurantId && row.restaurant_id !== restaurantId) {
+    if (row.restaurant_id !== restaurantId) {
       return NextResponse.json(
         { error: "This code is for a different restaurant." },
         { status: 403 },
@@ -63,11 +66,23 @@ export async function POST(req: Request) {
     }
   }
   if (row.status === "used") {
-    return NextResponse.json({ error: "This code was already used." }, { status: 400 });
+    return NextResponse.json(
+      { error: "This code was already used." },
+      { status: 400 },
+    );
   }
-  if (new Date(row.expires_at).getTime() < Date.now() || row.status === "expired") {
-    await sb.from("redeem_codes").update({ status: "expired" }).eq("id", row.id);
-    return NextResponse.json({ error: "Code expired. Ask the member to refresh." }, { status: 400 });
+  if (
+    new Date(row.expires_at).getTime() < Date.now() ||
+    row.status === "expired"
+  ) {
+    await sb
+      .from("redeem_codes")
+      .update({ status: "expired" })
+      .eq("id", row.id);
+    return NextResponse.json(
+      { error: "Code expired. Ask the member to refresh." },
+      { status: 400 },
+    );
   }
   const { data: updated } = await sb
     .from("redeem_codes")
@@ -81,7 +96,10 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (!updated) {
-    return NextResponse.json({ error: "This code was already used." }, { status: 400 });
+    return NextResponse.json(
+      { error: "This code was already used." },
+      { status: 400 },
+    );
   }
   const { count: prior } = await sb
     .from("redeem_codes")

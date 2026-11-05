@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { userFromRequest } from "@/lib/market";
+import { requirePartner } from "@/app/api/partner/_guard";
 import { SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
 
 export async function GET(req: Request) {
-  const profile = await userFromRequest(req);
-  if (!profile?.restaurant_id || profile.role !== "restaurant") {
-    return NextResponse.json({ error: "Restaurant sign-in required." }, { status: 401 });
-  }
+  const { profile, error: guardError } = await requirePartner(req);
+  if (!profile) return guardError!;
   const sb = createOpsClient();
   const { data } = await sb
     .from("listing_staff")
@@ -19,10 +17,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const profile = await userFromRequest(req);
-  if (!profile?.restaurant_id || profile.role !== "restaurant") {
-    return NextResponse.json({ error: "Restaurant sign-in required." }, { status: 401 });
-  }
+  const { profile, error: guardError } = await requirePartner(req);
+  if (!profile) return guardError!;
   if (profile.staff_role === "employee") {
     return NextResponse.json({ error: "Employees cannot change the staff PIN." }, { status: 403 });
   }

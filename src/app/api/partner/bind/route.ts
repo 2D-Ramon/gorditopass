@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     : "";
   const { data: authData } = await sb.auth.getUser(token);
   const authUser = authData?.user;
-  const email = String(authUser?.email ?? "").trim().toLowerCase();
+  const email = String(authUser?.email ?? "")
+    .trim()
+    .toLowerCase();
   const verified = Boolean(
     authUser && (authUser.email_confirmed_at || authUser.confirmed_at),
   );
@@ -48,7 +50,11 @@ export async function POST(req: Request) {
     .select("id, owner_email")
     .ilike("owner_email", email);
   for (const row of owned ?? []) {
-    if (String(row.owner_email ?? "").trim().toLowerCase() === email) {
+    if (
+      String(row.owner_email ?? "")
+        .trim()
+        .toLowerCase() === email
+    ) {
       authorized.add(row.id);
     }
   }
@@ -60,7 +66,9 @@ export async function POST(req: Request) {
   for (const app of apps ?? []) {
     if (
       app.listing_id &&
-      String(app.email ?? "").trim().toLowerCase() === email
+      String(app.email ?? "")
+        .trim()
+        .toLowerCase() === email
     ) {
       authorized.add(String(app.listing_id));
     }
@@ -89,22 +97,52 @@ export async function POST(req: Request) {
     .eq("id", listingId)
     .maybeSingle();
   if (!listing) {
-    return NextResponse.json({ error: "Restaurant not found." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Restaurant not found." },
+      { status: 403 },
+    );
+  }
+
+  // Never re-activate a deactivated staff row: an owner/ops deactivation is
+  // final for this route, even if owner_email or an application still match.
+  const { data: existingRows } = await sb
+    .from("listing_staff")
+    .select("id, active")
+    .eq("restaurant_id", listingId)
+    .ilike("email", email);
+  const existing = (existingRows ?? [])[0] as
+    { id: string; active: boolean | null } | undefined;
+  if (existing && existing.active !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "Your access to this restaurant was deactivated. Contact the owner or support.",
+      },
+      { status: 403 },
+    );
   }
 
   const role = "owner";
-  await sb.from("listing_staff").upsert(
-    {
-      restaurant_id: listingId,
-      email,
-      name:
-        [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-        "Owner",
-      staff_role: role,
-      active: true,
-    },
-    { onConflict: "restaurant_id,email" },
-  );
+  if (!existing)
+    await sb.from("listing_staff").upsert(
+      {
+        restaurant_id: listingId,
+        email,
+        name:
+          [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+          "Owner",
+        staff_role: role,
+        active: true,
+      },
+      { onConflict: "restaurant_id,email", ignoreDuplicates: true },
+    );
+  else {
+    // Active row already: keep it active, align its role with the bind (never touches `active`).
+    await sb
+      .from("listing_staff")
+      .update({ staff_role: role })
+      .eq("id", existing.id);
+  }
   await sb
     .from("profiles")
     .update({ role: "restaurant", restaurant_id: listingId, staff_role: role })
@@ -130,5 +168,9 @@ export async function POST(req: Request) {
       { onConflict: "restaurant_id,email" },
     );
   }
-  return NextResponse.json({ ok: true, restaurantId: listingId, staffPin: pin });
+  return NextResponse.json({
+    ok: true,
+    restaurantId: listingId,
+    staffPin: pin,
+  });
 }
