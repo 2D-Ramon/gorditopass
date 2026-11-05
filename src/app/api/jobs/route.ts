@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { blockAutomatedCatalogRead, catalogJson } from "@/lib/bot-guard";
 import { asCity } from "@/lib/listing-map";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
-  if (!isSupabaseConfigured()) return NextResponse.json({ jobs: [] });
+  const blocked = await blockAutomatedCatalogRead();
+  if (blocked) return blocked;
+  if (!isSupabaseConfigured()) return catalogJson({ jobs: [] });
   const sb = createOpsClient();
   const { data } = await sb
     .from("listing_jobs")
@@ -11,7 +13,7 @@ export async function GET() {
     .eq("hidden", false)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
-  return NextResponse.json({
+  return catalogJson({
     jobs: (data ?? []).map((j) => ({
       id: j.id,
       restaurantId: j.restaurant_id,

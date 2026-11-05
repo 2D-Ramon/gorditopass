@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchCatalog } from "./catalog-fetch";
 import {
   mergeCatalog,
   type LiveListingRow,
@@ -15,7 +16,7 @@ export function useLiveCatalog() {
 
   useEffect(() => {
     let stop = false;
-    void fetch("/api/listings")
+    void fetchCatalog("/api/listings")
       .then((r) => (r.ok ? r.json() : null))
       .then(
         (data: { restaurants?: LiveListingRow[]; hidden?: string[] } | null) => {

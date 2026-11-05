@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { blockAutomatedCatalogRead, catalogJson } from "@/lib/bot-guard";
 import { asCity } from "@/lib/listing-map";
 import { loadRemovedFeedIds } from "@/lib/moderation";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 import { partnerSafeName } from "@/lib/partner-privacy";
 
 export async function GET(req: Request) {
+  const blocked = await blockAutomatedCatalogRead();
+  if (blocked) return blocked;
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ posts: [] });
+    return catalogJson({ posts: [] });
   }
   const city = asCity(new URL(req.url).searchParams.get("city") || "dallas");
   const sb = createOpsClient();
@@ -18,7 +20,7 @@ export async function GET(req: Request) {
     .eq("hidden", false)
     .order("created_at", { ascending: false })
     .limit(80);
-  if (error) return NextResponse.json({ posts: [], removedSeedIds });
+  if (error) return catalogJson({ posts: [], removedSeedIds });
   const memberIds = [...new Set((data ?? []).map((p) => p.member_id))];
   const { data: profiles } = memberIds.length
     ? await sb
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
       partnerSafeName(p.first_name, p.last_name),
     ]),
   );
-  return NextResponse.json({
+  return catalogJson({
     removedSeedIds,
     posts: (data ?? []).map((p) => ({
       id: p.id,

@@ -6,6 +6,7 @@ import {
   FEED_POSTS,
   cuisineLabel,
 } from "@/lib/data";
+import { fetchCatalog } from "@/lib/catalog-fetch";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import { PRESET_GIFS } from "@/lib/presetGifs";
 import { REACTION_EMOJIS } from "@/lib/pricing";
@@ -140,7 +141,7 @@ export default function FeedPage() {
 
   useEffect(() => {
     let stop = false;
-    void fetch(`/api/feed?city=${city}`)
+    void fetchCatalog(`/api/feed?city=${city}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { posts?: FeedPost[]; removedSeedIds?: string[] } | null) => {
         if (stop || !data) return;

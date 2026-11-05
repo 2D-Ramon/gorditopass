@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { fetchCatalog } from "@/lib/catalog-fetch";
 import { PARTNER_EVENTS } from "@/lib/data";
 import { isPartnerContentLive, useStore } from "@/lib/store";
 import type { PartnerEvent } from "@/lib/types";
@@ -54,7 +55,7 @@ export default function EventsPage() {
   const [dbEvents, setDbEvents] = useState<PartnerEvent[]>([]);
 
   useEffect(() => {
-    void fetch("/api/events")
+    void fetchCatalog("/api/events")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { events?: PartnerEvent[] } | null) => {
         if (d?.events) setDbEvents(d.events);

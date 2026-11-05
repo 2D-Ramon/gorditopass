@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { fetchCatalog } from "@/lib/catalog-fetch";
 import { JOB_POSTINGS } from "@/lib/data";
 import { isPartnerContentLive, useStore } from "@/lib/store";
 
@@ -10,7 +11,7 @@ export default function JobsPage() {
   const [dbJobs, setDbJobs] = useState<typeof JOB_POSTINGS>([]);
 
   useEffect(() => {
-    void fetch("/api/jobs")
+    void fetchCatalog("/api/jobs")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { jobs?: typeof JOB_POSTINGS } | null) => {
         if (d?.jobs) setDbJobs(d.jobs);

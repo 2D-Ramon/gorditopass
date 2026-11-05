@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server";
+import { blockAutomatedCatalogRead, catalogJson } from "@/lib/bot-guard";
 import { stripPrivateListingFields } from "@/lib/public-listing";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
+  const blocked = await blockAutomatedCatalogRead();
+  if (blocked) return blocked;
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ restaurants: [], hidden: [] });
+    return catalogJson({ restaurants: [], hidden: [] });
   }
   const sb = createOpsClient();
   const { data: listings, error } = await sb.from("listings").select("*");
   if (error || !listings) {
-    return NextResponse.json({ restaurants: [], hidden: [] });
+    return catalogJson({ restaurants: [], hidden: [] });
   }
   const ids = listings.map((l) => l.id);
   const [{ data: deals }, { data: menu }] = await Promise.all([
@@ -36,5 +38,5 @@ export async function GET() {
     deals: dealMap.get(l.id) ?? [],
     menu: menuMap.get(l.id) ?? [],
   }));
-  return NextResponse.json({ restaurants, hidden });
+  return catalogJson({ restaurants, hidden });
 }
