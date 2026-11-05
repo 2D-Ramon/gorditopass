@@ -39,6 +39,7 @@ function AccountInner() {
     favorites,
     redemptions,
     updateProfile,
+    hydrateFromServer,
     savingsWeek,
     savingsMonth,
     savingsYtd,
@@ -97,6 +98,9 @@ function AccountInner() {
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [referralMsg, setReferralMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveMsg, setProfileSaveMsg] = useState("");
+  const [profileSaveError, setProfileSaveError] = useState(false);
 
   useEffect(() => {
     const t = search.get("tab");
@@ -177,6 +181,59 @@ function AccountInner() {
 
   const isDiner = user.role === "diner";
   const isRestaurant = user.role === "restaurant";
+
+  const saveProfile = async () => {
+    if (!user || profileSaving) return;
+    const payload = {
+      firstName: user.firstName ?? "",
+      lastName: user.lastName ?? "",
+      phone: user.phone ?? "",
+      birthday: user.birthday ?? "",
+      homeAddress: user.homeAddress ?? "",
+      favoriteRestaurant: user.favoriteRestaurant ?? "",
+      favoriteFoodType: user.favoriteFoodType ?? "",
+    };
+    setProfileSaving(true);
+    setProfileSaveMsg("");
+    setProfileSaveError(false);
+    try {
+      const { authedFetch } = await import("@/lib/authed");
+      const res = await authedFetch("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const live = await authedFetch("/api/me");
+        const liveData = await live.json().catch(() => ({}));
+        if (liveData?.user) hydrateFromServer(liveData.user, liveData);
+        setProfileSaveError(true);
+        setProfileSaveMsg(
+          typeof data?.error === "string" ? data.error : "Could not save profile.",
+        );
+        return;
+      }
+      if (data?.user) {
+        hydrateFromServer(data.user, data);
+      }
+      setProfileSaveError(false);
+      setProfileSaveMsg("Profile saved.");
+    } catch {
+      try {
+        const { authedFetch } = await import("@/lib/authed");
+        const live = await authedFetch("/api/me");
+        const liveData = await live.json().catch(() => ({}));
+        if (liveData?.user) hydrateFromServer(liveData.user, liveData);
+      } catch {
+        /* keep local values if reload also fails */
+      }
+      setProfileSaveError(true);
+      setProfileSaveMsg("Could not save profile.");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const canInviteStaff =
     isRestaurant &&
     (user.staffRole === "owner" || user.staffRole === "manager");
@@ -579,6 +636,27 @@ function AccountInner() {
                     }
                   />
                 </label>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-primary disabled:opacity-60"
+                    disabled={profileSaving}
+                    onClick={() => void saveProfile()}
+                  >
+                    {profileSaving ? "Saving…" : "Save profile"}
+                  </button>
+                  {profileSaveMsg ? (
+                    <p
+                      className={`text-xs ${
+                        profileSaveError ? "text-red-300" : "text-success"
+                      }`}
+                      role="status"
+                    >
+                      {profileSaveMsg}
+                    </p>
+                  ) : null}
+                </div>
               </>
             )}
           </div>

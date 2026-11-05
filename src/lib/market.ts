@@ -49,6 +49,8 @@ export type ProfileRow = {
   city: string | null;
   birthday: string | null;
   home_address: string | null;
+  favorite_restaurant?: string | null;
+  favorite_food_type?: string | null;
   restaurant_id: string | null;
   staff_role: StaffRole | null;
   is_member: boolean;
@@ -73,6 +75,12 @@ export type ProfileRow = {
   avatar_url?: string | null;
 };
 
+function asDateInput(value: string | null | undefined): string {
+  if (!value) return "";
+  const s = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s;
+}
+
 export function profileToUser(p: ProfileRow): MockUser {
   const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email;
   const stillMember =
@@ -91,8 +99,10 @@ export function profileToUser(p: ProfileRow): MockUser {
     firstName: p.first_name ?? "",
     lastName: p.last_name ?? "",
     phone: p.phone ?? "",
-    birthday: p.birthday ?? "",
+    birthday: asDateInput(p.birthday),
     homeAddress: p.home_address ?? "",
+    favoriteRestaurant: p.favorite_restaurant ?? "",
+    favoriteFoodType: p.favorite_food_type ?? "",
     staffRole: p.staff_role ?? undefined,
     restaurantId: p.restaurant_id ?? undefined,
     rewardPoints: p.reward_points ?? 0,

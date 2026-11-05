@@ -37,6 +37,8 @@ create table if not exists public.profiles (
   city text default 'dallas',
   birthday date,
   home_address text,
+  favorite_restaurant text,
+  favorite_food_type text,
   restaurant_id text references public.listings (id) on delete set null,
   staff_role text check (staff_role in ('owner', 'manager', 'marketing', 'employee')),
   is_member boolean not null default false,

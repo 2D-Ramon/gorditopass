@@ -68,6 +68,8 @@ create table if not exists public.members (
   sms_opt_in boolean not null default false,
   birthday date,
   home_address text,
+  favorite_restaurant text,
+  favorite_food_type text,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
