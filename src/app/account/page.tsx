@@ -101,6 +101,7 @@ function AccountInner() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveMsg, setProfileSaveMsg] = useState("");
   const [profileSaveError, setProfileSaveError] = useState(false);
+  const [profileSaveField, setProfileSaveField] = useState<string | null>(null);
 
   useEffect(() => {
     const t = search.get("tab");
@@ -182,6 +183,22 @@ function AccountInner() {
   const isDiner = user.role === "diner";
   const isRestaurant = user.role === "restaurant";
 
+  const profileFieldClass = (field: string) =>
+    `gp-input mt-1${
+      profileSaveError && profileSaveField === field
+        ? " ring-2 ring-red-400/80 border-red-400"
+        : ""
+    }`;
+
+  const touchProfileField = (patch: Parameters<typeof updateProfile>[0]) => {
+    if (profileSaveField && patch && Object.keys(patch).includes(profileSaveField)) {
+      setProfileSaveField(null);
+      setProfileSaveError(false);
+      setProfileSaveMsg("");
+    }
+    updateProfile(patch);
+  };
+
   const saveProfile = async () => {
     if (!user || profileSaving) return;
     const payload = {
@@ -196,6 +213,7 @@ function AccountInner() {
     setProfileSaving(true);
     setProfileSaveMsg("");
     setProfileSaveError(false);
+    setProfileSaveField(null);
     try {
       const { authedFetch } = await import("@/lib/authed");
       const res = await authedFetch("/api/me", {
@@ -204,10 +222,11 @@ function AccountInner() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const live = await authedFetch("/api/me");
-        const liveData = await live.json().catch(() => ({}));
-        if (liveData?.user) hydrateFromServer(liveData.user, liveData);
+        // Keep the user's typed values; highlight the bad field when the API names it.
         setProfileSaveError(true);
+        setProfileSaveField(
+          typeof data?.field === "string" ? data.field : null,
+        );
         setProfileSaveMsg(
           typeof data?.error === "string" ? data.error : "Could not save profile.",
         );
@@ -217,17 +236,11 @@ function AccountInner() {
         hydrateFromServer(data.user, data);
       }
       setProfileSaveError(false);
+      setProfileSaveField(null);
       setProfileSaveMsg("Profile saved.");
     } catch {
-      try {
-        const { authedFetch } = await import("@/lib/authed");
-        const live = await authedFetch("/api/me");
-        const liveData = await live.json().catch(() => ({}));
-        if (liveData?.user) hydrateFromServer(liveData.user, liveData);
-      } catch {
-        /* keep local values if reload also fails */
-      }
       setProfileSaveError(true);
+      setProfileSaveField(null);
       setProfileSaveMsg("Could not save profile.");
     } finally {
       setProfileSaving(false);
@@ -568,20 +581,26 @@ function AccountInner() {
                   <label className="block">
                     <span className="text-muted">First name</span>
                     <input
-                      className="gp-input mt-1"
+                      className={profileFieldClass("firstName")}
                       value={user.firstName ?? ""}
                       onChange={(e) =>
-                        updateProfile({ firstName: e.target.value })
+                        touchProfileField({ firstName: e.target.value })
+                      }
+                      aria-invalid={
+                        profileSaveError && profileSaveField === "firstName"
                       }
                     />
                   </label>
                   <label className="block">
                     <span className="text-muted">Last name</span>
                     <input
-                      className="gp-input mt-1"
+                      className={profileFieldClass("lastName")}
                       value={user.lastName ?? ""}
                       onChange={(e) =>
-                        updateProfile({ lastName: e.target.value })
+                        touchProfileField({ lastName: e.target.value })
+                      }
+                      aria-invalid={
+                        profileSaveError && profileSaveField === "lastName"
                       }
                     />
                   </label>
@@ -590,10 +609,13 @@ function AccountInner() {
                   <span className="text-muted">Birthday</span>
                   <input
                     type="date"
-                    className="gp-input mt-1"
+                    className={profileFieldClass("birthday")}
                     value={user.birthday ?? ""}
                     onChange={(e) =>
-                      updateProfile({ birthday: e.target.value })
+                      touchProfileField({ birthday: e.target.value })
+                    }
+                    aria-invalid={
+                      profileSaveError && profileSaveField === "birthday"
                     }
                   />
                 </label>
@@ -601,38 +623,56 @@ function AccountInner() {
                   <span className="text-muted">Phone</span>
                   <input
                     type="tel"
-                    className="gp-input mt-1"
+                    className={profileFieldClass("phone")}
                     value={user.phone ?? ""}
-                    onChange={(e) => updateProfile({ phone: e.target.value })}
+                    onChange={(e) =>
+                      touchProfileField({ phone: e.target.value })
+                    }
+                    aria-invalid={
+                      profileSaveError && profileSaveField === "phone"
+                    }
                   />
                 </label>
                 <label className="block">
                   <span className="text-muted">Home address</span>
                   <input
-                    className="gp-input mt-1"
+                    className={profileFieldClass("homeAddress")}
                     value={user.homeAddress ?? ""}
                     onChange={(e) =>
-                      updateProfile({ homeAddress: e.target.value })
+                      touchProfileField({ homeAddress: e.target.value })
+                    }
+                    aria-invalid={
+                      profileSaveError && profileSaveField === "homeAddress"
                     }
                   />
                 </label>
                 <label className="block">
                   <span className="text-muted">Favorite restaurant</span>
                   <input
-                    className="gp-input mt-1"
+                    className={profileFieldClass("favoriteRestaurant")}
                     value={user.favoriteRestaurant ?? ""}
                     onChange={(e) =>
-                      updateProfile({ favoriteRestaurant: e.target.value })
+                      touchProfileField({
+                        favoriteRestaurant: e.target.value,
+                      })
+                    }
+                    aria-invalid={
+                      profileSaveError &&
+                      profileSaveField === "favoriteRestaurant"
                     }
                   />
                 </label>
                 <label className="block">
                   <span className="text-muted">Favorite food type</span>
                   <input
-                    className="gp-input mt-1"
+                    className={profileFieldClass("favoriteFoodType")}
                     value={user.favoriteFoodType ?? ""}
                     onChange={(e) =>
-                      updateProfile({ favoriteFoodType: e.target.value })
+                      touchProfileField({ favoriteFoodType: e.target.value })
+                    }
+                    aria-invalid={
+                      profileSaveError &&
+                      profileSaveField === "favoriteFoodType"
                     }
                   />
                 </label>

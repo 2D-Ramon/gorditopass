@@ -1,5 +1,6 @@
 -- Rollback for 20261105040000_profiles_profile_save_fields.sql.
 -- Restores the prior guard allowlist/grants. Drops only favorite_* columns added by this migration.
+-- WARNING: dropping favorite_* columns permanently deletes their data; it is not recoverable from this rollback.
 -- Does NOT drop birthday/home_address (they pre-existed on base schema / earlier envs).
 
 drop trigger if exists profiles_column_guard on public.profiles;
