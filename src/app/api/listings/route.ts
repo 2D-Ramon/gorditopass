@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { stripPrivateListingFields } from "@/lib/public-listing";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
@@ -31,7 +32,7 @@ export async function GET() {
     .filter((l) => l.banned || l.approved === false)
     .map((l) => l.id as string);
   const restaurants = listings.map((l) => ({
-    ...l,
+    ...stripPrivateListingFields(l),
     deals: dealMap.get(l.id) ?? [],
     menu: menuMap.get(l.id) ?? [],
   }));

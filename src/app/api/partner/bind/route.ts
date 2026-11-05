@@ -9,6 +9,8 @@ import { createOpsClient } from "@/lib/supabase";
  * Authorization (server-side only; the client-sent staffRole is ignored):
  *  - the caller's verified auth email equals the listing's owner_email, or
  *  - the caller's email has an approved partner application for the listing.
+ * Either grants the "owner" role. A caller with an ACTIVE listing_staff
+ * row for the listing may also re-bind (role unchanged). Inactive rows: 403.
  * Either grants the "owner" role. There is no server-side staff invite flow
  * yet (staff invites in the app are local-demo only, and the shared scan PIN
  * is not a per-person invite), so every other caller gets 403.
@@ -74,13 +76,33 @@ export async function POST(req: Request) {
     }
   }
 
+  // Established partners: an ACTIVE listing_staff row for the caller's
+  // confirmed email also authorizes (re-sign-in), keeping that row's role.
+  // listing_staff has no user_id column; the email is the verified auth email.
+  const activeStaff = new Map<string, string>();
+  const { data: staffRows } = await sb
+    .from("listing_staff")
+    .select("restaurant_id, email, staff_role, active")
+    .ilike("email", email);
+  for (const r of staffRows ?? []) {
+    if (
+      r.active === true &&
+      String(r.email ?? "")
+        .trim()
+        .toLowerCase() === email
+    ) {
+      activeStaff.set(String(r.restaurant_id), String(r.staff_role ?? ""));
+    }
+  }
+  const candidates = new Set<string>([...authorized, ...activeStaff.keys()]);
+
   let listingId = "";
   if (requestedId) {
-    listingId = authorized.has(requestedId) ? requestedId : "";
-  } else if (profile.restaurant_id && authorized.has(profile.restaurant_id)) {
+    listingId = candidates.has(requestedId) ? requestedId : "";
+  } else if (profile.restaurant_id && candidates.has(profile.restaurant_id)) {
     listingId = profile.restaurant_id;
-  } else if (authorized.size === 1) {
-    listingId = [...authorized][0];
+  } else if (candidates.size === 1) {
+    listingId = [...candidates][0];
   }
   if (!listingId) {
     return NextResponse.json(
@@ -120,6 +142,32 @@ export async function POST(req: Request) {
       },
       { status: 403 },
     );
+  }
+
+  if (!authorized.has(listingId)) {
+    // Active staff re-sign-in: success, role unchanged, row untouched.
+    const staffRole = activeStaff.get(listingId) || "employee";
+    await sb
+      .from("profiles")
+      .update({
+        role: "restaurant",
+        restaurant_id: listingId,
+        staff_role: staffRole,
+      })
+      .eq("id", profile.id);
+    const { data: pinRow } = await sb
+      .from("listing_staff")
+      .select("name")
+      .eq("restaurant_id", listingId)
+      .eq("email", SCAN_PIN_EMAIL)
+      .eq("active", true)
+      .maybeSingle();
+    return NextResponse.json({
+      ok: true,
+      restaurantId: listingId,
+      staffRole,
+      staffPin: staffRole === "employee" ? null : (pinRow?.name ?? null),
+    });
   }
 
   const role = "owner";

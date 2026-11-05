@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isLiveListing } from "@/lib/listing-status";
+import { stripPrivateListingFields } from "@/lib/public-listing";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
 import { redactDisplayName } from "@/lib/partner-privacy";
 
@@ -31,7 +32,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     : { data: [] as { review_id: string; body: string }[] };
   const replyMap = new Map((replies ?? []).map((r) => [r.review_id, r.body]));
   return NextResponse.json({
-    restaurant: { ...listing, deals: deals ?? [], menu: menu ?? [] },
+    restaurant: { ...stripPrivateListingFields(listing), deals: deals ?? [], menu: menu ?? [] },
     reviews: (reviews ?? []).map((r) => ({
       id: r.id,
       restaurantId: r.restaurant_id,
