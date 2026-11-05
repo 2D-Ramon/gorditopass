@@ -142,8 +142,10 @@ export default function PrivacyPage() {
             restaurant. Its partner dashboard shows the same first name,
             last initial, and visit history at that restaurant only. For an
             online order, the restaurant also sees your full name and the
-            items ordered so it can hand off your pickup. 
-            Our restaurant terms prohibit
+            items ordered so it can hand off your pickup. Restaurants never
+            receive your email, phone number, home address, or payment
+            details, never see your activity at other restaurants, and do
+            not receive our member list. Our restaurant terms prohibit
             restaurants from collecting, copying, exporting, or storing your
             information outside GorditoPass, or using it for marketing.
             Restaurants never receive your phone number, email, or address and
