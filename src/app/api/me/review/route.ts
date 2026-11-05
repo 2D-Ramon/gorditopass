@@ -5,6 +5,7 @@ import { addPoints, userFromRequest } from "@/lib/market";
 import { recomputeMember, snapshotAfter } from "@/lib/member-state";
 import { moderationBlock } from "@/lib/moderation";
 import { createOpsClient } from "@/lib/supabase";
+import { partnerSafeName } from "@/lib/partner-privacy";
 
 export async function POST(req: Request) {
   const profile = await userFromRequest(req);
@@ -36,9 +37,8 @@ export async function POST(req: Request) {
   const sb = createOpsClient();
   const blocked = await moderationBlock(sb, profile.id, "social");
   if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
-  const author =
-    [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-    profile.email;
+  // Public + partner-visible: first name + last initial, never email.
+  const author = partnerSafeName(profile.first_name, profile.last_name);
   const { error } = await sb.from("plate_reviews").insert({
     member_id: profile.id,
     restaurant_id: restaurantId,

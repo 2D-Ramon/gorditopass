@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PLATFORM } from "@/lib/pricing";
+import { RESTAURANT_SEES_COPY } from "@/lib/partner-privacy";
 
 export const metadata = { title: "How it works" };
 
@@ -41,6 +42,10 @@ export default function HowItWorksPage() {
             </li>
           ))}
         </ol>
+        <p className="mt-5 text-sm leading-relaxed text-muted">
+          <strong className="text-stone-300">What restaurants see:</strong>{" "}
+          {RESTAURANT_SEES_COPY}
+        </p>
       </section>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2">

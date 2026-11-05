@@ -10,6 +10,7 @@ import {
   MEMBERSHIP_PLANS,
   MENU_CATEGORIES,
   STAFF_MEMBERSHIP_REFERRAL,
+  STAFF_REFERRAL_ENABLED,
 } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import { parseImageUrls } from "@/lib/media";
@@ -313,7 +314,7 @@ export default function RestaurantDashboardPage() {
       t === "inbox" ||
       t === "reviews" ||
       t === "hours" ||
-      t === "enroll" ||
+      (STAFF_REFERRAL_ENABLED && t === "enroll") ||
       t === "story" ||
       t === "deal" ||
       t === "menu" ||
@@ -588,7 +589,9 @@ export default function RestaurantDashboardPage() {
     { id: "inbox", label: "Inbox", managersOnly: true },
     { id: "reviews", label: "Reviews", managersOnly: true },
     { id: "hours", label: "Hours & tent", managersOnly: true },
-    { id: "enroll", label: "Enroll customer", managersOnly: false },
+    ...(STAFF_REFERRAL_ENABLED
+      ? [{ id: "enroll" as Tab, label: "Enroll customer", managersOnly: false }]
+      : []),
     { id: "story", label: "Our story", managersOnly: true },
     { id: "deal", label: "Promotions", managersOnly: true },
     { id: "menu", label: "Menu items", managersOnly: true },
@@ -599,7 +602,7 @@ export default function RestaurantDashboardPage() {
 
   // If employee somehow on a locked tab, force scan/enroll
   const activeTab =
-    !canManage && tab !== "scan" && tab !== "enroll"
+    !canManage && tab !== "scan" && !(STAFF_REFERRAL_ENABLED && tab === "enroll")
       ? "scan"
       : tabs.some((t) => t.id === tab)
         ? tab
@@ -660,6 +663,7 @@ export default function RestaurantDashboardPage() {
         </div>
       </div>
 
+      {STAFF_REFERRAL_ENABLED && (
       <div className="mt-4 rounded-lg border border-brand/30 bg-brand/10 p-4 text-sm no-print">
         <p className="font-semibold text-orange-200">
           Staff membership referrals · ${STAFF_MEMBERSHIP_REFERRAL.amountUsd}{" "}
@@ -680,6 +684,7 @@ export default function RestaurantDashboardPage() {
           {lifetimeTotal.toFixed(2)}
         </p>
       </div>
+      )}
 
       {flash && (
         <div className="mt-4 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
@@ -726,7 +731,7 @@ export default function RestaurantDashboardPage() {
           />
         )}
 
-      {activeTab === "enroll" && (
+      {STAFF_REFERRAL_ENABLED && activeTab === "enroll" && (
         <section className="mt-6 space-y-4">
           <div className="gp-card gp-card-static p-5">
             <h2 className="font-semibold">Enroll customer membership</h2>

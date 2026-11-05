@@ -301,8 +301,9 @@ export function PartnerDesk({
           <section className="gp-card gp-card-static p-5">
             <h2 className="font-semibold">Repeat regulars</h2>
             <p className="mt-1 text-sm text-muted">
-              Two or more visits here, last visit within 21 days. First name
-              only — no text or email from this screen.
+              Two or more visits here, last visit within 21 days. You see first
+              name, last initial, and visit history only — never a member&apos;s
+              email, phone, or other contact info.
             </p>
             {data.members.filter((m) => m.pattern === "regular").length === 0 ? (
               <p className="mt-2 text-sm text-muted">No regulars yet.</p>

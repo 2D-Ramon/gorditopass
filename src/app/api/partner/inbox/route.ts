@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireManagers, requirePartner } from "@/app/api/partner/_guard";
 import { createOpsClient } from "@/lib/supabase";
+import { redactDisplayName } from "@/lib/partner-privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,16 @@ export async function GET(req: Request) {
   const sb = createOpsClient();
   const { data } = await sb
     .from("listing_messages")
-    .select("*")
+    .select("id, restaurant_id, member_id, from_role, from_name, body, read_at, created_at")
     .eq("restaurant_id", profile.restaurant_id)
     .order("created_at", { ascending: false })
     .limit(100);
   const unread = (data ?? []).filter((m) => m.from_role === "diner" && !m.read_at).length;
-  return NextResponse.json({ messages: data ?? [], unread });
+  // Diner names are redacted to "First L." before reaching the partner.
+  const messages = (data ?? []).map((m) =>
+    m.from_role === "diner" ? { ...m, from_name: redactDisplayName(m.from_name) } : m,
+  );
+  return NextResponse.json({ messages, unread });
 }
 
 export async function POST(req: Request) {

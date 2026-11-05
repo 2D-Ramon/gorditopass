@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { asCity } from "@/lib/listing-map";
 import { loadRemovedFeedIds } from "@/lib/moderation";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
+import { partnerSafeName } from "@/lib/partner-privacy";
 
 export async function GET(req: Request) {
   if (!isSupabaseConfigured()) {
@@ -22,13 +23,13 @@ export async function GET(req: Request) {
   const { data: profiles } = memberIds.length
     ? await sb
         .from("profiles")
-        .select("id, first_name, last_name, email")
+        .select("id, first_name, last_name")
         .in("id", memberIds)
-    : { data: [] as { id: string; first_name: string | null; last_name: string | null; email: string }[] };
+    : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
   const names = new Map(
     (profiles ?? []).map((p) => [
       p.id,
-      [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email,
+      partnerSafeName(p.first_name, p.last_name),
     ]),
   );
   return NextResponse.json({

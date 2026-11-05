@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { WhyGordito } from "@/components/WhyGordito";
 import { PLATFORM } from "@/lib/pricing";
+import { PARTNER_SEES_COPY } from "@/lib/partner-privacy";
 
 export const metadata = { title: "For restaurants" };
 
@@ -51,6 +52,7 @@ export default function ForRestaurantsPage() {
             They show a rotating code. Staff confirm it in the partner
             dashboard and honor the deal on your POS.
           </li>
+          <li>{PARTNER_SEES_COPY}</li>
           <li>
             After we set up your listing, you publish and edit promotions,
             menu, events, and job openings from the partner dashboard.

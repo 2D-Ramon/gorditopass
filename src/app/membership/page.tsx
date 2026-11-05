@@ -12,7 +12,9 @@ import {
   PLATFORM,
   POINT_ACTIONS,
   REFERRAL,
+  STAFF_REFERRAL_ENABLED,
 } from "@/lib/pricing";
+import { RESTAURANT_SEES_COPY } from "@/lib/partner-privacy";
 import { WhyGordito } from "@/components/WhyGordito";
 import { useStore } from "@/lib/store";
 import type { MemberSeatProfile, MembershipPlanId } from "@/lib/types";
@@ -312,7 +314,7 @@ function MembershipInner() {
       <h1 className="gp-page-title">Membership</h1>
       <p className="gp-page-sub">{PLATFORM.mission}</p>
 
-      {isPartnerLogin && (
+      {STAFF_REFERRAL_ENABLED && isPartnerLogin && (
         <div className="mt-6 rounded-lg border border-border bg-elevated/50 p-4 text-sm text-muted">
           You&apos;re signed in as partner staff. To enroll a{" "}
           <strong className="text-stone-300">customer</strong> and earn a $5
@@ -746,6 +748,9 @@ function MembershipInner() {
             <p className="text-xs leading-relaxed text-muted">
               We will never sell your information. It is only used for
               promotions, updated terms, and offers.
+            </p>
+            <p className="text-xs leading-relaxed text-muted">
+              {RESTAURANT_SEES_COPY}
             </p>
             <div className="flex items-start gap-2 text-sm">
               <input

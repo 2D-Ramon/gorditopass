@@ -82,6 +82,12 @@ export const REFERRAL = {
   friendPoints: 40,
 } as const;
 
+/**
+ * Feature flag: staff $5 membership referral program is ON HOLD.
+ * Keep code in place; flip to true to re-enable the "Enroll customer" tab and copy.
+ */
+export const STAFF_REFERRAL_ENABLED = false;
+
 /** Partner staff cash bonus when they enroll a new customer membership */
 export const STAFF_MEMBERSHIP_REFERRAL = {
   amountUsd: 5,

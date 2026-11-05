@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { POINT_ACTIONS } from "@/lib/pricing";
 import { addPoints, unlockRedeemBadges, userFromRequest } from "@/lib/market";
 import { createOpsClient } from "@/lib/supabase";
+import { partnerFirstName } from "@/lib/partner-privacy";
 
 export async function POST(req: Request) {
   const staff = await userFromRequest(req);
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
   const [{ data: member }, { data: listing }] = await Promise.all([
     sb
       .from("profiles")
-      .select("first_name, last_name, email")
+      .select("first_name")
       .eq("id", row.member_id)
       .maybeSingle(),
     sb
@@ -109,9 +110,8 @@ export async function POST(req: Request) {
       .eq("id", row.restaurant_id)
       .maybeSingle(),
   ]);
-  const firstName =
-    (member?.first_name || "").trim() ||
-    (member?.email || "Member").split("@")[0];
+  // Returned to restaurant staff: first name only, never derived from email.
+  const firstName = partnerFirstName(member?.first_name);
   const maps =
     listing?.google_maps_url ||
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { userFromRequest } from "@/lib/market";
 import { moderationBlock } from "@/lib/moderation";
 import { createOpsClient } from "@/lib/supabase";
+import { partnerSafeName } from "@/lib/partner-privacy";
 
 export async function POST(req: Request) {
   const profile = await userFromRequest(req);
@@ -23,8 +24,8 @@ export async function POST(req: Request) {
   const sb = createOpsClient();
   const blocked = await moderationBlock(sb, profile.id, "social");
   if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
-  const name =
-    [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Member";
+  // Stored name is what the restaurant sees: first name + last initial only.
+  const name = partnerSafeName(profile.first_name, profile.last_name);
   const { error } = await sb.from("listing_messages").insert({
     restaurant_id: restaurantId,
     member_id: profile.id,

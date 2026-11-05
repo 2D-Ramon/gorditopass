@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireManagers, requirePartner } from "@/app/api/partner/_guard";
 import { createOpsClient } from "@/lib/supabase";
+import { redactDisplayName } from "@/lib/partner-privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   const sb = createOpsClient();
   const { data: reviews } = await sb
     .from("plate_reviews")
-    .select("*")
+    .select("id, author, plates, body, created_at, deal_title")
     .eq("restaurant_id", profile.restaurant_id)
     .order("created_at", { ascending: false })
     .limit(80);
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     reviews: (reviews ?? []).map((r) => ({
       id: r.id,
-      author: r.author ?? "Member",
+      author: redactDisplayName(r.author),
       plates: r.plates,
       text: r.body ?? "",
       createdAt: r.created_at,

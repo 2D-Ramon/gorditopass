@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isLiveListing } from "@/lib/listing-status";
 import { createOpsClient, isSupabaseConfigured } from "@/lib/supabase";
+import { redactDisplayName } from "@/lib/partner-privacy";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     reviews: (reviews ?? []).map((r) => ({
       id: r.id,
       restaurantId: r.restaurant_id,
-      author: r.author ?? "Member",
+      author: redactDisplayName(r.author),
       plates: r.plates,
       text: r.body ?? "",
       createdAt: String(r.created_at).slice(0, 10),

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RESTAURANT_SEES_COPY } from "@/lib/partner-privacy";
 
 export const metadata = { title: "FAQ" };
 
@@ -14,6 +15,10 @@ const FOODIE_FAQS = [
   {
     q: "What is your refund policy?",
     a: "Refunds are handled case by case. Generally, if you have redeemed more than once, a refund is less likely unless our team verifies a bad experience claim. Cancel anytime; you keep access until your paid term ends.",
+  },
+  {
+    q: "What do restaurants see about me?",
+    a: RESTAURANT_SEES_COPY,
   },
   {
     q: "How do I redeem a deal?",

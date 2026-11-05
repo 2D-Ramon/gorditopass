@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PLATFORM } from "@/lib/pricing";
+import { RESTAURANT_SEES_COPY } from "@/lib/partner-privacy";
 import { FoodTile } from "./FoodTile";
 import { Icon } from "./Icon";
 import { FROM_PRICE_CTA, MAX_SEATS } from "./content";
@@ -264,6 +265,10 @@ const FAQ = [
   {
     q: "How do I redeem a deal?",
     a: "Open your pass, tap Redeem on a deal, and show the live QR at the counter. Staff scans it and you see a green check with your first name, the deal and the time. Redemption happens in store, not online.",
+  },
+  {
+    q: "What do restaurants see about me?",
+    a: RESTAURANT_SEES_COPY,
   },
   {
     q: "What does \u201c% off\u201d cover?",

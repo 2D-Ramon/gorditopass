@@ -5,10 +5,8 @@ import {
   type InsightsPayload,
   type ScanEvent,
 } from "@/lib/partner-insights";
+import { partnerFirstName, partnerLastInitial } from "@/lib/partner-privacy";
 
-function firstName(row: { first_name?: string | null; email?: string | null }) {
-  return (row.first_name || "").trim() || (row.email || "Member").split("@")[0];
-}
 
 export type RestaurantInsightsBody = InsightsPayload & {
   openStatus: string;
@@ -46,13 +44,12 @@ export async function loadRestaurantInsights(
   const staffIds = [...new Set((codes ?? []).map((c) => c.used_by).filter(Boolean))];
   const [{ data: members }, { data: staff }] = await Promise.all([
     memberIds.length
-      ? sb.from("profiles").select("id, first_name, last_name, email").in("id", memberIds)
+      ? sb.from("profiles").select("id, first_name, last_name").in("id", memberIds)
       : Promise.resolve({
           data: [] as {
             id: string;
             first_name: string | null;
             last_name: string | null;
-            email: string;
           }[],
         }),
     staffIds.length
@@ -72,14 +69,14 @@ export async function loadRestaurantInsights(
   const scans: ScanEvent[] = (codes ?? []).map((c) => {
     const m = memberMap.get(c.member_id);
     const st = c.used_by ? staffMap.get(c.used_by) : null;
-    const last = (m?.last_name || "").trim();
     return {
       at: String(c.used_at || c.created_at),
       dealId: c.deal_id,
       dealTitle: c.deal_title || c.deal_id,
       memberId: c.member_id,
-      firstName: m ? firstName(m) : "Member",
-      lastInitial: last ? last[0]!.toUpperCase() : "",
+      // Partner-safe: first name + last initial only (never email/phone/full last name).
+      firstName: partnerFirstName(m?.first_name),
+      lastInitial: partnerLastInitial(m?.last_name),
       staffName: st
         ? [st.first_name, st.last_name].filter(Boolean).join(" ") || st.email
         : "Staff PIN",

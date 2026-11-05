@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RESTAURANT_SEES_COPY } from "@/lib/partner-privacy";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { getRestaurant } from "@/lib/data";
@@ -503,6 +504,9 @@ function AccountInner() {
             )}
             {isDiner && (
               <>
+                <p className="text-xs leading-relaxed text-muted">
+                  {RESTAURANT_SEES_COPY}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-muted">First name</span>

@@ -43,6 +43,7 @@ import {
   POINT_ACTIONS,
   REWARDS,
   STAFF_MEMBERSHIP_REFERRAL,
+  STAFF_REFERRAL_ENABLED,
   makeReferralCode,
   type PointActionId,
 } from "./pricing";
@@ -1504,6 +1505,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planId: MembershipPlanId;
       seats?: number;
     }): { ok: boolean; error?: string; bonusUsd?: number } => {
+      if (!STAFF_REFERRAL_ENABLED) {
+        return { ok: false, error: "Staff enrollment is currently unavailable." };
+      }
       if (!user || user.role !== "restaurant") {
         return { ok: false, error: "Sign in as partner staff to enroll customers." };
       }
