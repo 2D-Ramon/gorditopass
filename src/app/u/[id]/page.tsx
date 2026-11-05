@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { fetchCatalog } from "@/lib/catalog-fetch";
 import { FEED_POSTS, getDemoMember } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -88,7 +87,7 @@ export default function PublicProfilePage() {
 
   const [removedFeedIds, setRemovedFeedIds] = useState<string[]>([]);
   useEffect(() => {
-    void fetchCatalog("/api/feed?city=dallas")
+    void fetch("/api/feed?city=dallas")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { removedSeedIds?: string[] } | null) => {
         if (data?.removedSeedIds) setRemovedFeedIds(data.removedSeedIds);

@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PlateRating } from "@/components/PlateRating";
 import { cuisineLabel } from "@/lib/data";
-import { fetchCatalog } from "@/lib/catalog-fetch";
 import { useLiveCatalog } from "@/lib/live-catalog";
 import type { LiveListingRow } from "@/lib/listing-map";
 import { MENU_CATEGORIES } from "@/lib/pricing";
@@ -54,7 +53,7 @@ export default function RestaurantDetailPage() {
 
   useEffect(() => {
     let stop = false;
-    void fetchCatalog(`/api/listings/${id}`)
+    void fetch(`/api/listings/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then(
         (data: { restaurant?: LiveListingRow | null; reviews?: Review[] } | null) => {
