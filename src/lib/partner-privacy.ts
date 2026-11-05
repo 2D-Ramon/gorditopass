@@ -2,6 +2,12 @@
  * What restaurants (partners) may see about a member: first name, last initial,
  * and visit history. Never email, phone, address, or full last name.
  * Use these helpers on every server response that reaches a partner.
+ *
+ * Exception (Tudy's rule: "full name for online orders"): online/pickup order
+ * views shown to partners keep the customer's full name (the name on the
+ * order). Do NOT run these helpers on online-order data. As of this commit the
+ * online checkout is a client-only demo (store.tsx checkoutDemo) that stores
+ * and sends no order to restaurants, so there is no order view to redact.
  */
 
 /** "Maria" + "Lopez" -> "Maria L." ; no first name -> "Member". Never falls back to email. */

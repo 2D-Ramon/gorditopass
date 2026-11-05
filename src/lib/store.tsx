@@ -3158,6 +3158,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [getReviewsForRestaurant],
   );
 
+  // Online orders: per Tudy's rule "full name for online orders", when orders
+  // reach partners they carry the customer's full name (not "First L.").
+  // Do not apply partner-privacy redaction helpers to order data.
   const checkoutDemo = useCallback(() => {
     const orderId = `GP-${Date.now().toString(36).toUpperCase()}`;
     const total = cartTotal;
