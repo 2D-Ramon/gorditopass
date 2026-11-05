@@ -53,13 +53,12 @@ export async function loadRestaurantInsights(
           }[],
         }),
     staffIds.length
-      ? sb.from("profiles").select("id, first_name, last_name, email").in("id", staffIds as string[])
+      ? sb.from("profiles").select("id, first_name, last_name").in("id", staffIds as string[])
       : Promise.resolve({
           data: [] as {
             id: string;
             first_name: string | null;
             last_name: string | null;
-            email: string;
           }[],
         }),
   ]);
@@ -78,7 +77,7 @@ export async function loadRestaurantInsights(
       firstName: partnerFirstName(m?.first_name),
       lastInitial: partnerLastInitial(m?.last_name),
       staffName: st
-        ? [st.first_name, st.last_name].filter(Boolean).join(" ") || st.email
+        ? [st.first_name, st.last_name].filter(Boolean).join(" ") || "Staff"
         : "Staff PIN",
       revenueUsd: Number(c.revenue_usd ?? 0),
     };

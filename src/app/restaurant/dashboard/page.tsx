@@ -55,7 +55,7 @@ function PartnerSignIn() {
       "/api/partner/bind",
       {
         method: "POST",
-        body: JSON.stringify({ staffRole: "owner" }),
+        body: JSON.stringify({}),
       },
       accessToken,
     );

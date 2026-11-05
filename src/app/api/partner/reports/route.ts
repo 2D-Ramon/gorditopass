@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePartner } from "@/app/api/partner/_guard";
 import { createOpsClient } from "@/lib/supabase";
+import { redactDisplayName } from "@/lib/partner-privacy";
 
 export async function POST(req: Request) {
   const { profile, error } = await requirePartner(req);
@@ -20,7 +21,9 @@ export async function POST(req: Request) {
     restaurant_id: profile.restaurant_id,
     redeem_id: body?.redeemId || null,
     code: String(body?.code ?? "").replace(/\D/g, "").slice(0, 6) || null,
-    member_name: String(body?.memberName ?? "").trim() || null,
+    member_name: String(body?.memberName ?? "").trim()
+      ? redactDisplayName(String(body?.memberName).trim().slice(0, 80))
+      : null,
     note,
     reported_by: profile.id,
   });

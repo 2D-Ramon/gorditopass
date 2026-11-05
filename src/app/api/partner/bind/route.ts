@@ -3,6 +3,16 @@ import { userFromRequest } from "@/lib/market";
 import { randomStaffPin, SCAN_PIN_EMAIL } from "@/lib/staff-pin";
 import { createOpsClient } from "@/lib/supabase";
 
+/**
+ * Binds the signed-in user to a restaurant listing.
+ *
+ * Authorization (server-side only; the client-sent staffRole is ignored):
+ *  - the caller's verified auth email equals the listing's owner_email, or
+ *  - the caller's email has an approved partner application for the listing.
+ * Either grants the "owner" role. There is no server-side staff invite flow
+ * yet (staff invites in the app are local-demo only, and the shared scan PIN
+ * is not a per-person invite), so every other caller gets 403.
+ */
 export async function POST(req: Request) {
   const profile = await userFromRequest(req);
   if (!profile) {
@@ -10,55 +20,86 @@ export async function POST(req: Request) {
   }
   const body = (await req.json().catch(() => null)) as {
     restaurantId?: string;
-    staffRole?: string;
   } | null;
   const requestedId = String(body?.restaurantId ?? "").trim();
-  const role =
-    (body?.staffRole as string) || profile.staff_role || "owner";
-  const email = profile.email.toLowerCase();
   const sb = createOpsClient();
 
-  async function listingExists(id: string) {
-    if (!id) return "";
-    const { data } = await sb.from("listings").select("id").eq("id", id).maybeSingle();
-    return data?.id ?? "";
+  // Verified email comes from the auth user (not a client field).
+  const header = req.headers.get("authorization") || "";
+  const token = header.toLowerCase().startsWith("bearer ")
+    ? header.slice(7).trim()
+    : "";
+  const { data: authData } = await sb.auth.getUser(token);
+  const authUser = authData?.user;
+  const email = String(authUser?.email ?? "").trim().toLowerCase();
+  const verified = Boolean(
+    authUser && (authUser.email_confirmed_at || authUser.confirmed_at),
+  );
+  if (!email || !verified || authUser?.id !== profile.id) {
+    return NextResponse.json(
+      { error: "Verify your email before linking a restaurant." },
+      { status: 403 },
+    );
   }
 
-  let listingId = await listingExists(requestedId || profile.restaurant_id || "");
-  if (!listingId) {
-    const { data: owned } = await sb
-      .from("listings")
-      .select("id")
-      .eq("owner_email", email)
-      .maybeSingle();
-    listingId = owned?.id ?? "";
+  const authorized = new Set<string>();
+  const { data: owned } = await sb
+    .from("listings")
+    .select("id, owner_email")
+    .ilike("owner_email", email);
+  for (const row of owned ?? []) {
+    if (String(row.owner_email ?? "").trim().toLowerCase() === email) {
+      authorized.add(row.id);
+    }
   }
-  if (!listingId) {
-    const { data: staff } = await sb
-      .from("listing_staff")
-      .select("restaurant_id")
-      .eq("email", email)
-      .eq("active", true)
-      .maybeSingle();
-    listingId = staff?.restaurant_id ?? "";
+  const { data: apps } = await sb
+    .from("partner_applications")
+    .select("listing_id, email, status")
+    .eq("status", "approved")
+    .ilike("email", email);
+  for (const app of apps ?? []) {
+    if (
+      app.listing_id &&
+      String(app.email ?? "").trim().toLowerCase() === email
+    ) {
+      authorized.add(String(app.listing_id));
+    }
+  }
+
+  let listingId = "";
+  if (requestedId) {
+    listingId = authorized.has(requestedId) ? requestedId : "";
+  } else if (profile.restaurant_id && authorized.has(profile.restaurant_id)) {
+    listingId = profile.restaurant_id;
+  } else if (authorized.size === 1) {
+    listingId = [...authorized][0];
   }
   if (!listingId) {
     return NextResponse.json(
       {
         error:
-          "No approved restaurant is linked to this email. Apply first, wait for approval, then sign in with the same email.",
+          "This email is not the approved owner of that restaurant. Apply first, wait for approval, then sign in with the same email.",
       },
-      { status: 400 },
+      { status: 403 },
     );
   }
+  const { data: listing } = await sb
+    .from("listings")
+    .select("id")
+    .eq("id", listingId)
+    .maybeSingle();
+  if (!listing) {
+    return NextResponse.json({ error: "Restaurant not found." }, { status: 403 });
+  }
 
+  const role = "owner";
   await sb.from("listing_staff").upsert(
     {
       restaurant_id: listingId,
       email,
       name:
         [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-        email,
+        "Owner",
       staff_role: role,
       active: true,
     },
@@ -66,11 +107,7 @@ export async function POST(req: Request) {
   );
   await sb
     .from("profiles")
-    .update({
-      role: "restaurant",
-      restaurant_id: listingId,
-      staff_role: role,
-    })
+    .update({ role: "restaurant", restaurant_id: listingId, staff_role: role })
     .eq("id", profile.id);
 
   const { data: pinRow } = await sb
